@@ -27,13 +27,19 @@ public:
   virtual const Matrix& get_kernel(void) const { return kernel_; } 
   virtual const Vector& get_bias(void) const { return bias_; }
   virtual const Vector& get_input(void) const { return input_; }
+  virtual const int& num_params(void) const = 0; 
+  virtual const double& get_parameter(const int& id) const = 0;
+  virtual void update_parameter(const int& id, const double& value) = 0;
+  virtual Vector output(void) = 0; 
   virtual Vector get_output(void) const = 0; 
   virtual const int& num_units(void) const { return num_units_; }
 protected:
   static int num_layers_;
   int id_{0};
   int num_units_{1};
+  int num_params_{1};
   Vector input_;
+  Vector output_;
   Matrix kernel_;
   Vector bias_;
 };
@@ -47,9 +53,14 @@ public:
   void set_bias(const Vector& b) override {}
   void set_input_layer(NeuralLayer* layer) override {}
   void set_output_layer(NeuralLayer* layer) override { outlayer_=layer; }
+  const int& num_params(void) const override { return num_params_; } 
+  const double& get_parameter(const int& id) const override { return zero_; }
+  void update_parameter(const int& id, const double& value) override {}
   Vector get_output(void) const override { return input_; } 
+  Vector output(void) override { return input_; } 
 private:
   NeuralLayer* outlayer_{nullptr};
+  double zero_{0.0};
 };
 
 class DenseLayer : public NeuralLayer
@@ -62,7 +73,11 @@ public:
   void set_bias(const Vector& b) override {}
   void set_input_layer(NeuralLayer* layer) override { inlayer_=layer; }
   void set_output_layer(NeuralLayer* layer) override { outlayer_=layer; }
+  const int& num_params(void) const override { return num_params_; } 
+  const double& get_parameter(const int& id) const override;
+  void update_parameter(const int& id, const double& value) override;
   Vector get_output(void) const override;
+  Vector output(void) override;
 private:
   int input_dim_{1};
   std::shared_ptr<Activation> activation_{nullptr};

@@ -21,7 +21,7 @@ class GroundState
 public:
   GroundState(const bool& pairing_type)
     : pairing_type_{pairing_type} {}
-  ~GroundState() {} 
+  virtual ~GroundState() {} 
   virtual void update(const input::Parameters& inputs);
   virtual void update(const var::parm_vector& pvector, const unsigned& start_pos=0);
   virtual void get_wf_amplitudes(Matrix& psi);

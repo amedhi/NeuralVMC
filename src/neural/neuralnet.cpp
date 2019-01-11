@@ -1,8 +1,8 @@
 /*---------------------------------------------------------------------------
 * @Author: Amal Medhi
 * @Date:   2018-12-29 20:39:14
-* @Last Modified by:   amedhi
-* @Last Modified time: 2019-01-10 23:24:19
+* @Last Modified by:   Amal Medhi, amedhi@mbpro
+* @Last Modified time: 2019-01-11 23:04:23
 *----------------------------------------------------------------------------*/
 #include "neuralnet.h"
 
@@ -44,9 +44,42 @@ int SequentialNet::add_layer(const int& units, const std::string& activation,
   }
 }
 
+void SequentialNet::compile(void)
+{
+  num_layers_ = size(); // including input layer
+  pid_range_.resize(num_layers_);
+  int n = 0;
+  for (int i=0; i<size(); ++i) {
+    n += operator[](i)->num_params();
+    pid_range_[i] = n;
+  }
+}
+
+const double& SequentialNet::get_parameter(const int& id) const
+{
+  for (int i=1; i<num_layers_; ++i) {
+    if (id < pid_range_[i]) {
+      return operator[](i)->get_parameter(id-pid_range_[i-1]);
+    }
+  }
+  throw std::out_of_range("SequentialNet::get_parameter: out-of-range 'id'");
+}
+
+void SequentialNet::update_parameter(const int& id, const double& value)
+{
+  for (int i=1; i<num_layers_; ++i) {
+    if (id < pid_range_[i]) {
+      operator[](i)->update_parameter(id-pid_range_[i-1], value);
+      return;
+    }
+  }
+  throw std::out_of_range("SequentialNet::update_parameter: out-of-range 'id'");
+}
+
 Vector SequentialNet::get_output(const Vector& input) {
   front()->set_input(input);
-  return back()->get_output();
+  //return back()->get_output();
+  return back()->output();
 }
 
 /*

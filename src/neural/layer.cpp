@@ -1,8 +1,8 @@
 /*---------------------------------------------------------------------------
 * @Author: Amal Medhi
 * @Date:   2018-12-29 12:01:09
-* @Last Modified by:   amedhi
-* @Last Modified time: 2019-01-10 23:24:56
+* @Last Modified by:   Amal Medhi, amedhi@mbpro
+* @Last Modified time: 2019-01-11 22:59:06
 *----------------------------------------------------------------------------*/
 #include <locale>
 #include "layer.h"
@@ -15,9 +15,11 @@ InputLayer::InputLayer(const int& units)
 {
   num_units_ = units;
   input_ = Vector::Zero(num_units_);
+  output_ = Vector::Zero(num_units_);
   kernel_ = Matrix::Identity(num_units_,num_units_);
   bias_ = Vector::Zero(num_units_);
   outlayer_ = nullptr;
+  num_params_ = 0;
   id_ = num_layers_++;
 }
 
@@ -47,16 +49,56 @@ DenseLayer::DenseLayer(const int& units, const std::string& activation,
   inlayer_ = nullptr;
   outlayer_ = nullptr;
   // initial kernel & bias
+  input_ = Vector::Zero(num_units_);
+  output_ = Vector::Zero(num_units_);
   kernel_ = Matrix::Ones(num_units_,input_dim_);
   bias_ = Vector::Zero(num_units_);
+  num_params_ = kernel_.size()+bias_.size();
   //id
   id_ = num_layers_++;
   //std::cout << "Layer created = " << id_ << "\n";
+  //double* ptr = kernel_.data();
+  //*ptr = 2;
+  //std::cout << "By pointer = " << kernel_(0,0) << "\n";
+}
+
+const double& DenseLayer::get_parameter(const int& id) const
+{
+  if (id < kernel_.size()) {
+    return *(kernel_.data()+id);
+  }
+  else if (id < num_params_) {
+    int n = id-kernel_.size();
+    return *(bias_.data()+n);
+  }
+  else {
+    throw std::out_of_range("DenseLayer::get_parameter: out-of-range 'id'");
+  }
+}
+
+void DenseLayer::update_parameter(const int& id, const double& value)
+{
+  if (id < kernel_.size()) {
+    *(kernel_.data()+id) = value;
+  }
+  else if (id < num_params_) {
+    int n = id-kernel_.size();
+    *(bias_.data()+n) = value;
+  }
+  else {
+    throw std::out_of_range("DenseLayer::get_parameter: out-of-range 'id'");
+  }
 }
 
 Vector DenseLayer::get_output(void) const 
 {
   return activation_.get()->function(kernel_*inlayer_->get_output()+bias_);
+}
+
+Vector DenseLayer::output(void) 
+{
+  output_ = activation_.get()->function(kernel_*inlayer_->output()+bias_);
+  return output_;
 }
 
 /*

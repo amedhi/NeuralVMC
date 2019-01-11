@@ -16,11 +16,18 @@ namespace nnet {
 class SequentialNet: private std::vector<std::unique_ptr<NeuralLayer>>
 {
 public:
-  SequentialNet() { clear(); } 
+  SequentialNet() : num_layers_{0} { clear(); pid_range_.clear(); } 
   ~SequentialNet() {}
   int add_layer(const int& units, const std::string& activation="None", 
     const int& input_dim=0);
   Vector get_output(const Vector& input);
+  const int& num_params(void) const { return pid_range_.back(); }
+  const double& get_parameter(const int& id) const;
+  void update_parameter(const int& id, const double& value);
+  void compile(void);
+private:
+  int num_layers_{0};
+  std::vector<int> pid_range_;
 };
 
 /*

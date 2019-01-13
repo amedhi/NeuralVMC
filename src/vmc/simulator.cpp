@@ -57,9 +57,11 @@ int Simulator::run(const input::Parameters& inputs)
   net.compile();
   nnet::Vector input = nnet::Vector::Ones(10);
   std::cout << "NN parameters = "<< net.num_params() << "\n";
-  net.update_parameter(100, -3.0);
+  //net.update_parameter(100, -3.0);
   std::cout << "NN param value = "<< net.get_parameter(100) << "\n";
-  std::cout << "NN output = "<< net.get_output(input) << "\n";
+  net.set_input(input);
+  std::cout << "NN output = "<< net.get_output() << "\n";
+  net.get_gradient();
   //nnet::Layer layer(10, "Relu");
 
   return 0;

@@ -13,21 +13,25 @@
 
 namespace nnet {
 
-class SequentialNet: private std::vector<std::unique_ptr<NeuralLayer>>
+class SequentialNet: private std::vector<NeuralLayer>
 {
 public:
   SequentialNet() : num_layers_{0} { clear(); pid_range_.clear(); } 
   ~SequentialNet() {}
   int add_layer(const int& units, const std::string& activation="None", 
     const int& input_dim=0);
-  Vector get_output(const Vector& input);
-  const int& num_params(void) const { return pid_range_.back(); }
+  void set_input(const Vector& input) { front().set_input(input); }
+  Vector get_output(void);
+  Matrix get_gradient(void);
+  const int& num_params(void) const { return num_params_; }
   const double& get_parameter(const int& id) const;
   void update_parameter(const int& id, const double& value);
   void compile(void);
 private:
   int num_layers_{0};
+  int num_params_{0};
   std::vector<int> pid_range_;
+  Matrix gradient_;
 };
 
 /*
@@ -37,7 +41,7 @@ public:
   NeuralNet() { layers_.clear(); }
   ~NeuralNet() {}
   int add_layer(const int& units, const std::string& activation="None", 
-	const int& input_dim=0);
+  const int& input_dim=0);
   Vector get_output(const Vector& input);
 //void add_layer(const Layer& layer); 
 private:

@@ -15,15 +15,49 @@
 
 namespace nnet {
 
-class NeuralLayer
+class NeuralLayer 
 {
 public:
-  virtual ~NeuralLayer() {}
+  NeuralLayer(const int& units, const std::string& activation="None", 
+    const int& input_dim=1);
+  ~NeuralLayer() {}
+  void set_id(const int& id) { id_=id; }
+  void set_input(const Vector& v) { input_=v; }
+  void set_kernel(const Matrix& w) { kernel_=w; }
+  void set_bias(const Vector& b) { bias_=b; }
+  void set_input_layer(NeuralLayer* layer) { inlayer_=layer; }
+  void set_output_layer(NeuralLayer* layer) { outlayer_=layer; }
+  const int& num_units(void) const { return num_units_; }
+  const int& num_params(void) const { return num_params_; } 
+  const double& get_parameter(const int& id) const;
+  void update_parameter(const int& id, const double& value);
+  Vector output(void);
+  Vector derivative(const int& lid, const int& pid); 
+private:
+  int id_{0};
+  int num_units_{1};
+  int input_dim_{1};
+  int num_params_{1};
+  Vector input_;
+  Matrix kernel_;
+  Vector bias_;
+  Vector output_;
+  Vector derivative_;
+  std::shared_ptr<Activation> activation_{nullptr};
+  NeuralLayer* inlayer_{nullptr};
+  NeuralLayer* outlayer_{nullptr};
+};
+
+/*
+class AbstractLayer
+{
+public:
+  virtual ~AbstractLayer() {}
   virtual void set_kernel(const Matrix& w) = 0; 
   virtual void set_bias(const Vector& b) = 0;
   virtual void set_input(const Vector& v) { input_=v; }
-  virtual void set_input_layer(NeuralLayer* inlayer) = 0;
-  virtual void set_output_layer(NeuralLayer* outlayer) = 0;
+  virtual void set_input_layer(AbstractLayer* inlayer) = 0;
+  virtual void set_output_layer(AbstractLayer* outlayer) = 0;
   virtual const Matrix& get_kernel(void) const { return kernel_; } 
   virtual const Vector& get_bias(void) const { return bias_; }
   virtual const Vector& get_input(void) const { return input_; }
@@ -45,15 +79,15 @@ protected:
   Vector bias_;
 };
 
-class InputLayer : public NeuralLayer
+class InputLayer : public AbstractLayer
 {
 public:
   InputLayer(const int& units=1); 
   ~InputLayer() { num_layers_--; }
   void set_kernel(const Matrix& w) override {}
   void set_bias(const Vector& b) override {}
-  void set_input_layer(NeuralLayer* layer) override {}
-  void set_output_layer(NeuralLayer* layer) override { outlayer_=layer; }
+  void set_input_layer(AbstractLayer* layer) override {}
+  void set_output_layer(AbstractLayer* layer) override { outlayer_=layer; }
   const int& num_params(void) const override { return num_params_; } 
   const double& get_parameter(const int& id) const override { return zero_; }
   void update_parameter(const int& id, const double& value) override {}
@@ -62,48 +96,22 @@ public:
   Vector derivative(const int& id) const override 
     { return Vector::Zero(input_.size()); }
 private:
-  NeuralLayer* outlayer_{nullptr};
+  AbstractLayer* outlayer_{nullptr};
   double zero_{0.0};
 };
-
-class DenseLayer : public NeuralLayer
-{
-public:
-  DenseLayer(const int& units, const std::string& activation="None", 
-    const int& input_dim=1);
-  ~DenseLayer() { num_layers_--; }
-  void set_kernel(const Matrix& w) override {}
-  void set_bias(const Vector& b) override {}
-  void set_input_layer(NeuralLayer* layer) override { inlayer_=layer; }
-  void set_output_layer(NeuralLayer* layer) override { outlayer_=layer; }
-  const int& num_params(void) const override { return num_params_; } 
-  const double& get_parameter(const int& id) const override;
-  void update_parameter(const int& id, const double& value) override;
-  Vector get_output(void) const override;
-  Vector output(void) override;
-  Vector derivative(const int& id) const override; 
-private:
-  int input_dim_{1};
-  std::shared_ptr<Activation> activation_{nullptr};
-  NeuralLayer* inlayer_{nullptr};
-  NeuralLayer* outlayer_{nullptr};
-};
-
-
-/*
 class Layer
 {
 public:
   //Layer() { id_=num_layers_++; }
   Layer(const int& units, const std::string& activation="None", 
-  	const int& input_dim=1);
+    const int& input_dim=1);
   //Layer(const Layer& layer);
   ~Layer() { --num_layers_; } // inlayer_.reset(nullptr); outlayer_.reset(nullptr); }
   void set_input_dim(const int& input_dim) 
   { 
-  	input_dim_=input_dim; 
-  	kernel_=Matrix::Ones(num_units_,input_dim_);
-  	input_=Vector::Zero(input_dim_);
+    input_dim_=input_dim; 
+    kernel_=Matrix::Ones(num_units_,input_dim_);
+    input_=Vector::Zero(input_dim_);
   }
   void set_input(const Vector& input) { input_=input; } 
   void set_input_layer(Layer* inlayer);

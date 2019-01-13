@@ -2,32 +2,17 @@
 * @Author: Amal Medhi
 * @Date:   2018-12-29 12:01:09
 * @Last Modified by:   Amal Medhi, amedhi@mbpro
-* @Last Modified time: 2019-01-13 10:07:31
+* @Last Modified time: 2019-01-13 12:11:31
 *----------------------------------------------------------------------------*/
 #include <locale>
 #include "layer.h"
 
 namespace nnet {
 
-int NeuralLayer::num_layers_ = 0;
-
-InputLayer::InputLayer(const int& units) 
-{
-  num_units_ = units;
-  input_ = Vector::Zero(num_units_);
-  output_ = Vector::Zero(num_units_);
-  kernel_ = Matrix::Identity(num_units_,num_units_);
-  bias_ = Vector::Zero(num_units_);
-  outlayer_ = nullptr;
-  num_params_ = 0;
-  id_ = num_layers_++;
-}
-
-DenseLayer::DenseLayer(const int& units, const std::string& activation, 
+NeuralLayer::NeuralLayer(const int& units, const std::string& activation, 
   const int& input_dim)
+  : num_units_{units}, input_dim_{input_dim}
 {
-  num_units_ = units;
-  input_dim_ = input_dim;
   // activation function
   std::locale loc;
   std::string fname=activation;
@@ -44,25 +29,20 @@ DenseLayer::DenseLayer(const int& units, const std::string& activation,
     activation_.reset(new Sigmoid());
   }
   else {
-    throw std::invalid_argument("DenseLayer:: undefined activation '"+fname+"'");
+    throw std::invalid_argument("NeuralLayer:: undefined activation '"+fname+"'");
   }
   inlayer_ = nullptr;
   outlayer_ = nullptr;
   // initial kernel & bias
   input_ = Vector::Zero(num_units_);
-  output_ = Vector::Zero(num_units_);
   kernel_ = Matrix::Ones(num_units_,input_dim_);
   bias_ = Vector::Zero(num_units_);
+  output_ = Vector::Zero(num_units_);
+  derivative_ = Vector::Zero(num_units_);
   num_params_ = kernel_.size()+bias_.size();
-  //id
-  id_ = num_layers_++;
-  //std::cout << "Layer created = " << id_ << "\n";
-  //double* ptr = kernel_.data();
-  //*ptr = 2;
-  //std::cout << "By pointer = " << kernel_(0,0) << "\n";
 }
 
-const double& DenseLayer::get_parameter(const int& id) const
+const double& NeuralLayer::get_parameter(const int& id) const
 {
   if (id < kernel_.size()) {
     return *(kernel_.data()+id);
@@ -72,11 +52,11 @@ const double& DenseLayer::get_parameter(const int& id) const
     return *(bias_.data()+n);
   }
   else {
-    throw std::out_of_range("DenseLayer::get_parameter: out-of-range 'id'");
+    throw std::out_of_range("NeuralLayer::get_parameter: out-of-range 'id'");
   }
 }
 
-void DenseLayer::update_parameter(const int& id, const double& value)
+void NeuralLayer::update_parameter(const int& id, const double& value)
 {
   if (id < kernel_.size()) {
     *(kernel_.data()+id) = value;
@@ -86,45 +66,73 @@ void DenseLayer::update_parameter(const int& id, const double& value)
     *(bias_.data()+n) = value;
   }
   else {
-    throw std::out_of_range("DenseLayer::get_parameter: out-of-range 'id'");
+    throw std::out_of_range("NeuralLayer::get_parameter: out-of-range 'id'");
   }
 }
 
-Vector DenseLayer::get_output(void) const 
-{
-  return activation_.get()->function(kernel_*inlayer_->get_output()+bias_);
-}
-
-Vector DenseLayer::output(void) 
+Vector NeuralLayer::output(void) 
 {
   if (inlayer_ == nullptr) {
-    std::cout << "input layer\n";
     return input_;
   }
   else {
-    std::cout << "layer\n";
-    output_ = kernel_ * inlayer_->get_output() + bias_;
+    output_ = activation_.get()->function(kernel_*inlayer_->output()+bias_);
     return output_;
   } 
   //output_ = activation_.get()->function(kernel_*inlayer_->output()+bias_);
   //return output_;
 }
 
-Vector DenseLayer::derivative(const int& id) const
+Vector NeuralLayer::derivative(const int& lid, const int& pid)
 {
-  if (id < kernel_.size()) {
-    
+  assert(lid > 0); // input layer has no parameter
+
+  if (lid < id_) {
+    // parameter in previous layer
+    derivative_ = kernel_ * inlayer_->derivative(lid, pid);
+    for (int i=0; i<num_units_; ++i) {
+      derivative_(i) *= activation_.get()->function(output_(i));  
+    }
+    return derivative_;
   }
-  else if (id < num_params_) {
-    int n = id-kernel_.size();
+  else if (lid == id_) {
+    // parameter in this layer
+    if (pid < kernel_.size()) {
+      int j = pid%num_units_; // column index of kernel-matrix
+      double xj = inlayer_->output()(j); // from 'input' layer
+      for (int i=0; i<num_units_; ++i) {
+        derivative_(i) *= activation_.get()->function(output_(i)) * xj;  
+      }
+      return derivative_;
+    }
+    else if (pid < num_params_) {
+      return derivative_;
+    }
+    else {
+      throw std::out_of_range("NeuralLayer::derivative: out-of-range 'id'");
+    }
+    return derivative_;
   }
   else {
-    throw std::out_of_range("DenseLayer::get_parameter: out-of-range 'id'");
+    throw std::out_of_range("NeuralLayer::derivative: invalid parameter");
   }
-  return output_;
 }
 
 /*
+int AbstractLayer::num_layers_ = 0;
+
+InputLayer::InputLayer(const int& units) 
+{
+  num_units_ = units;
+  input_ = Vector::Zero(num_units_);
+  output_ = Vector::Zero(num_units_);
+  kernel_ = Matrix::Identity(num_units_,num_units_);
+  bias_ = Vector::Zero(num_units_);
+  outlayer_ = nullptr;
+  num_params_ = 0;
+  id_ = num_layers_++;
+}
+
 int Layer::num_layers_ = 0;
 Layer::Layer(const int& units, const std::string& activation, const int& input_dim)
   : num_units_{units}
@@ -137,13 +145,13 @@ Layer::Layer(const int& units, const std::string& activation, const int& input_d
     x = std::toupper(x,loc);
   //std::cout << "activation = " << fname << "\n";
   if (fname=="NONE") {
-  	activation_.reset(new None());
+    activation_.reset(new None());
   }
   else if (fname=="NONE") {
-  	activation_.reset(new RELU());
+    activation_.reset(new RELU());
   }
   else {
-  	activation_.reset(new None());
+    activation_.reset(new None());
   }
 
   inlayer_ = nullptr;

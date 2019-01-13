@@ -2,7 +2,7 @@
 * @Author: Amal Medhi
 * @Date:   2018-12-29 12:01:09
 * @Last Modified by:   Amal Medhi, amedhi@mbpro
-* @Last Modified time: 2019-01-11 22:59:06
+* @Last Modified time: 2019-01-13 10:07:31
 *----------------------------------------------------------------------------*/
 #include <locale>
 #include "layer.h"
@@ -97,7 +97,30 @@ Vector DenseLayer::get_output(void) const
 
 Vector DenseLayer::output(void) 
 {
-  output_ = activation_.get()->function(kernel_*inlayer_->output()+bias_);
+  if (inlayer_ == nullptr) {
+    std::cout << "input layer\n";
+    return input_;
+  }
+  else {
+    std::cout << "layer\n";
+    output_ = kernel_ * inlayer_->get_output() + bias_;
+    return output_;
+  } 
+  //output_ = activation_.get()->function(kernel_*inlayer_->output()+bias_);
+  //return output_;
+}
+
+Vector DenseLayer::derivative(const int& id) const
+{
+  if (id < kernel_.size()) {
+    
+  }
+  else if (id < num_params_) {
+    int n = id-kernel_.size();
+  }
+  else {
+    throw std::out_of_range("DenseLayer::get_parameter: out-of-range 'id'");
+  }
   return output_;
 }
 

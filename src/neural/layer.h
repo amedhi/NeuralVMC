@@ -31,6 +31,7 @@ public:
   virtual const double& get_parameter(const int& id) const = 0;
   virtual void update_parameter(const int& id, const double& value) = 0;
   virtual Vector output(void) = 0; 
+  virtual Vector derivative(const int& id) const = 0; 
   virtual Vector get_output(void) const = 0; 
   virtual const int& num_units(void) const { return num_units_; }
 protected:
@@ -58,6 +59,8 @@ public:
   void update_parameter(const int& id, const double& value) override {}
   Vector get_output(void) const override { return input_; } 
   Vector output(void) override { return input_; } 
+  Vector derivative(const int& id) const override 
+    { return Vector::Zero(input_.size()); }
 private:
   NeuralLayer* outlayer_{nullptr};
   double zero_{0.0};
@@ -78,6 +81,7 @@ public:
   void update_parameter(const int& id, const double& value) override;
   Vector get_output(void) const override;
   Vector output(void) override;
+  Vector derivative(const int& id) const override; 
 private:
   int input_dim_{1};
   std::shared_ptr<Activation> activation_{nullptr};

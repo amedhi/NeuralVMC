@@ -2,7 +2,7 @@
 * @Author: Amal Medhi
 * @Date:   2018-12-29 20:39:14
 * @Last Modified by:   Amal Medhi, amedhi@mbpro
-* @Last Modified time: 2019-01-11 23:04:23
+* @Last Modified time: 2019-01-13 10:04:01
 *----------------------------------------------------------------------------*/
 #include "neuralnet.h"
 
@@ -17,7 +17,8 @@ int SequentialNet::add_layer(const int& units, const std::string& activation,
     }
     else {
       // input layer
-      push_back(std::unique_ptr<InputLayer>(new InputLayer(units)));
+      //push_back(std::unique_ptr<InputLayer>(new InputLayer(units)));
+      push_back(std::unique_ptr<DenseLayer>(new DenseLayer(units)));
       // first layer
       push_back(std::unique_ptr<DenseLayer>(new DenseLayer(units,activation,input_dim)));
       return size()-1;

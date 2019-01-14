@@ -2,7 +2,7 @@
 * @Author: Amal Medhi
 * @Date:   2018-12-29 12:01:09
 * @Last Modified by:   Amal Medhi, amedhi@mbpro
-* @Last Modified time: 2019-01-13 12:11:31
+* @Last Modified time: 2019-01-14 14:53:40
 *----------------------------------------------------------------------------*/
 #include <locale>
 #include "layer.h"
@@ -91,21 +91,25 @@ Vector NeuralLayer::derivative(const int& lid, const int& pid)
     // parameter in previous layer
     derivative_ = kernel_ * inlayer_->derivative(lid, pid);
     for (int i=0; i<num_units_; ++i) {
-      derivative_(i) *= activation_.get()->function(output_(i));  
+      derivative_(i) *= activation_.get()->derivative(output_(i));  
     }
     return derivative_;
   }
   else if (lid == id_) {
     // parameter in this layer
     if (pid < kernel_.size()) {
-      int j = pid%num_units_; // column index of kernel-matrix
+      int j = pid / num_units_; // column index of kernel-matrix
+      //std::cout << "pid = "<<pid<<"\n";
+      //std::cout << "j = "<<j<<"\n";
       double xj = inlayer_->output()(j); // from 'input' layer
       for (int i=0; i<num_units_; ++i) {
-        derivative_(i) *= activation_.get()->function(output_(i)) * xj;  
+        derivative_(i) = activation_.get()->derivative(output_(i)) * xj;  
       }
+      //std::cout << "do = " << derivative_.transpose() << "\n";
       return derivative_;
     }
     else if (pid < num_params_) {
+      derivative_ = activation_.get()->derivative(output_);  
       return derivative_;
     }
     else {

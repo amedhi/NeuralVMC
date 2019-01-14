@@ -51,17 +51,17 @@ int Simulator::run(const input::Parameters& inputs)
   */
 
   nnet::SequentialNet net;
-  net.add_layer(10,"RELU",10);
-  net.add_layer(20,"RELU");
+  net.add_layer(2,"RELU",2);
+  net.add_layer(10,"Sigmoid");
   net.add_layer(1,"Sigmoid");
   net.compile();
-  nnet::Vector input = nnet::Vector::Ones(10);
+  nnet::Vector input = nnet::Vector::Ones(2);
   std::cout << "NN parameters = "<< net.num_params() << "\n";
   //net.update_parameter(100, -3.0);
-  std::cout << "NN param value = "<< net.get_parameter(100) << "\n";
+  //std::cout << "NN param value = "<< net.get_parameter(100) << "\n";
   net.set_input(input);
   std::cout << "NN output = "<< net.get_output() << "\n";
-  net.get_gradient();
+  std::cout << "NN gradient = \n"<< net.get_gradient() << "\n";
   //nnet::Layer layer(10, "Relu");
 
   return 0;

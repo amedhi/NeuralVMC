@@ -2,7 +2,7 @@
 * @Author: Amal Medhi
 * @Date:   2018-12-29 20:39:14
 * @Last Modified by:   Amal Medhi, amedhi@mbpro
-* @Last Modified time: 2019-01-13 12:15:46
+* @Last Modified time: 2019-01-14 14:02:55
 *----------------------------------------------------------------------------*/
 #include "neuralnet.h"
 
@@ -18,7 +18,7 @@ int SequentialNet::add_layer(const int& units, const std::string& activation,
     else {
       // input layer
       //push_back(std::unique_ptr<InputLayer>(new InputLayer(units)));
-      push_back(NeuralLayer(units));
+      push_back(NeuralLayer(input_dim));
       // first layer
       push_back(NeuralLayer(units,activation,input_dim));
       operator[](1).set_input_layer(&operator[](0));
@@ -50,15 +50,15 @@ void SequentialNet::compile(void)
 {
   num_layers_ = size(); // including input layer
   pid_range_.resize(num_layers_);
-  int n = 0;
-  for (int i=0; i<size(); ++i) {
-    operator[](i).set_id(i);
-    n += operator[](i).num_params();
+  for (int i=0; i<size(); ++i) operator[](i).set_id(i);
+  pid_range_[0] = 0;
+  for (int i=1; i<size(); ++i) {
+    int n = pid_range_[i-1] + operator[](i).num_params();
     pid_range_[i] = n;
+    //std::cout << "i  n ="<<i<<"  "<<n<<"\n";
   }
   if (num_layers_>0) num_params_ = pid_range_.back();
   else num_params_ = 0;
-  // 
   gradient_.resize(num_params_,back().num_units());
 }
 
@@ -89,8 +89,17 @@ Vector SequentialNet::get_output(void) {
 
 Matrix SequentialNet::get_gradient(void)
 {
-  double d = back().derivative(num_layers_-1,0)(0);
-  std::cout << "d = " << d << "\n";
+  int n=0;
+  for (int i=1; i<num_layers_; ++i) {
+    for (int id=pid_range_[i-1]; id<pid_range_[i]; ++id) {
+      int pid = id-pid_range_[i-1];
+      //std::cout << "i  pid = " << i << "  " << pid << "\n";
+      Vector df = back().derivative(i,pid);
+      gradient_.row(n++) = df.transpose();
+    }
+  }
+  //double d = back().derivative(1,0)(0);
+  //std::cout << "d = " << d << "\n";
   return gradient_;
 }
 /*

@@ -20,17 +20,22 @@ public:
   ~SequentialNet() {}
   int add_layer(const int& units, const std::string& activation="None", 
     const int& input_dim=0);
-  void set_input(const Vector& input) { front().set_input(input); }
-  Vector get_output(void);
-  Matrix get_gradient(void);
+  void compile(void);
+  //void set_input(const Vector& input) { front().set_input(input); }
   const int& num_params(void) const { return num_params_; }
   const double& get_parameter(const int& id) const;
+  void get_parameters(Vector& pvec) const;
+  void update_parameters(const Vector& pvec);
   void update_parameter(const int& id, const double& value);
-  void compile(void);
+  void run(const eig::real_vec& input); 
+  eig::real_vec get_output(const eig::real_vec& input) const;
+  const Vector& output(void) const { return output_; }
+  const Matrix& get_gradient(void);
 private:
   int num_layers_{0};
   int num_params_{0};
   std::vector<int> pid_range_;
+  Vector output_;
   Matrix gradient_;
 };
 

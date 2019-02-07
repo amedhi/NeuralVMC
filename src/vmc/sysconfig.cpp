@@ -13,8 +13,10 @@ namespace vmc {
 SysConfig::SysConfig(const input::Parameters& inputs, 
   const lattice::LatticeGraph& graph, const model::Hamiltonian& model)
   : BasisState(graph.num_sites(), model.double_occupancy())
-  , wf(graph, inputs)
+  , fock_basis_(graph.num_sites(), model.double_occupancy())
   , pj(inputs)
+  , ffnet_(graph.num_sites(), inputs)
+  , wf(graph, inputs)
   , num_sites_(graph.num_sites())
 {
   // variational parameters
@@ -59,7 +61,8 @@ int SysConfig::build(const lattice::LatticeGraph& graph, const input::Parameters
   if (num_sites_==0) return -1;
   pj.update(inputs);
   wf.compute(graph, inputs, with_gradient);
-  return init_config();
+  init_config();
+  return 0;
 }
 
 int SysConfig::build(const lattice::LatticeGraph& graph, const var::parm_vector& pvector,
@@ -69,7 +72,8 @@ int SysConfig::build(const lattice::LatticeGraph& graph, const var::parm_vector&
   pj.update(pvector, 0);
   unsigned start_pos = pj.varparms().size();
   wf.compute(graph, pvector, start_pos, need_psi_grad);
-  return init_config();
+  init_config();
+  return 0;
 }
 
 int SysConfig::init_config(void)
@@ -79,41 +83,10 @@ int SysConfig::init_config(void)
   if (num_upspins_==0 && num_dnspins_==0) return -1;
   if (num_upspins_ != num_dnspins_) 
     throw std::range_error("*SysConfig::init_config: unequal UP & DN spin case not implemented");
-  // small 'gfactor' caution
-  bool tmp_restriction = false;
-  bool original_state = BasisState::double_occupancy();
-  if (pj.have_gutzwiller()) {
-    if (pj.gw_factor()<gfactor_cutoff()) {
-      BasisState::allow_double_occupancy(false);
-      tmp_restriction = true;
-    }
-  }
-  BasisState::init_spins(num_upspins_, num_dnspins_);
-  psi_mat.resize(num_upspins_, num_dnspins_);
-  psi_inv.resize(num_dnspins_, num_upspins_);
-  // try for a well condictioned amplitude matrix
-  double rcond = 0.0;
-  int num_attempt = 0;
-  //while (rcond<1.0E-30) {
-  while (rcond<1.0E-15) {
-    BasisState::set_random();
-    wf.get_amplitudes(psi_mat,upspin_sites(),dnspin_sites());
-    // reciprocal conditioning number
-    Eigen::JacobiSVD<Matrix> svd(psi_mat);
-    // reciprocal cond. num = smallest eigenval/largest eigen val
-    rcond = svd.singularValues()(svd.singularValues().size()-1)/svd.singularValues()(0);
-    //if (std::isnan(rcond)) rcond = 0.0; 
-    //std::cout << "rcondition number = "<< rcond << "\n";
-    if (++num_attempt > 1000) {
-      throw std::underflow_error("*SysConfig::init: configuration wave function ill conditioned.");
-    }
-  }
-  if (tmp_restriction) allow_double_occupancy(original_state);
-  //std::cout << psi_mat;
-  //std::cout << bstate;
-  // amplitude matrix invers
-  psi_inv = psi_mat.inverse();
+  fock_basis_.init_spins(num_upspins_,num_dnspins_);
   // run parameters
+  ffnet_.update_state(fock_basis_);
+  ffn_psi_ = ffnet_.output();
   set_run_parameters();
   return 0;
 }
@@ -167,29 +140,32 @@ int SysConfig::update_state(void)
 
 int SysConfig::do_upspin_hop(void)
 {
-  int upspin, to_site;
-  std::tie(upspin, to_site) = gen_upspin_hop();
-  //std::cout << "upspin, to_site = " << upspin << " " << to_site << "\n";
-  if (to_site < 0) return 0; // valid move not found
-  num_proposed_moves_[move_t::uphop]++;
-  last_proposed_moves_++;
-  // new row for this move
-  wf.get_amplitudes(psi_row, to_site, dnspin_sites());
-  amplitude_t det_ratio = psi_row.cwiseProduct(psi_inv.col(upspin)).sum();
-  if (std::abs(det_ratio) < dratio_cutoff()) return 0; // for safety
-  double proj_ratio = pj.gw_ratio(dblocc_increament());
-  amplitude_t weight_ratio = det_ratio * proj_ratio;
-  double transition_proby = std::norm(weight_ratio);
-  //std::cout << "W = " << transition_proby << "\n";
-  if (rng().random_real()<transition_proby) {
-    num_accepted_moves_[move_t::uphop]++;
-    last_accepted_moves_++;
-    // upddate state
-    accept_last_move();
-    // update amplitudes
-    inv_update_upspin(upspin,psi_row,det_ratio);
-  }
-  //std::cout << "---upspin hop move done----\n";
+  std::cout << "\n state=" << fock_basis_.transpose() << "\n";
+  if (fock_basis_.gen_upspin_hop()) {
+    num_proposed_moves_[move_t::uphop]++;
+    last_proposed_moves_++;
+  std::cout << "\n state=" << fock_basis_.transpose() << "\n";
+    //wf.get_amplitude(fock_basis_.trial_state());
+    //wf.get_amplitude(fock_basis_);
+    double new_psi = ffnet_.get_output(fock_basis_);
+    std::cout << "\n psi-1=" << ffn_psi_ << "\n";
+    std::cout << "psi-2=" << new_psi << "\n";
+    amplitude_t det_ratio = new_psi/ffn_psi_;
+    double proj_ratio = 1.0;
+    amplitude_t weight_ratio = det_ratio * proj_ratio;
+    double transition_proby = std::norm(weight_ratio);
+    if (rng().random_real()<transition_proby) {
+      num_accepted_moves_[move_t::uphop]++;
+      last_accepted_moves_++;
+      // upddate state
+      fock_basis_.commit_last_move();
+    }
+    else {
+      fock_basis_.undo_last_move();
+    }
+  } 
+  throw std::range_error("Exiting at: SysConfig::do_upspin_hop");
+
   return 0;
 }
 

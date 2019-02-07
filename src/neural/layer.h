@@ -23,6 +23,7 @@ public:
   ~NeuralLayer() {}
   void set_id(const int& id) { id_=id; }
   void set_input(const Vector& v) { input_=v; }
+  void set_input(const eig::ivec& v) { input_=v.cast<double>(); }
   void set_kernel(const Matrix& w) { kernel_=w; }
   void set_bias(const Vector& b) { bias_=b; }
   void set_input_layer(NeuralLayer* layer) { inlayer_=layer; }
@@ -30,8 +31,12 @@ public:
   const int& num_units(void) const { return num_units_; }
   const int& num_params(void) const { return num_params_; } 
   const double& get_parameter(const int& id) const;
+  void get_parameters(Vector& pvec, const int& start_pos) const;
+  void update_parameters(const Vector& pvec, const int& start_pos);
   void update_parameter(const int& id, const double& value);
   Vector output(void);
+  Vector get_output(const eig::real_vec& input) const; 
+  const Vector& linear_output(void) const { return lin_output_; }
   Vector derivative(const int& lid, const int& pid); 
 private:
   int id_{0};
@@ -42,6 +47,7 @@ private:
   Matrix kernel_;
   Vector bias_;
   Vector output_;
+  mutable Vector lin_output_;
   Vector derivative_;
   std::shared_ptr<Activation> activation_{nullptr};
   NeuralLayer* inlayer_{nullptr};

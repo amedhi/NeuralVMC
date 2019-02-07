@@ -15,6 +15,7 @@
 #include "../wavefunction/wavefunction.h"
 #include "../wavefunction/projector.h"
 #include "../wavefunction/matrix.h"
+#include "../wavefunction/ffn_state.h"
 #include "./basisstate.h"
 
 namespace vmc {
@@ -56,8 +57,11 @@ public:
   void print_stats(std::ostream& os=std::cout) const;
   //var::VariationalParms& var_parms(void) { return wf.var_parms(); }
 private:
-  var::Wavefunction wf;
+  FockState fock_basis_;
   var::WavefunProjector pj;
+  var::FFN_State ffnet_;
+  var::Wavefunction wf;
+  double ffn_psi_;
   Matrix psi_mat;
   Matrix psi_inv;
   mutable ColVector psi_row;

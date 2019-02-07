@@ -2,7 +2,7 @@
 * @Author: Amal Medhi
 * @Date:   2018-12-29 12:01:09
 * @Last Modified by:   Amal Medhi, amedhi@mbpro
-* @Last Modified time: 2019-01-14 14:53:40
+* @Last Modified time: 2019-02-07 14:21:46
 *----------------------------------------------------------------------------*/
 #include <locale>
 #include "layer.h"
@@ -34,10 +34,16 @@ NeuralLayer::NeuralLayer(const int& units, const std::string& activation,
   inlayer_ = nullptr;
   outlayer_ = nullptr;
   // initial kernel & bias
+  //kernel_ = Matrix::Ones(num_units_,input_dim_);
+  //bias_ = Vector::Zero(num_units_);
+  kernel_ = Matrix::Random(num_units_,input_dim_);
+  bias_ = Vector::Random(num_units_);
+  //std::cout << num_units_ << " " << input_dim_ <<"\n"; getchar();
+  //std::cout << "kernel_=\n" << kernel_ << "\n"; getchar();
+  // other storages
   input_ = Vector::Zero(num_units_);
-  kernel_ = Matrix::Ones(num_units_,input_dim_);
-  bias_ = Vector::Zero(num_units_);
   output_ = Vector::Zero(num_units_);
+  lin_output_ = Vector::Zero(num_units_);
   derivative_ = Vector::Zero(num_units_);
   num_params_ = kernel_.size()+bias_.size();
 }
@@ -54,6 +60,24 @@ const double& NeuralLayer::get_parameter(const int& id) const
   else {
     throw std::out_of_range("NeuralLayer::get_parameter: out-of-range 'id'");
   }
+}
+
+void NeuralLayer::get_parameters(Vector& pvec, const int& start_pos) const
+{
+  for (int i=0; i<kernel_.size(); ++i)
+    pvec(start_pos+i) = *(kernel_.data()+i);
+  int n = start_pos+kernel_.size();
+  for (int i=0; i<bias_.size(); ++i)
+    pvec(n+i) = *(bias_.data()+i);
+}
+
+void NeuralLayer::update_parameters(const Vector& pvec, const int& start_pos)
+{
+  for (int i=0; i<kernel_.size(); ++i)
+    *(kernel_.data()+i) = pvec(start_pos+i);
+  int n = start_pos+kernel_.size();
+  for (int i=0; i<bias_.size(); ++i)
+    *(bias_.data()+i) = pvec(n+i);
 }
 
 void NeuralLayer::update_parameter(const int& id, const double& value)
@@ -76,11 +100,25 @@ Vector NeuralLayer::output(void)
     return input_;
   }
   else {
-    output_ = activation_.get()->function(kernel_*inlayer_->output()+bias_);
+    //output_ = activation_.get()->function(kernel_*inlayer_->output()+bias_);
+    lin_output_ = kernel_*inlayer_->output()+bias_;
+    output_ = activation_.get()->function(lin_output_);
     return output_;
   } 
   //output_ = activation_.get()->function(kernel_*inlayer_->output()+bias_);
   //return output_;
+}
+
+Vector NeuralLayer::get_output(const eig::real_vec& input) const
+{
+  /* Give output without changing the state of the layer */
+  if (inlayer_ == nullptr) {
+    return input;
+  }
+  else {
+    lin_output_ = kernel_*inlayer_->get_output(input)+bias_;
+    return activation_.get()->function(lin_output_);
+  } 
 }
 
 Vector NeuralLayer::derivative(const int& lid, const int& pid)
@@ -91,29 +129,39 @@ Vector NeuralLayer::derivative(const int& lid, const int& pid)
     // parameter in previous layer
     derivative_ = kernel_ * inlayer_->derivative(lid, pid);
     for (int i=0; i<num_units_; ++i) {
-      derivative_(i) *= activation_.get()->derivative(output_(i));  
+      //derivative_(i) *= activation_.get()->derivative(output_(i));  
+      derivative_(i) *= activation_.get()->derivative(lin_output_(i));  
     }
     return derivative_;
   }
   else if (lid == id_) {
     // parameter in this layer
     if (pid < kernel_.size()) {
-      int j = pid / num_units_; // column index of kernel-matrix
-      //std::cout << "pid = "<<pid<<"\n";
-      //std::cout << "j = "<<j<<"\n";
+      derivative_.setZero();
+      // column index of kernel-matrix
+      int j = pid / num_units_; 
       double xj = inlayer_->output()(j); // from 'input' layer
-      for (int i=0; i<num_units_; ++i) {
-        derivative_(i) = activation_.get()->derivative(output_(i)) * xj;  
-      }
+      //std::cout << "j = "<<j<<"\n";
+      //std::cout << "xj = "<<xj<<"\n";
+      // row index of kernel-matrix
+      int i = pid % num_units_;
+      derivative_(i) = activation_.get()->derivative(lin_output_(i)) * xj;  
+      /*for (int i=0; i<num_units_; ++i) {
+        derivative_(i) = activation_.get()->derivative(lin_output_(i)) * xj;  
+      }*/
       //std::cout << "do = " << derivative_.transpose() << "\n";
       return derivative_;
     }
     else if (pid < num_params_) {
-      derivative_ = activation_.get()->derivative(output_);  
+      derivative_.setZero();
+      // row index of kernel-matrix
+      int i = pid % num_units_;
+      derivative_(i) = activation_.get()->derivative(lin_output_(i));
+      //derivative_ = activation_.get()->derivative(output_);  
       return derivative_;
     }
     else {
-      throw std::out_of_range("NeuralLayer::derivative: out-of-range 'id'");
+      throw std::out_of_range("NeuralLayer::derivative: out-of-range 'pid'");
     }
     return derivative_;
   }

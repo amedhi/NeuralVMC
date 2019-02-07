@@ -9,9 +9,6 @@
 #include <iomanip>
 #include "simulator.h"
 #include "../neural/layer.h"
-#include "../neural/neuralnet.h"
-//#include <nlopt.hpp>
-//#include "../optimizer/LBFGS.h"
 
 namespace vmc {
 
@@ -39,32 +36,6 @@ int Simulator::run(const input::Parameters& inputs)
     }
     return 0;
   }
-
-  std::cout << "------Simulator::run: Checking NeuralNet------\n";
-  /*
-  nnet::NeuralNet nn;
-  nn.add_layer(10,"RELU",10);
-  nn.add_layer(20,"RELU");
-  nn.add_layer(1,"RELU");
-  nnet::Vector input = nnet::Vector::Ones(10);
-  std::cout << nn.get_output(input) << "\n";
-  */
-
-  nnet::SequentialNet net;
-  net.add_layer(2,"RELU",2);
-  net.add_layer(10,"Sigmoid");
-  net.add_layer(1,"Sigmoid");
-  net.compile();
-  nnet::Vector input = nnet::Vector::Ones(2);
-  std::cout << "NN parameters = "<< net.num_params() << "\n";
-  //net.update_parameter(100, -3.0);
-  //std::cout << "NN param value = "<< net.get_parameter(100) << "\n";
-  net.set_input(input);
-  std::cout << "NN output = "<< net.get_output() << "\n";
-  std::cout << "NN gradient = \n"<< net.get_gradient() << "\n";
-  //nnet::Layer layer(10, "Relu");
-
-  return 0;
 
   // normal run
   if (!inputs.have_option_quiet()) std::cout << " starting vmc run\n";

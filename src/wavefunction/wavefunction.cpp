@@ -29,6 +29,9 @@ Wavefunction::Wavefunction(const lattice::LatticeGraph& graph,
   else if (name_ == "DISORDERED_SC") {
     groundstate_.reset(new DisorderedSC(inputs,graph));
   }
+  else if (name_ == "NEURALNET") {
+    groundstate_.reset(new Identity(inputs,graph));
+  }
   else {
     throw std::range_error("Wavefunction::Wavefunction: unidefined wavefunction");
   }
@@ -73,6 +76,13 @@ int Wavefunction::compute(const lattice::LatticeGraph& graph, const var::parm_ve
     have_gradient_ = true;
   }
   else have_gradient_ = false;
+  return 0;
+}
+
+int Wavefunction::compute(const eig::real_vec& fock_state)
+{
+  /* only for FFN ground state */
+  //groundstate_->update_state(fock_state);
   return 0;
 }
 

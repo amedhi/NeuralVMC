@@ -20,6 +20,7 @@
 #include "../scheduler/task.h"
 #include "./mf_model.h"
 #include "./matrix.h"
+#include "./identity.h"
 #include "./bcs_state.h"
 #include "./disordered_sc.h"
 
@@ -40,6 +41,7 @@ public:
     const bool& psi_gradient=false);
   int compute(const lattice::LatticeGraph& graph, const var::parm_vector& pvector,
     const unsigned& start_pos, const bool& psi_gradient=false);
+  int compute(const eig::real_vec& fock_state);
   //int compute_gradients(const lattice::LatticeGraph& graph);
   const unsigned& num_upspins(void) const { return groundstate_->num_upspins(); }
   const unsigned& num_dnspins(void) const { return groundstate_->num_dnspins(); }
@@ -61,6 +63,7 @@ public:
     const std::vector<int>& row, const std::vector<int>& col) const;
 private:
   std::unique_ptr<GroundState> groundstate_;
+
   //wf_descriptor wf_;
   std::string name_;
   //bool pairing_type_{false};

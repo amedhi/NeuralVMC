@@ -13,7 +13,9 @@
 #include <utility>
 #include <bitset>
 #include <array>
+#include <Eigen/Core>
 #include "./random.h"
+#include "../wavefunction/matrix.h"
 
 namespace vmc {
 
@@ -114,70 +116,55 @@ private:
   void clear(void); 
 };
 
-
-/*
-class SpinParticle 
+class FockState : public eig::real_vec
 {
 public:
-  SpinParticle() : id_{0}, site_{0}, sigma_{spin::HL} {}
-  SpinParticle(const spin& s) : id_{0}, site_{0}, sigma_{s} {}
-  SpinParticle(const unsigned& i, const spin& s) : id_{0}, site_{i}, sigma_{s} {}
-  const spin& sigma(void) const { return sigma_; }
-  const unsigned& id(void) const { return id_; }
-protected:
-  unsigned id_;
+  FockState() { init(0); }
+  FockState(const int& num_sites, const bool& allow_dbl=true) 
+    { init(num_sites, allow_dbl); }
+  ~FockState() {}
+  RandomGenerator& rng(void) const { return rng_; }
+  void init(const int& num_sites, const bool& allow_dbl=true);
+  void init_spins(const int& num_upspins, const int& num_dnspins);
+  void set_random(void);
+  bool gen_upspin_hop(void);
+  bool gen_dnspin_hop(void);
+  bool gen_dnspin_hop(int& fr_state, int& to_state);
+  void commit_last_move(void);
+  void undo_last_move(void);
 private:
-  unsigned site_;
-  spin sigma_;
+  mutable RandomGenerator rng_;
+  int num_sites_{0};
+  int num_states_{0};
+  int num_upspins_{0};
+  int num_dnspins_{0};
+  int num_upholes_{0};
+  int num_dnholes_{0};
+  int num_dblocc_sites_{0};
+  bool double_occupancy_{true};
+  std::vector<int> up_states_;
+  std::vector<int> dn_states_;
+  std::vector<int> uphole_states_;
+  std::vector<int> dnhole_states_;
+
+  // update moves
+  move_t proposed_move_;
+  int dblocc_increament_{0};
+  //move_type accepted_move;
+  int mv_upspin_;
+  int mv_uphole_;
+  int up_fr_state_;
+  int up_to_state_;
+  int dn_fr_state_;
+  int dn_to_state_;
+  int up_tostate_;
+  int mv_dnspin_;
+  int mv_dnhole_;
+  int dn_tostate_;
+
+  void clear(void); 
 };
-
-class SpinUp : public SpinParticle 
-{
-public:
-  SpinUp() {}
-  SpinUp(const unsigned& site) : SpinParticle{site, spin::UP} { id_=total_num_++; }
-  SpinUp(const SpinUp& p) : SpinParticle(p) { total_num_++; }
-  ~SpinUp() { --total_num_; }
-private:
-  static unsigned total_num_;
-};
-
-class SpinDn : public SpinParticle 
-{
-public:
-  SpinDn(const unsigned& site) : SpinParticle{site, spin::DN} { id_=total_num_++; }
-  SpinDn(const SpinDn& p) : SpinParticle(p) { total_num_++; }
-  ~SpinDn() { --total_num_; }
-  static unsigned total_num_;
-private:
-};
-
-class Hole : public SpinParticle 
-{
-public:
-  Hole(const unsigned& site) : SpinParticle{site, spin::HL} { id_=total_num_++; }
-  Hole(const Hole& p) : SpinParticle(p) { total_num_++; }
-  ~Hole() { --total_num_; }
-  static unsigned num_holes(void) { return total_num_; }
-private:
-  static unsigned total_num_;
-};
-
-class Doublon : public SpinParticle 
-{
-public:
-  Doublon() : SpinParticle(spin::UD) { id_=total_num_++; }
-  ~Doublon() { --total_num_; }
-private:
-  unsigned up_id_;
-  unsigned dn_id_;
-  static unsigned total_num_;
-};
-using site_state = SpinParticle*;
-
-*/
-
-
+ 
 
 
 } // end namespace vmc

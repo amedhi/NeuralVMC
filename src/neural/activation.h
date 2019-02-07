@@ -9,7 +9,8 @@
 
 #include <iostream>
 #include <stdexcept>
-#include <Eigen/Core>
+#include "../wavefunction/matrix.h"
+//#include <Eigen/Core>
 
 namespace nnet {
 using Vector = Eigen::VectorXd;

@@ -31,8 +31,10 @@ SRCS+= wavefunction/varparm.cpp
 SRCS+= wavefunction/blochbasis.cpp
 SRCS+= wavefunction/mf_model.cpp
 SRCS+= wavefunction/groundstate.cpp
+SRCS+= wavefunction/identity.cpp
 SRCS+= wavefunction/bcs_state.cpp
 SRCS+= wavefunction/disordered_sc.cpp
+SRCS+= wavefunction/ffn_state.cpp
 SRCS+= wavefunction/wavefunction.cpp
 SRCS+= wavefunction/projector.cpp
 SRCS+= mcdata/mcdata.cpp
@@ -73,8 +75,10 @@ HDRS=    scheduler/mpi_comm.h \
 	 wavefunction/blochbasis.h \
 	 wavefunction/mf_model.h \
 	 wavefunction/groundstate.h \
+	 wavefunction/identity.h \
 	 wavefunction/bcs_state.h \
 	 wavefunction/disordered_sc.h \
+	 wavefunction/ffn_state.h \
 	 variational/wavefunction.h \
 	 wavefunction/projector.h \
 	 mcdata/mcdata.h  \

@@ -13,6 +13,12 @@
 
 #define REAL_WAVEFUNCTION
 
+namespace eig {
+  using ivec = Eigen::VectorXi;
+  using real_vec = Eigen::VectorXd;
+  using cmpl_vec = Eigen::VectorXcd;
+}
+
 using Vector3i = Eigen::Vector3i;
 using Vector3d = Eigen::Vector3d;
 using Diagonal3d = Eigen::DiagonalMatrix<double,3>;

@@ -14,10 +14,10 @@ print_level = -2 #-2
 # Lattice:
 #---------------------------------------------
 lattice = "SQUARE" 
-lsize1 = 8
-lsize2 = 8
+lsize1 = 2
+lsize2 = 2
 bc1 = "periodic"
-bc2 = "antiperiodic"
+bc2 = "periodic"
 
 #---------------------------------------------
 # Model:
@@ -31,14 +31,10 @@ U = 0.0
 #---------------------------------------------
 # Variational wavefunction
 #---------------------------------------------
-mf_order = "DWAVE_SC"
-wavefunction = "DWAVE_SC"
-gutzwiller_proj = "YES"
-hole_doping = 0.16
-gfactor = 0.5 # 0.1, 0.1, 1.0  # 0.3037000
-delta_sc = 0.5 # 0.080 #0.01, 0.05, 0.30 #0.080
-mu = -0.89 # -0.4263000
-mu_variational = "YES"
+wavefunction = "NeuralNet"
+gutzwiller_proj = "No"
+hole_doping = 0.0
+gfactor = 0.5
 
 #---------------------------------------------
 # List of observable to calculate:

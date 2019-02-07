@@ -11,6 +11,214 @@
 
 namespace vmc {
 
+void FockState::init(const int& num_sites, const bool& allow_dbl) 
+{
+  num_sites_ = num_sites;
+  num_states_ = 2*num_sites_;
+  resize(num_states_);
+  this->setZero();
+  double_occupancy_ = allow_dbl;
+  up_states_.clear();
+  dn_states_.clear();
+  uphole_states_.clear();
+  dnhole_states_.clear();
+  // rng site generator
+  if (num_sites_>0) rng_.set_site_generator(0,num_sites_-1);
+  // rng site generator
+  if (num_sites_>0) rng_.set_site_generator(0,num_sites_-1);
+}
+
+void FockState::init_spins(const int& num_upspins, const int& num_dnspins)
+{
+  num_upspins_ = num_upspins;
+  num_dnspins_ = num_dnspins;
+  if (num_upspins_>num_sites_ || num_dnspins_>num_sites_)
+    throw std::range_error("* FockState::init_spins: spin number exceeds capacity");
+  if (!double_occupancy_ && (num_upspins_+num_dnspins_)>num_sites_)
+    throw std::range_error("* FockState::init_spins: spin number exceeds capacity");
+  num_upholes_ = num_sites_ - num_upspins;
+  num_dnholes_ = num_sites_ - num_dnspins;
+  // resizing
+  up_states_.resize(num_upspins_);
+  dn_states_.resize(num_dnspins_);
+  uphole_states_.resize(num_upholes_);
+  dnhole_states_.resize(num_dnholes_);
+  // random generator
+  if (num_upspins_>0) rng_.set_upspin_generator(0,num_upspins_-1);
+  else rng_.set_upspin_generator(0,0);
+  if (num_dnspins_>0) rng_.set_dnspin_generator(0,num_dnspins_-1);
+  else rng_.set_dnspin_generator(0,0);
+  if (num_upholes_>0) rng_.set_uphole_generator(0,num_upholes_-1);
+  else rng_.set_uphole_generator(0,0);
+  if (num_dnholes_>0) rng_.set_dnhole_generator(0,num_dnholes_-1);
+  else rng_.set_dnhole_generator(0,0);
+  // random initial configuration
+  set_random();
+}
+
+void FockState::set_random(void)
+{
+  this->setZero();
+  std::vector<int> all_up_states(num_sites_);
+  for (int i=0; i<num_sites_; ++i) all_up_states[i] = i;
+  std::shuffle(all_up_states.begin(),all_up_states.end(),rng_);
+  for (int i=0; i<num_upspins_; ++i) {
+    int state = all_up_states[i];
+    operator[](state) = 1;
+    up_states_[i] = state;
+  }
+  int j=0;
+  for (int i=num_upspins_; i<num_sites_; ++i) {
+    uphole_states_[j++] = all_up_states[i];
+  }
+
+  // DN spins & holes
+  if (double_occupancy_) {
+    std::vector<int> all_dn_states(num_sites_);
+    for (int i=0; i<num_sites_; ++i) all_dn_states[i] = num_sites_+i;
+    std::shuffle(all_dn_states.begin(),all_dn_states.end(),rng_);
+    for (int i=0; i<num_dnspins_; ++i) {
+      int state = all_dn_states[i];
+      operator[](state) = 1;
+      dn_states_[i] = state;
+    }
+    int j = 0;
+    for (int i=num_dnspins_; i<num_sites_; ++i) {
+      dnhole_states_[j++] = all_dn_states[i];
+    }
+  }
+  else {
+    int total_spins = num_upspins_+num_dnspins_;
+    // DN spins
+    int j = 0;
+    for (int i=num_upspins_; i<total_spins; ++i) {
+      int state = num_sites_+all_up_states[i];
+      operator[](state) = 1;
+      dn_states_[j++] = state;
+    }
+    // DN holes
+    j = 0;
+    for (int i=0; i<num_upspins_; ++i) {
+      int state = num_sites_+all_up_states[i];
+      dnhole_states_[j++] = state;
+    }
+    for (int i=total_spins; i<num_sites_; ++i) {
+      int state = num_sites_+all_up_states[i];
+      dnhole_states_[j++] = state;
+    }
+  }
+  // number of doublely occupied sites
+  num_dblocc_sites_ = 0;
+  if (double_occupancy_) {
+    for (int i=0; i<num_sites_; ++i) {
+      if (operator[](i)==1 && operator[](i+num_sites_)==1)
+        num_dblocc_sites_++;
+    }
+  }
+}
+
+bool FockState::gen_upspin_hop(void)
+{
+  if (num_upholes_==0 || num_upspins_==0) {
+    proposed_move_ = move_t::null;
+    return false;
+  }
+  mv_upspin_ = rng_.random_upspin();
+  mv_uphole_ = rng_.random_uphole();
+  //std::cout << " rng test = " << spin_site_pair.first << "\n";
+  up_fr_state_ = up_states_[mv_upspin_]; 
+  up_to_state_ = uphole_states_[mv_uphole_]; 
+  if (!double_occupancy_ && operator[](num_sites_+up_to_state_)) {
+    proposed_move_ = move_t::null;
+    return false;
+  }
+  else {
+    proposed_move_=move_t::upspin_hop;
+    operator[](up_fr_state_) = 0;
+    operator[](up_to_state_) = 1;
+    dblocc_increament_ = operator[](num_sites_+up_to_state_); // must be 0 or 1
+    dblocc_increament_ -= operator[](num_sites_+up_fr_state_);
+    //fr_state = up_fr_state_;
+    //to_state = up_to_state_;
+    return true;
+  }
+}
+
+bool FockState::gen_dnspin_hop(int& fr_state, int& to_state)
+{
+  if (num_dnholes_==0 || num_dnspins_==0) {
+    proposed_move_ = move_t::null;
+    return false;
+  }
+  mv_dnspin_ = rng_.random_dnspin();
+  mv_dnhole_ = rng_.random_dnhole();
+  //std::cout << " rng test = " << spin_site_pair.first << "\n";
+  dn_fr_state_ = dn_states_[mv_dnspin_]; 
+  dn_to_state_ = dnhole_states_[mv_dnhole_]; 
+  if (!double_occupancy_ && operator[](dn_to_state_-num_sites_)) {
+    proposed_move_ = move_t::null;
+    return false;
+  }
+  else {
+    dblocc_increament_ = operator[](dn_to_state_-num_sites_); // must be 0 or 1
+    dblocc_increament_ -= operator[](dn_fr_state_-num_sites_);
+    fr_state = dn_fr_state_;
+    to_state = dn_to_state_;
+    proposed_move_=move_t::dnspin_hop;
+    return true;
+  }
+}
+
+void FockState::commit_last_move(void)
+{
+  // double occupancy count
+  switch (proposed_move_) {
+    case move_t::upspin_hop:
+      num_dblocc_sites_ += dblocc_increament_;
+      //operator[](up_fr_state_) = 0;
+      //operator[](up_to_state_) = 1;
+      up_states_[mv_upspin_] = up_to_state_;
+      uphole_states_[mv_uphole_] = up_fr_state_;
+      proposed_move_ = move_t::null;
+      break;
+    case move_t::dnspin_hop:
+      num_dblocc_sites_ += dblocc_increament_;
+      operator[](dn_fr_state_) = 0;
+      operator[](dn_to_state_) = 1;
+      dn_states_[mv_dnspin_] = dn_to_state_;
+      dnhole_states_[mv_dnhole_] = dn_fr_state_;
+      proposed_move_ = move_t::null;
+      break;
+    case move_t::exchange:
+      proposed_move_ = move_t::null;
+      break;
+    case move_t::null:
+      break;
+  }
+}
+
+void FockState::undo_last_move(void)
+{
+  // double occupancy count
+  switch (proposed_move_) {
+    case move_t::upspin_hop:
+      operator[](up_fr_state_) = 1;
+      operator[](up_to_state_) = 0;
+      proposed_move_ = move_t::null;
+      break;
+    case move_t::dnspin_hop:
+      operator[](dn_fr_state_) = 1;
+      operator[](dn_to_state_) = 0;
+      proposed_move_ = move_t::null;
+      break;
+    case move_t::exchange:
+      proposed_move_ = move_t::null;
+      break;
+    case move_t::null:
+      break;
+  }
+}
+
 /*
 unsigned Hole::total_num_ = 0;
 unsigned SpinUp::total_num_ = 0;

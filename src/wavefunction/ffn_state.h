@@ -21,9 +21,15 @@ public:
   ~FFN_State() {} 
   int init(const int& num_sites, const input::Parameters& inputs);
   void update(const var::parm_vector& pvector, const unsigned& start_pos=0); 
-  void update_state(const eig::real_vec& fock_state);
+  void update_state(const eig::ivec& fock_state);
   const double& output(void) const; 
-  double get_output(const eig::real_vec& input) const;
+  double get_output(const eig::ivec& fock_state) const;
+  void get_parm_names(std::vector<std::string>& pnames, const int& pos) const;
+  void get_parm_values(eig::real_vec& pvalues, const int& pos) const;
+  void get_parm_lbound(eig::real_vec& lbound, const int& pos) const;
+  void get_parm_ubound(eig::real_vec& ubound, const int& pos) const;
+  void get_parm_vector(std::vector<double>& pvalues, const int& pos) const;
+  void get_gradient(eig::real_vec& grad, const int& pos) const;
 private:
   int num_sites_{0};
 };

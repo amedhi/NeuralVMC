@@ -2,7 +2,7 @@
 * @Author: Amal Medhi
 * @Date:   2018-12-29 20:39:14
 * @Last Modified by:   Amal Medhi, amedhi@mbpro
-* @Last Modified time: 2019-02-07 14:11:52
+* @Last Modified time: 2019-02-11 16:45:15
 *----------------------------------------------------------------------------*/
 #include "neuralnet.h"
 
@@ -81,6 +81,22 @@ void SequentialNet::get_parameters(Vector& pvec) const
   }
 }
 
+void SequentialNet::get_parameter_names(std::vector<std::string>& pnames, const int& pos) const
+{
+  for (int i=1; i<num_layers_; ++i) {
+    int start_pos = pos+pid_range_[i-1];
+    operator[](i).get_parameter_names(pnames,start_pos);
+  }
+}
+
+void SequentialNet::get_parameter_values(eig::real_vec& pvalues, const int& pos) const
+{
+  for (int i=1; i<num_layers_; ++i) {
+    int start_pos = pos+pid_range_[i-1];
+    operator[](i).get_parameter_values(pvalues,start_pos);
+  }
+}
+
 void SequentialNet::update_parameters(const Vector& pvec)
 {
   for (int i=1; i<num_layers_; ++i) {
@@ -112,7 +128,7 @@ void SequentialNet::run(const eig::real_vec& input)
   output_ = back().output();
 }
 
-const Matrix& SequentialNet::get_gradient(void)
+const Matrix& SequentialNet::get_gradient(void) const
 {
   int n=0;
   for (int i=1; i<num_layers_; ++i) {

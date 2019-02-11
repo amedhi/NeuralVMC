@@ -8,6 +8,7 @@
 #define LAYER_H
 
 #include <iostream>
+#include <vector>
 #include <string>
 #include <memory>
 #include <Eigen/Core>
@@ -32,12 +33,14 @@ public:
   const int& num_params(void) const { return num_params_; } 
   const double& get_parameter(const int& id) const;
   void get_parameters(Vector& pvec, const int& start_pos) const;
+  void get_parameter_names(std::vector<std::string>& pnames, const int& pos) const;
+  void get_parameter_values(eig::real_vec& pvalues, const int& pos) const;
   void update_parameters(const Vector& pvec, const int& start_pos);
   void update_parameter(const int& id, const double& value);
   Vector output(void);
   Vector get_output(const eig::real_vec& input) const; 
   const Vector& linear_output(void) const { return lin_output_; }
-  Vector derivative(const int& lid, const int& pid); 
+  Vector derivative(const int& lid, const int& pid) const; 
 private:
   int id_{0};
   int num_units_{1};
@@ -48,7 +51,7 @@ private:
   Vector bias_;
   Vector output_;
   mutable Vector lin_output_;
-  Vector derivative_;
+  mutable Vector derivative_;
   std::shared_ptr<Activation> activation_{nullptr};
   NeuralLayer* inlayer_{nullptr};
   NeuralLayer* outlayer_{nullptr};

@@ -116,24 +116,34 @@ private:
   void clear(void); 
 };
 
-class FockState : public eig::real_vec
+class FockBasis //: public eig::ivec
 {
 public:
-  FockState() { init(0); }
-  FockState(const int& num_sites, const bool& allow_dbl=true) 
+  FockBasis() { init(0); }
+  FockBasis(const int& num_sites, const bool& allow_dbl=true) 
     { init(num_sites, allow_dbl); }
-  ~FockState() {}
+  ~FockBasis() {}
   RandomGenerator& rng(void) const { return rng_; }
   void init(const int& num_sites, const bool& allow_dbl=true);
   void init_spins(const int& num_upspins, const int& num_dnspins);
+  const eig::ivec& state(void) const { return basis_; }
   void set_random(void);
   bool gen_upspin_hop(void);
   bool gen_dnspin_hop(void);
-  bool gen_dnspin_hop(int& fr_state, int& to_state);
+  bool gen_exchange_move(void);
   void commit_last_move(void);
-  void undo_last_move(void);
+  void undo_last_move(void) const;
+  int op_ni_up(const int& site) const;
+  int op_ni_dn(const int& site) const;
+  int op_ni_updn(const int& site) const;
+  bool apply_cdagc_up(const int& fr_site, const int& to_site) const;
+  bool apply_cdagc_dn(const int& fr_site, const int& to_site) const;
+  int op_exchange_ud(const int& fr_site, const int& to_site) const;
+  const int op_sign(void) const { return op_sign_; }
+  const int delta_nd(void) const { return dblocc_increament_; }
 private:
   mutable RandomGenerator rng_;
+  mutable eig::ivec basis_;
   int num_sites_{0};
   int num_states_{0};
   int num_upspins_{0};
@@ -148,20 +158,20 @@ private:
   std::vector<int> dnhole_states_;
 
   // update moves
-  move_t proposed_move_;
-  int dblocc_increament_{0};
+  mutable move_t proposed_move_;
+  mutable int dblocc_increament_{0};
   //move_type accepted_move;
-  int mv_upspin_;
-  int mv_uphole_;
-  int up_fr_state_;
-  int up_to_state_;
-  int dn_fr_state_;
-  int dn_to_state_;
-  int up_tostate_;
-  int mv_dnspin_;
-  int mv_dnhole_;
-  int dn_tostate_;
-
+  mutable int mv_upspin_;
+  mutable int mv_uphole_;
+  mutable int up_fr_state_;
+  mutable int up_to_state_;
+  mutable int dn_fr_state_;
+  mutable int dn_to_state_;
+  mutable int up_tostate_;
+  mutable int mv_dnspin_;
+  mutable int mv_dnhole_;
+  mutable int dn_tostate_;
+  mutable int op_sign_;
   void clear(void); 
 };
  

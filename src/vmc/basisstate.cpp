@@ -11,31 +11,32 @@
 
 namespace vmc {
 
-void FockState::init(const int& num_sites, const bool& allow_dbl) 
+void FockBasis::init(const int& num_sites, const bool& allow_dbl) 
 {
   num_sites_ = num_sites;
   num_states_ = 2*num_sites_;
-  resize(num_states_);
-  this->setZero();
+  basis_.resize(num_states_);
+  basis_.setZero();
   double_occupancy_ = allow_dbl;
   up_states_.clear();
   dn_states_.clear();
   uphole_states_.clear();
   dnhole_states_.clear();
+  proposed_move_ = move_t::null;
   // rng site generator
   if (num_sites_>0) rng_.set_site_generator(0,num_sites_-1);
   // rng site generator
   if (num_sites_>0) rng_.set_site_generator(0,num_sites_-1);
 }
 
-void FockState::init_spins(const int& num_upspins, const int& num_dnspins)
+void FockBasis::init_spins(const int& num_upspins, const int& num_dnspins)
 {
   num_upspins_ = num_upspins;
   num_dnspins_ = num_dnspins;
   if (num_upspins_>num_sites_ || num_dnspins_>num_sites_)
-    throw std::range_error("* FockState::init_spins: spin number exceeds capacity");
+    throw std::range_error("* FockBasis::init_spins: spin number exceeds capacity");
   if (!double_occupancy_ && (num_upspins_+num_dnspins_)>num_sites_)
-    throw std::range_error("* FockState::init_spins: spin number exceeds capacity");
+    throw std::range_error("* FockBasis::init_spins: spin number exceeds capacity");
   num_upholes_ = num_sites_ - num_upspins;
   num_dnholes_ = num_sites_ - num_dnspins;
   // resizing
@@ -56,15 +57,16 @@ void FockState::init_spins(const int& num_upspins, const int& num_dnspins)
   set_random();
 }
 
-void FockState::set_random(void)
+void FockBasis::set_random(void)
 {
-  this->setZero();
+  proposed_move_ = move_t::null;
+  basis_.setZero();
   std::vector<int> all_up_states(num_sites_);
   for (int i=0; i<num_sites_; ++i) all_up_states[i] = i;
   std::shuffle(all_up_states.begin(),all_up_states.end(),rng_);
   for (int i=0; i<num_upspins_; ++i) {
     int state = all_up_states[i];
-    operator[](state) = 1;
+    basis_[state] = 1;
     up_states_[i] = state;
   }
   int j=0;
@@ -79,7 +81,7 @@ void FockState::set_random(void)
     std::shuffle(all_dn_states.begin(),all_dn_states.end(),rng_);
     for (int i=0; i<num_dnspins_; ++i) {
       int state = all_dn_states[i];
-      operator[](state) = 1;
+      basis_[state] = 1;
       dn_states_[i] = state;
     }
     int j = 0;
@@ -93,7 +95,7 @@ void FockState::set_random(void)
     int j = 0;
     for (int i=num_upspins_; i<total_spins; ++i) {
       int state = num_sites_+all_up_states[i];
-      operator[](state) = 1;
+      basis_[state] = 1;
       dn_states_[j++] = state;
     }
     // DN holes
@@ -111,14 +113,15 @@ void FockState::set_random(void)
   num_dblocc_sites_ = 0;
   if (double_occupancy_) {
     for (int i=0; i<num_sites_; ++i) {
-      if (operator[](i)==1 && operator[](i+num_sites_)==1)
+      if (basis_[i]==1 && basis_[i+num_sites_]==1)
         num_dblocc_sites_++;
     }
   }
 }
 
-bool FockState::gen_upspin_hop(void)
+bool FockBasis::gen_upspin_hop(void)
 {
+  if (proposed_move_!=move_t::null) undo_last_move();
   if (num_upholes_==0 || num_upspins_==0) {
     proposed_move_ = move_t::null;
     return false;
@@ -128,24 +131,25 @@ bool FockState::gen_upspin_hop(void)
   //std::cout << " rng test = " << spin_site_pair.first << "\n";
   up_fr_state_ = up_states_[mv_upspin_]; 
   up_to_state_ = uphole_states_[mv_uphole_]; 
-  if (!double_occupancy_ && operator[](num_sites_+up_to_state_)) {
+  if (!double_occupancy_ && basis_[num_sites_+up_to_state_]) {
     proposed_move_ = move_t::null;
     return false;
   }
   else {
     proposed_move_=move_t::upspin_hop;
-    operator[](up_fr_state_) = 0;
-    operator[](up_to_state_) = 1;
-    dblocc_increament_ = operator[](num_sites_+up_to_state_); // must be 0 or 1
-    dblocc_increament_ -= operator[](num_sites_+up_fr_state_);
+    basis_[up_fr_state_] = 0;
+    basis_[up_to_state_] = 1;
+    dblocc_increament_ = basis_[num_sites_+up_to_state_]; // must be 0 or 1
+    dblocc_increament_ -= basis_[num_sites_+up_fr_state_];
     //fr_state = up_fr_state_;
     //to_state = up_to_state_;
     return true;
   }
 }
 
-bool FockState::gen_dnspin_hop(int& fr_state, int& to_state)
+bool FockBasis::gen_dnspin_hop(void)
 {
+  if (proposed_move_!=move_t::null) undo_last_move();
   if (num_dnholes_==0 || num_dnspins_==0) {
     proposed_move_ = move_t::null;
     return false;
@@ -155,21 +159,57 @@ bool FockState::gen_dnspin_hop(int& fr_state, int& to_state)
   //std::cout << " rng test = " << spin_site_pair.first << "\n";
   dn_fr_state_ = dn_states_[mv_dnspin_]; 
   dn_to_state_ = dnhole_states_[mv_dnhole_]; 
-  if (!double_occupancy_ && operator[](dn_to_state_-num_sites_)) {
+  if (!double_occupancy_ && basis_[dn_to_state_-num_sites_]) {
     proposed_move_ = move_t::null;
     return false;
   }
   else {
-    dblocc_increament_ = operator[](dn_to_state_-num_sites_); // must be 0 or 1
-    dblocc_increament_ -= operator[](dn_fr_state_-num_sites_);
-    fr_state = dn_fr_state_;
-    to_state = dn_to_state_;
     proposed_move_=move_t::dnspin_hop;
+    basis_[dn_fr_state_] = 0;
+    basis_[dn_to_state_] = 1;
+    dblocc_increament_ = basis_[dn_to_state_-num_sites_]; // must be 0 or 1
+    dblocc_increament_ -= basis_[dn_fr_state_-num_sites_];
     return true;
   }
 }
 
-void FockState::commit_last_move(void)
+bool FockBasis::gen_exchange_move(void)
+{
+  if (proposed_move_!=move_t::null) undo_last_move();
+  if (num_upholes_==0 || num_upspins_==0) return false;
+  if (num_dnholes_==0 || num_dnspins_==0) return false;
+  mv_upspin_ = rng_.random_upspin();
+  mv_dnspin_ = rng_.random_dnspin();
+  up_fr_state_ = up_states_[mv_upspin_]; 
+  dn_fr_state_ = dn_states_[mv_dnspin_]; 
+  up_to_state_ = dn_fr_state_-num_sites_; 
+  dn_to_state_ = num_sites_+up_fr_state_; 
+  mv_uphole_ = -1;
+  for (int i=0; i<num_upholes_; ++i) {
+    if (uphole_states_[i]==up_to_state_) {
+      mv_uphole_ = i;
+      break;
+    }
+  }
+  if (mv_uphole_<0) return false;
+  mv_dnhole_ = -1;
+  for (int i=0; i<num_dnholes_; ++i) {
+    if (dnhole_states_[i]==dn_to_state_) {
+      mv_dnhole_ = i;
+      break;
+    }
+  }
+  if (mv_dnhole_<0) return false;
+  // valid move
+  proposed_move_ = move_t::exchange;
+  basis_[up_fr_state_] = 0;
+  basis_[up_to_state_] = 1;
+  basis_[dn_fr_state_] = 0;
+  basis_[dn_to_state_] = 1;
+  return true;
+}
+
+void FockBasis::commit_last_move(void)
 {
   // double occupancy count
   switch (proposed_move_) {
@@ -183,40 +223,173 @@ void FockState::commit_last_move(void)
       break;
     case move_t::dnspin_hop:
       num_dblocc_sites_ += dblocc_increament_;
-      operator[](dn_fr_state_) = 0;
-      operator[](dn_to_state_) = 1;
+      //operator[](dn_fr_state_) = 0;
+      //operator[](dn_to_state_) = 1;
       dn_states_[mv_dnspin_] = dn_to_state_;
       dnhole_states_[mv_dnhole_] = dn_fr_state_;
       proposed_move_ = move_t::null;
       break;
     case move_t::exchange:
+      up_states_[mv_upspin_] = up_to_state_;
+      uphole_states_[mv_uphole_] = up_fr_state_;
+      dn_states_[mv_dnspin_] = dn_to_state_;
+      dnhole_states_[mv_dnhole_] = dn_fr_state_;
       proposed_move_ = move_t::null;
       break;
     case move_t::null:
       break;
   }
+  // check
+  /*
+  int m = 0;
+  int n = 0;
+  for (int i=0; i<num_sites_; ++i) m += operator[](i);
+  for (int i=num_sites_; i<num_states_; ++i) n += operator[](i);
+  if (m!= num_upspins_ || n!= num_dnspins_) {
+    throw std::logic_error("FockBasis::commit_last_move");
+  }*/
 }
 
-void FockState::undo_last_move(void)
+int FockBasis::op_ni_up(const int& site) const
+{
+  return basis_[site];
+}
+
+int FockBasis::op_ni_dn(const int& site) const
+{
+  return basis_[num_sites_+site];
+}
+
+int FockBasis::op_ni_updn(const int& site) const
+{
+  if (basis_[site] && basis_[num_sites_+site]) return 1;
+  else return 0;
+}
+
+bool FockBasis::apply_cdagc_up(const int& fr_site, const int& to_site) const
+{
+  if (proposed_move_!=move_t::null) undo_last_move();
+  up_fr_state_ = fr_site;
+  up_to_state_ = to_site;
+  if (basis_[up_fr_state_]==0) return false;
+  if (basis_[up_to_state_]==1) return false;
+  proposed_move_ = move_t::upspin_hop;
+  op_sign_ = 1;
+  dblocc_increament_ = 0;
+  if (fr_site==to_site && basis_[up_fr_state_]) return true;
+  basis_[up_fr_state_] = 0;
+  basis_[up_to_state_] = 1;
+  // change in no of doubly occupied sites
+  dblocc_increament_ = basis_[num_sites_+up_to_state_]; // must be 0 or 1
+  dblocc_increament_ -= basis_[num_sites_+up_fr_state_];
+  // sign (considered that the state is aready changed above)
+  for (int i=up_to_state_; i<up_fr_state_; ++i) {
+    if (basis_[i]) op_sign_ = -op_sign_;
+  }
+  for (int i=up_fr_state_; i<up_to_state_; ++i) {
+    if (basis_[i]) op_sign_ = -op_sign_;
+  }
+  return true;
+}
+
+bool FockBasis::apply_cdagc_dn(const int& fr_site, const int& to_site) const
+{
+  if (proposed_move_!=move_t::null) undo_last_move();
+  dn_fr_state_ = num_sites_+fr_site;
+  dn_to_state_ = num_sites_+to_site;
+  if (basis_[dn_fr_state_] == 0) return false;
+  if (basis_[up_to_state_] == 1) return false;
+  proposed_move_ = move_t::dnspin_hop;
+  op_sign_ = 1;
+  dblocc_increament_ = 0;
+  if (fr_site==to_site && basis_[dn_fr_state_]) return true;
+  basis_[dn_fr_state_] = 0;
+  basis_[dn_to_state_] = 1;
+  // change in no of doubly occupied sites
+  dblocc_increament_ = basis_[to_site]; // must be 0 or 1
+  dblocc_increament_ -= basis_[fr_site];
+  // sign (considered that the state is aready changed above)
+  for (int i=dn_to_state_; i<dn_fr_state_; ++i) {
+    if (basis_[i]) op_sign_ = -op_sign_;
+  }
+  for (int i=dn_fr_state_; i<dn_to_state_; ++i) {
+    if (basis_[i]) op_sign_ = -op_sign_;
+  }
+  return true;
+}
+
+int FockBasis::op_exchange_ud(const int& site_i, const int& site_j) const
+{
+  if (proposed_move_!=move_t::null) undo_last_move();
+  if (site_i == site_j) return 1;
+  auto* ni_up = &basis_[site_i];
+  auto* nj_up = &basis_[site_j];
+  auto* ni_dn = &basis_[num_sites_+site_i];
+  auto* nj_dn = &basis_[num_sites_+site_j];
+  if (*ni_up==1 && *nj_up==0 && *ni_dn==0 && *nj_dn==1) {
+    *ni_up = 0;
+    *nj_up = 1;
+    *ni_dn = 1;
+    *nj_dn = 0;
+    up_fr_state_ = site_i;
+    up_to_state_ = site_j;
+    dn_fr_state_ = num_sites_+site_j;
+    dn_to_state_ = num_sites_+site_i;
+  }
+  else if (*ni_up==0 && *nj_up==1 && *ni_dn==1 && *nj_dn==0) {
+    *ni_up = 1;
+    *nj_up = 0;
+    *ni_dn = 0;
+    *nj_dn = 1;
+    up_fr_state_ = site_j;
+    up_to_state_ = site_i;
+    dn_fr_state_ = num_sites_+site_i;
+    dn_to_state_ = num_sites_+site_j;
+  }
+  else {
+    return 0;
+  }
+  // sign (considered that the state is aready changed above)
+  op_sign_ = 1;
+  for (int i=up_to_state_; i<up_fr_state_; ++i) {
+    if (basis_[i]) op_sign_ = -op_sign_;
+  }
+  for (int i=up_fr_state_; i<up_to_state_; ++i) {
+    if (basis_[i]) op_sign_ = -op_sign_;
+  }
+  for (int i=dn_to_state_; i<dn_fr_state_; ++i) {
+    if (basis_[i]) op_sign_ = -op_sign_;
+  }
+  for (int i=dn_fr_state_; i<dn_to_state_; ++i) {
+    if (basis_[i]) op_sign_ = -op_sign_;
+  }
+  proposed_move_ = move_t::exchange;
+  return op_sign_;
+}
+
+void FockBasis::undo_last_move(void) const
 {
   // double occupancy count
   switch (proposed_move_) {
     case move_t::upspin_hop:
-      operator[](up_fr_state_) = 1;
-      operator[](up_to_state_) = 0;
-      proposed_move_ = move_t::null;
+      basis_[up_fr_state_] = 1;
+      basis_[up_to_state_] = 0;
       break;
     case move_t::dnspin_hop:
-      operator[](dn_fr_state_) = 1;
-      operator[](dn_to_state_) = 0;
-      proposed_move_ = move_t::null;
+      basis_[dn_fr_state_] = 1;
+      basis_[dn_to_state_] = 0;
       break;
     case move_t::exchange:
-      proposed_move_ = move_t::null;
+      basis_[up_fr_state_] = 1;
+      basis_[up_to_state_] = 0;
+      basis_[dn_fr_state_] = 1;
+      basis_[dn_to_state_] = 0;
       break;
     case move_t::null:
       break;
   }
+  dblocc_increament_ = 0;
+  proposed_move_ = move_t::null;
 }
 
 /*

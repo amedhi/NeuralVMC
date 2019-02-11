@@ -20,29 +20,34 @@ SysConfig::SysConfig(const input::Parameters& inputs,
   , num_sites_(graph.num_sites())
 {
   // variational parameters
+  num_net_parms_ = ffnet_.num_params();
   num_pj_parms_ = pj.varparms().size();
   num_wf_parms_ = wf.varparms().size();
-  num_varparms_ = (num_pj_parms_ + num_wf_parms_);
+  num_varparms_ = (num_net_parms_+num_pj_parms_+num_wf_parms_);
   vparm_names_.resize(num_varparms_);
   vparm_lbound_.resize(num_varparms_);
   vparm_ubound_.resize(num_varparms_);
   // names
-  pj.get_vparm_names(vparm_names_,0);
-  wf.get_vparm_names(vparm_names_,num_pj_parms_);
+  ffnet_.get_parm_names(vparm_names_,0);
+  pj.get_vparm_names(vparm_names_,num_net_parms_);
+  wf.get_vparm_names(vparm_names_,num_net_parms_+num_pj_parms_);
   // values are not static and may change
   // bounds
-  pj.get_vparm_lbound(vparm_lbound_,0);
-  wf.get_vparm_lbound(vparm_lbound_,num_pj_parms_);
-  pj.get_vparm_ubound(vparm_ubound_,0);
-  wf.get_vparm_ubound(vparm_ubound_,num_pj_parms_);
+  ffnet_.get_parm_lbound(vparm_lbound_,0);
+  pj.get_vparm_lbound(vparm_lbound_,num_net_parms_);
+  wf.get_vparm_lbound(vparm_lbound_,num_net_parms_+num_pj_parms_);
+  ffnet_.get_parm_ubound(vparm_ubound_,0);
+  pj.get_vparm_ubound(vparm_ubound_,num_net_parms_);
+  wf.get_vparm_ubound(vparm_ubound_,num_net_parms_+num_pj_parms_);
 }
 
 const var::parm_vector& SysConfig::vparm_values(void) 
 {
   // values as 'var::parm_vector'
   vparm_values_.resize(num_varparms_);
-  pj.get_vparm_values(vparm_values_,0);
-  wf.get_vparm_values(vparm_values_,num_pj_parms_);
+  ffnet_.get_parm_values(vparm_values_,0);
+  pj.get_vparm_values(vparm_values_,num_net_parms_);
+  wf.get_vparm_values(vparm_values_,num_net_parms_+num_pj_parms_);
   return vparm_values_;
 }
 
@@ -50,8 +55,9 @@ const std::vector<double>& SysConfig::vparm_vector(void)
 {
   // values as 'std::double'
   vparm_vector_.resize(num_varparms_);
-  pj.get_vparm_vector(vparm_vector_,0);
-  wf.get_vparm_vector(vparm_vector_,num_pj_parms_);
+  ffnet_.get_parm_vector(vparm_vector_,0);
+  pj.get_vparm_vector(vparm_vector_,num_net_parms_);
+  wf.get_vparm_vector(vparm_vector_,num_net_parms_+num_pj_parms_);
   return vparm_vector_;
 }
 
@@ -69,8 +75,11 @@ int SysConfig::build(const lattice::LatticeGraph& graph, const var::parm_vector&
   const bool& need_psi_grad)
 {
   if (num_sites_==0) return -1;
-  pj.update(pvector, 0);
-  unsigned start_pos = pj.varparms().size();
+  int start_pos = 0;
+  //ffnet_.update_params(vparm_vector_,start_pos);
+  start_pos += num_net_parms_;
+  pj.update(pvector,start_pos);
+  start_pos += num_pj_parms_;
   wf.compute(graph, pvector, start_pos, need_psi_grad);
   init_config();
   return 0;
@@ -85,7 +94,7 @@ int SysConfig::init_config(void)
     throw std::range_error("*SysConfig::init_config: unequal UP & DN spin case not implemented");
   fock_basis_.init_spins(num_upspins_,num_dnspins_);
   // run parameters
-  ffnet_.update_state(fock_basis_);
+  ffnet_.update_state(fock_basis_.state());
   ffn_psi_ = ffnet_.output();
   set_run_parameters();
   return 0;
@@ -132,116 +141,85 @@ int SysConfig::update_state(void)
   for (int n=0; n<num_dnhop_moves_; ++n) do_dnspin_hop();
   for (int n=0; n<num_exchange_moves_; ++n) do_spin_exchange();
   num_updates_++;
-  if (num_updates_ % refresh_cycle_ == 0) {
-    psi_inv = psi_mat.inverse();
-  }
+  //if (num_updates_ % refresh_cycle_ == 0) {
+  //  psi_inv = psi_mat.inverse();
+  //}
+  //std::cout << "\n state=" << fock_basis_.transpose() << "\n"; getchar();
+  //throw std::range_error("Exiting at: SysConfig::update_state");
   return 0;
 }
 
 int SysConfig::do_upspin_hop(void)
 {
-  std::cout << "\n state=" << fock_basis_.transpose() << "\n";
   if (fock_basis_.gen_upspin_hop()) {
     num_proposed_moves_[move_t::uphop]++;
     last_proposed_moves_++;
-  std::cout << "\n state=" << fock_basis_.transpose() << "\n";
-    //wf.get_amplitude(fock_basis_.trial_state());
-    //wf.get_amplitude(fock_basis_);
-    double new_psi = ffnet_.get_output(fock_basis_);
-    std::cout << "\n psi-1=" << ffn_psi_ << "\n";
-    std::cout << "psi-2=" << new_psi << "\n";
-    amplitude_t det_ratio = new_psi/ffn_psi_;
+    //std::cout << "\n state=" << fock_basis_.transpose() << "\n";
+    double psi = ffnet_.get_output(fock_basis_.state());
+    double psi_ratio = psi/ffn_psi_;
     double proj_ratio = 1.0;
-    amplitude_t weight_ratio = det_ratio * proj_ratio;
+    double weight_ratio = psi_ratio * proj_ratio;
     double transition_proby = std::norm(weight_ratio);
     if (rng().random_real()<transition_proby) {
       num_accepted_moves_[move_t::uphop]++;
       last_accepted_moves_++;
       // upddate state
       fock_basis_.commit_last_move();
+      ffn_psi_ = psi;
     }
     else {
       fock_basis_.undo_last_move();
     }
   } 
-  throw std::range_error("Exiting at: SysConfig::do_upspin_hop");
-
   return 0;
 }
 
 int SysConfig::do_dnspin_hop(void)
 {
-  int dnspin, to_site;
-  std::tie(dnspin, to_site) = gen_dnspin_hop();
-  if (to_site < 0) return 0; // valid move not found
-  num_proposed_moves_[move_t::dnhop]++;
-  last_proposed_moves_++;
-  // new col for this move
-  wf.get_amplitudes(psi_col, upspin_sites(), to_site);
-  amplitude_t det_ratio = psi_col.cwiseProduct(psi_inv.row(dnspin)).sum();
-  if (std::abs(det_ratio) < dratio_cutoff()) return 0; // for safety
-  double proj_ratio = pj.gw_ratio(dblocc_increament());
-  amplitude_t weight_ratio = det_ratio * proj_ratio;
-  double transition_proby = std::norm(weight_ratio);
-  if (rng().random_real()<transition_proby) {
-    num_accepted_moves_[move_t::dnhop]++;
-    last_accepted_moves_++;
-    // upddate state
-    accept_last_move();
-    // update amplitudes
-    inv_update_dnspin(dnspin,psi_col,det_ratio);
-  }
+  if (fock_basis_.gen_dnspin_hop()) {
+    num_proposed_moves_[move_t::dnhop]++;
+    last_proposed_moves_++;
+    //std::cout << "\n state=" << fock_basis_.transpose() << "\n";
+    double psi = ffnet_.get_output(fock_basis_.state());
+    double psi_ratio = psi/ffn_psi_;
+    double proj_ratio = 1.0;
+    double weight_ratio = psi_ratio * proj_ratio;
+    double transition_proby = std::norm(weight_ratio);
+    if (rng().random_real()<transition_proby) {
+      num_accepted_moves_[move_t::dnhop]++;
+      last_accepted_moves_++;
+      // upddate state
+      fock_basis_.commit_last_move();
+      ffn_psi_ = psi;
+    }
+    else {
+      fock_basis_.undo_last_move();
+    }
+  } 
   return 0;
 }
 
 int SysConfig::do_spin_exchange(void)
 {
-  int upspin, up_tosite;
-  std::tie(upspin, up_tosite) = gen_exchange_move();
-  if (up_tosite < 0) return 0; // valid move not found
-  num_proposed_moves_[move_t::exch]++;
-  last_proposed_moves_++;
-  // for upspin hop forward
-  wf.get_amplitudes(psi_row, up_tosite, dnspin_sites());
-  amplitude_t det_ratio1 = psi_row.cwiseProduct(psi_inv.col(upspin)).sum();
-  if (std::abs(det_ratio1) < dratio_cutoff()) return 0; // for safety
-
-  // now for dnspin hop backward
-  int dnspin, dn_tosite;
-  std::tie(dnspin, dn_tosite) = exchange_move_part();
-  // new col for this move
-  wf.get_amplitudes(psi_col, upspin_sites(), dn_tosite);
-  // since the upspin should have moved
-  wf.get_amplitudes(psi_col(upspin), up_tosite, dn_tosite);
-  // updated 'dnspin'-th row of psi_inv
-  amplitude_t ratio_inv = amplitude_t(1.0)/det_ratio1;
-  // elements other than 'upspin'-th
-  for (int i=0; i<upspin; ++i) {
-    amplitude_t beta = ratio_inv*psi_row.cwiseProduct(psi_inv.col(i)).sum();
-    inv_row(i) = psi_inv(dnspin,i) - beta * psi_inv(dnspin,upspin);
-  }
-  for (int i=upspin+1; i<static_cast<int>(num_upspins_); ++i) {
-    amplitude_t beta = ratio_inv*psi_row.cwiseProduct(psi_inv.col(i)).sum();
-    inv_row(i) = psi_inv(dnspin,i) - beta * psi_inv(dnspin,upspin);
-  }
-  inv_row(upspin) = ratio_inv * psi_inv(dnspin,upspin);
-  // ratio for the dnspin hop
-  amplitude_t det_ratio2 = psi_col.cwiseProduct(inv_row).sum();
-  if (std::abs(det_ratio2) < dratio_cutoff()) return 0; // for safety
-
-  // weight ratio (gw pj does not play here)
-  amplitude_t weight_ratio = det_ratio1 * det_ratio2;
-  double transition_proby = std::norm(weight_ratio);
-  //std::cout << "W = " << transition_proby << "\n";
-  if (rng().random_real()<transition_proby) {
-    num_accepted_moves_[move_t::exch]++;
-    last_accepted_moves_++;
-    // upddate state
-    accept_last_move();
-    // update amplitudes
-    inv_update_upspin(upspin,psi_row,det_ratio1);
-    inv_update_dnspin(dnspin,psi_col,det_ratio2);
-  }
+  if (fock_basis_.gen_exchange_move()) {
+    num_proposed_moves_[move_t::exch]++;
+    last_proposed_moves_++;
+    //std::cout << "\n state=" << fock_basis_.transpose() << "\n";
+    double psi = ffnet_.get_output(fock_basis_.state());
+    double psi_ratio = psi/ffn_psi_;
+    double proj_ratio = 1.0;
+    double weight_ratio = psi_ratio * proj_ratio;
+    double transition_proby = std::norm(weight_ratio);
+    if (rng().random_real()<transition_proby) {
+      num_accepted_moves_[move_t::exch]++;
+      last_accepted_moves_++;
+      fock_basis_.commit_last_move();
+      ffn_psi_ = psi;
+    }
+    else {
+      fock_basis_.undo_last_move();
+    }
+  } 
   return 0;
 }
 
@@ -302,13 +280,9 @@ int SysConfig::apply(const model::op::quantum_op& qn_op, const unsigned& site_i)
 {
   switch (qn_op.id()) {
     case model::op_id::ni_sigma:
-      return operator[](site_i).count();
-    //case model::op_id::ni_up:
-    //  return static_cast<int>(operator[](site_i).have_upspin());
-    //case model::op_id::ni_dn:
-    //  return static_cast<int>(operator[](site_i).have_dnspin());
+      return fock_basis_.op_ni_up(site_i)+fock_basis_.op_ni_dn(site_i);
     case model::op_id::niup_nidn:
-      return apply_niup_nidn(site_i); 
+      return fock_basis_.op_ni_updn(site_i);
     default: 
       throw std::range_error("SysConfig::apply: undefined site operator");
   }
@@ -323,70 +297,29 @@ int SysConfig::apply_niup_nidn(const unsigned& site_i) const
 amplitude_t SysConfig::apply_upspin_hop(const unsigned& i, const unsigned& j,
   const int& bc_phase) const
 {
-  //if (i == j) return ampl_part(1.0);
-  if (i == j) return ampl_part(operator[](i).num_upspins());
-  int upspin, to_site;
-  int delta_nd;
-  //check_upspin_hop(i,j)
-  const SiteState* state_i = &operator[](i);
-  const SiteState* state_j = &operator[](j);
-  if (state_i->have_upspin() && state_j->have_uphole()) {
-    upspin = state_i->upspin_id();
-    to_site = j;
-    delta_nd = state_j->count(); // must be 0 or one
-    if (state_i->count()==2) delta_nd--;
+  if (i == j) return ampl_part(fock_basis_.op_ni_up(i));
+  if (fock_basis_.apply_cdagc_up(i,j)) {
+    int sign = fock_basis_.op_sign();
+    double psi = ffnet_.get_output(fock_basis_.state());
+    double psi_ratio = psi/ffn_psi_;
+    double proj_ratio = pj.gw_ratio(fock_basis_.delta_nd());
+    return amplitude_t(sign * proj_ratio * psi_ratio);
   }
-  else if (state_j->have_upspin() && state_i->have_uphole()) {
-    upspin = state_j->upspin_id();
-    to_site = i;
-    delta_nd = state_i->count(); // must be 0 or one
-    if (state_j->count()==2) delta_nd--;
-  }
-  else {
-    return amplitude_t(0.0);
-  }
-  // site occupancy constraint
-  if (operator[](to_site).count()==site_capacity()) return amplitude_t(0.0);
-
-  // det_ratio for the term
-  wf.get_amplitudes(psi_row, to_site, dnspin_sites());
-  amplitude_t det_ratio = psi_row.cwiseProduct(psi_inv.col(upspin)).sum();
-  det_ratio = ampl_part(std::conj(det_ratio));
-  return amplitude_t(bc_phase) * det_ratio * pj.gw_ratio(delta_nd);
+  else return amplitude_t(0.0);
 }
 
 amplitude_t SysConfig::apply_dnspin_hop(const unsigned& i, const unsigned& j,
   const int& bc_phase) const
 {
-  //if (i == j) return amplitude_t(1.0);
-  if (i == j) return ampl_part(operator[](i).num_dnspins());
-  int dnspin, to_site;
-  int delta_nd;
-  const SiteState* state_i = &operator[](i);
-  const SiteState* state_j = &operator[](j);
-  if (state_i->have_dnspin() && state_j->have_dnhole()) {
-    dnspin = state_i->dnspin_id();
-    to_site = j;
-    delta_nd = state_j->count(); // must be 0 or one
-    if (state_i->count()==2) delta_nd--;
+  if (i == j) return ampl_part(fock_basis_.op_ni_dn(i));
+  if (fock_basis_.apply_cdagc_dn(i,j)) {
+    int sign = fock_basis_.op_sign();
+    double psi = ffnet_.get_output(fock_basis_.state());
+    double psi_ratio = psi/ffn_psi_;
+    double proj_ratio = pj.gw_ratio(fock_basis_.delta_nd());
+    return amplitude_t(sign * proj_ratio * psi_ratio);
   }
-  else if (state_j->have_dnspin() && state_i->have_dnhole()) {
-    dnspin = state_j->dnspin_id();
-    to_site = i;
-    delta_nd = state_i->count(); // must be 0 or one
-    if (state_j->count()==2) delta_nd--;
-  }
-  else {
-    return amplitude_t(0.0);
-  }
-  // site occupancy constraint
-  if (operator[](to_site).count()==site_capacity()) return amplitude_t(0.0);
-
-  // det_ratio for the term
-  wf.get_amplitudes(psi_col, upspin_sites(), to_site);
-  amplitude_t det_ratio = psi_col.cwiseProduct(psi_inv.row(dnspin)).sum();
-  det_ratio = ampl_part(std::conj(det_ratio));
-  return amplitude_t(bc_phase) * det_ratio * pj.gw_ratio(delta_nd);
+  else return amplitude_t(0.0);
 }
 
 amplitude_t SysConfig::apply_sisj_plus(const unsigned& i, const unsigned& j) const
@@ -587,21 +520,30 @@ amplitude_t SysConfig::apply_bondsinglet_hop(const unsigned& i_dag,
 
 void SysConfig::get_grad_logpsi(RealVector& grad_logpsi) const
 {
+
+  // grad_logpsi wrt nnet parameters
+  eig::real_vec grad(num_net_parms_);
+  ffnet_.get_gradient(grad,0);
+  for (int n=0; n<num_net_parms_; ++n) {
+    grad_logpsi(n) = grad(n)/ffn_psi_;
+  }
   // grad_logpsi wrt pj parameters
-  unsigned p = pj.varparms().size();
-  for (unsigned n=0; n<p; ++n) {
+  for (int n=0; n<num_pj_parms_; ++n) {
     if (pj.varparms()[n].name()=="gfactor") {
       double g = pj.varparms()[n].value();
-      grad_logpsi(n) = static_cast<double>(dblocc_count())/g;
+      grad_logpsi(num_net_parms_+n) = static_cast<double>(dblocc_count())/g;
     }
     else {
       throw std::range_error("SysConfig::get_grad_logpsi: this pj parameter not implemented\n");
     }
   }
   // grad_logpsi wrt wf parameters
-  for (unsigned n=0; n<wf.varparms().size(); ++n) {
+  //auto grad = ffnet_.get_gradient()/ffn_psi_;
+  int p = num_net_parms_+num_pj_parms_;
+  for (unsigned n=0; n<num_wf_parms_; ++n) {
     wf.get_gradients(psi_grad,n,upspin_sites(),dnspin_sites());
     grad_logpsi(p+n) = std::real(psi_grad.cwiseProduct(psi_inv.transpose()).sum());
+    //grad_logpsi(p+n) = grad(n);
   }
 }
 

@@ -8,6 +8,7 @@
 #define NEURALNET_H
 
 #include <vector>
+#include <string>
 #include <memory>
 #include "layer.h"
 
@@ -25,18 +26,20 @@ public:
   const int& num_params(void) const { return num_params_; }
   const double& get_parameter(const int& id) const;
   void get_parameters(Vector& pvec) const;
+  void get_parameter_names(std::vector<std::string>& pnames, const int& pos) const;
+  void get_parameter_values(eig::real_vec& pvalues, const int& pos) const;
   void update_parameters(const Vector& pvec);
   void update_parameter(const int& id, const double& value);
   void run(const eig::real_vec& input); 
   eig::real_vec get_output(const eig::real_vec& input) const;
   const Vector& output(void) const { return output_; }
-  const Matrix& get_gradient(void);
+  const Matrix& get_gradient(void) const;
 private:
   int num_layers_{0};
   int num_params_{0};
   std::vector<int> pid_range_;
   Vector output_;
-  Matrix gradient_;
+  mutable Matrix gradient_;
 };
 
 /*

@@ -14,8 +14,8 @@ print_level = -2 #-2
 # Lattice:
 #---------------------------------------------
 lattice = "SQUARE" 
-lsize1 = 2
-lsize2 = 2
+lsize1 = 4
+lsize2 = 4
 bc1 = "periodic"
 bc2 = "periodic"
 
@@ -33,7 +33,7 @@ U = 0.0
 #---------------------------------------------
 wavefunction = "NeuralNet"
 gutzwiller_proj = "No"
-hole_doping = 0.0
+hole_doping = 0.16 # 0.0
 gfactor = 0.5
 
 #---------------------------------------------

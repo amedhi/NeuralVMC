@@ -3,7 +3,7 @@
 * @Author: Amal Medhi, amedhi@mbpro
 * @Date:   2019-01-29 12:56:31
 * @Last Modified by:   Amal Medhi, amedhi@mbpro
-* @Last Modified time: 2019-02-07 13:49:51
+* @Last Modified time: 2019-02-11 16:44:01
 *----------------------------------------------------------------------------*/
 #include "./ffn_state.h"
 
@@ -28,9 +28,9 @@ int FFN_State::init(const int& num_sites, const input::Parameters& inputs)
   return 0;
 }
 
-void FFN_State::update_state(const eig::real_vec& fock_state)
+void FFN_State::update_state(const eig::ivec& fock_state)
 {
-  SequentialNet::run(fock_state);
+  SequentialNet::run(fock_state.cast<double>());
 }
 
 const double& FFN_State::output(void) const
@@ -38,15 +38,42 @@ const double& FFN_State::output(void) const
   return SequentialNet::output()(0);
 }
 
-double FFN_State::get_output(const eig::real_vec& input) const
+double FFN_State::get_output(const eig::ivec& input) const
 {
-  return SequentialNet::get_output(input)(0);
+  return SequentialNet::get_output(input.cast<double>())(0);
 }
 
-//double FFN_State::get_wf_amplitude(const eig::real_vec& fock_state)
-//{
-//}
+void FFN_State::get_parm_names(std::vector<std::string>& pnames,const int& pos) const
+{
+  SequentialNet::get_parameter_names(pnames, pos);
+}
 
+void FFN_State::get_parm_values(eig::real_vec& pvalues, const int& pos) const
+{
+  SequentialNet::get_parameter_values(pvalues, pos);
+}
+
+void FFN_State::get_parm_lbound(eig::real_vec& lbound, const int& pos) const
+{
+  for (int i=0; i<num_params(); ++i) lbound(pos+i) = -10.0;
+}
+
+void FFN_State::get_parm_ubound(eig::real_vec& ubound, const int& pos) const
+{
+  for (int i=0; i<num_params(); ++i) ubound(pos+i) = +10.0;
+}
+
+void FFN_State::get_parm_vector(std::vector<double>& pvalues, const int& pos) const
+{
+  eig::real_vec pvec(num_params());
+  SequentialNet::get_parameter_values(pvec, 0);
+  for (int i=0; i<num_params(); ++i) pvalues[pos+i] = pvec[i];
+}
+
+void FFN_State::get_gradient(eig::real_vec& grad, const int& pos) const
+{
+  grad = SequentialNet::get_gradient().col(0);
+}
 
 
 

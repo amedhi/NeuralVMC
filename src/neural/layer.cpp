@@ -2,7 +2,7 @@
 * @Author: Amal Medhi
 * @Date:   2018-12-29 12:01:09
 * @Last Modified by:   Amal Medhi, amedhi@mbpro
-* @Last Modified time: 2019-02-07 14:21:46
+* @Last Modified time: 2019-02-11 16:46:04
 *----------------------------------------------------------------------------*/
 #include <locale>
 #include "layer.h"
@@ -60,6 +60,31 @@ const double& NeuralLayer::get_parameter(const int& id) const
   else {
     throw std::out_of_range("NeuralLayer::get_parameter: out-of-range 'id'");
   }
+}
+
+void NeuralLayer::get_parameter_names(std::vector<std::string>& pnames, const int& pos) const
+{
+  std::string w = "w"+std::to_string(id_)+"_";
+  int n = pos;
+  for (int i=0; i<kernel_.rows(); ++i) {
+    for (int j=0; j<kernel_.cols(); ++j) {
+      pnames[n] = w + std::to_string(i) + "," + std::to_string(j); 
+      n++;
+    }
+  }
+  std::string b = "b"+std::to_string(id_)+"_";
+  for (int i=0; i<bias_.size(); ++i) {
+    pnames[n++] = b + std::to_string(i);
+  }
+}
+
+void NeuralLayer::get_parameter_values(eig::real_vec& pvalues, const int& pos) const
+{
+  for (int i=0; i<kernel_.size(); ++i)
+    pvalues(pos+i) = *(kernel_.data()+i);
+  int n = pos+kernel_.size();
+  for (int i=0; i<bias_.size(); ++i)
+    pvalues(n+i) = *(bias_.data()+i);
 }
 
 void NeuralLayer::get_parameters(Vector& pvec, const int& start_pos) const
@@ -121,7 +146,7 @@ Vector NeuralLayer::get_output(const eig::real_vec& input) const
   } 
 }
 
-Vector NeuralLayer::derivative(const int& lid, const int& pid)
+Vector NeuralLayer::derivative(const int& lid, const int& pid) const
 {
   assert(lid > 0); // input layer has no parameter
 

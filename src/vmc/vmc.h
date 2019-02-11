@@ -38,7 +38,7 @@ public:
     Eigen::MatrixXd& sr_matrix, const int& sample_size=-1);
   //void get_vparm_values(var::parm_vector& varparms) 
   //  { varparms = config.vparm_values(); }
-  const unsigned& num_varp(void) const { return config.num_varparms(); } 
+  const int& num_varp(void) const { return config.num_varparms(); } 
   const var::parm_vector& varp_values(void) { return config.vparm_values(); }
   const var::parm_vector& varp_lbound(void) const { return config.vparm_lbound(); }
   const var::parm_vector& varp_ubound(void) const { return config.vparm_ubound(); }
@@ -71,7 +71,7 @@ private:
   SysConfig config;
   SiteDisorder site_disorder_;
   unsigned num_sites_;
-  unsigned num_varparms_;
+  int num_varparms_;
 
   // observables
   ObservableSet observables;

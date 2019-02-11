@@ -34,7 +34,7 @@ public:
   int build(const lattice::LatticeGraph& graph, const var::parm_vector& vparms, 
     const bool& need_psi_grad=false);
   std::string signature_str(void) const { return wf.signature_str(); } 
-  const unsigned& num_varparms(void) const { return num_varparms_; } 
+  const int& num_varparms(void) const { return num_varparms_; } 
   const var::parm_vector& vparm_values(void);
   const std::vector<double>& vparm_vector(void); 
   const std::vector<std::string>& varp_names(void) const { return vparm_names_; }
@@ -57,7 +57,7 @@ public:
   void print_stats(std::ostream& os=std::cout) const;
   //var::VariationalParms& var_parms(void) { return wf.var_parms(); }
 private:
-  FockState fock_basis_;
+  FockBasis fock_basis_;
   var::WavefunProjector pj;
   var::FFN_State ffnet_;
   var::Wavefunction wf;
@@ -73,9 +73,10 @@ private:
   unsigned num_dnspins_;
 
   // variational parameters
-  unsigned num_pj_parms_{0};
-  unsigned num_wf_parms_{0};
-  unsigned num_varparms_{0};
+  int num_net_parms_{0};
+  int num_wf_parms_{0};
+  int num_pj_parms_{0};
+  int num_varparms_{0};
   mutable var::parm_vector vparm_values_;
   mutable std::vector<double> vparm_vector_;
   std::vector<std::string> vparm_names_;

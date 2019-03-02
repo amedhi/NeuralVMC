@@ -2,7 +2,7 @@
 * @Author: Amal Medhi
 * @Date:   2018-12-29 20:39:14
 * @Last Modified by:   Amal Medhi, amedhi@mbpro
-* @Last Modified time: 2019-02-11 16:45:15
+* @Last Modified time: 2019-02-20 12:18:14
 *----------------------------------------------------------------------------*/
 #include "neuralnet.h"
 
@@ -97,10 +97,10 @@ void SequentialNet::get_parameter_values(eig::real_vec& pvalues, const int& pos)
   }
 }
 
-void SequentialNet::update_parameters(const Vector& pvec)
+void SequentialNet::update_parameters(const eig::real_vec& pvec, const int& start_pos)
 {
   for (int i=1; i<num_layers_; ++i) {
-    int pos = pid_range_[i-1];
+    int pos = start_pos + pid_range_[i-1];
     operator[](i).update_parameters(pvec, pos);
   }
 }

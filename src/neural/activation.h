@@ -58,6 +58,17 @@ private:
   double maxval_{0.0};
 };
 
+class TANH : public Activation
+{
+public:
+  TANH() {}
+  ~TANH() {}
+  double function(const double& x) const override;
+  Vector function(const Vector& input) const override;
+  double derivative(const double& x) const override;
+  Vector derivative(const Vector& input) const override;
+};
+
 class Sigmoid : public Activation
 {
 public:

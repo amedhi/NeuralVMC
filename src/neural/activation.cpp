@@ -1,8 +1,8 @@
 /*---------------------------------------------------------------------------
 * @Author: amedhi
 * @Date:   2019-01-10 14:22:50
-* @Last Modified by:   amedhi
-* @Last Modified time: 2019-01-10 23:27:10
+* @Last Modified by:   Amal Medhi, amedhi@mbpro
+* @Last Modified time: 2019-03-02 09:42:36
 *----------------------------------------------------------------------------*/
 #include "activation.h"
 
@@ -79,26 +79,48 @@ Vector RELU::derivative(const Vector& input) const
 	}
 }
 
+double TANH::function(const double& x) const 
+{
+  return std::tanh(x);
+}
+
+Vector TANH::function(const Vector& input) const
+{
+  return input.unaryExpr([](const double& x) {return std::tanh(-x);});
+}
+
+double TANH::derivative(const double& x) const 
+{
+  double y = std::tanh(x);
+  return 1.0-y*y;
+}
+
+Vector TANH::derivative(const Vector& input) const
+{
+  return input.unaryExpr([](const double& x) 
+	{ double y = std::tanh(x); return 1.0-y*y; });
+}
+
 double Sigmoid::function(const double& x) const 
 {
-	return 1.0/(1.0+std::exp(-x));
+  return 1.0/(1.0+std::exp(-x));
 }
 
 Vector Sigmoid::function(const Vector& input) const
 {
-	return input.unaryExpr([](const double& x) {return 1.0/(1.0+std::exp(-x));});
+  return input.unaryExpr([](const double& x) {return 1.0/(1.0+std::exp(-x));});
 }
 
 double Sigmoid::derivative(const double& x) const 
 {
-	double y = 1.0/(1.0+std::exp(-x));
-	return y*(1.0-y);
+  double y = 1.0/(1.0+std::exp(-x));
+  return y*(1.0-y);
 }
 
 Vector Sigmoid::derivative(const Vector& input) const
 {
-	return input.unaryExpr([](const double& x) 
-		{ double y = 1.0/(1.0+std::exp(-x)); return y*(1.0-y); });
+  return input.unaryExpr([](const double& x) 
+	{ double y = 1.0/(1.0+std::exp(-x)); return y*(1.0-y); });
 }
 
 

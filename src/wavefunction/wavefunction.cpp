@@ -15,10 +15,10 @@ Wavefunction::Wavefunction(const lattice::LatticeGraph& graph,
   const input::Parameters& inputs, const bool& site_disorder)
   : num_sites_(graph.num_sites())
 {
-  name_ = inputs.set_value("wavefunction", "NORMAL");
+  name_ = inputs.set_value("wavefunction", "NONE");
   boost::to_upper(name_);
-  if (name_ == "NORMAL") {
-    throw std::range_error("Wavefunction::Wavefunction: unidefined wavefunction");
+  if (name_ == "FERMISEA") {
+    groundstate_.reset(new Fermisea(inputs,graph));
   }
   else if (name_ == "SWAVE_SC") {
     groundstate_.reset(new BCS_State(bcs::swave,inputs,graph));

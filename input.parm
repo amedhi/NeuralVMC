@@ -13,11 +13,11 @@ print_level = -2 #-2
 #---------------------------------------------
 # Lattice:
 #---------------------------------------------
-lattice = "SQUARE" 
-lsize1 = 4
-lsize2 = 4
+lattice = "CHAIN" # "SQUARE" 
+lsize1 = 20
+#lsize2 = 4
 bc1 = "periodic"
-bc2 = "periodic"
+#bc2 = "periodic"
 
 #---------------------------------------------
 # Model:
@@ -33,8 +33,8 @@ U = 0.0
 #---------------------------------------------
 wavefunction = "NeuralNet"
 gutzwiller_proj = "No"
-hole_doping = 0.16 # 0.0
-gfactor = 0.5
+hole_doping = 0.0 # 0.16 # 0.0
+gfactor = 1.0
 
 #---------------------------------------------
 # List of observable to calculate:
@@ -55,11 +55,14 @@ max_interval = 20
 #---------------------------------------------
 # Optimization parameters
 #---------------------------------------------
-num_opt_samples = 10
+sr_opt_samples = 3
 sr_max_iter = 500
 sr_start_tstep = 0.08
 sr_series_len = 50
 sr_fluctuation_tol = 0.35
+sr_progress_stdout = True
+sr_progress_log = True
+
 
 
 

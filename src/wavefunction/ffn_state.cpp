@@ -3,7 +3,7 @@
 * @Author: Amal Medhi, amedhi@mbpro
 * @Date:   2019-01-29 12:56:31
 * @Last Modified by:   Amal Medhi, amedhi@mbpro
-* @Last Modified time: 2019-02-11 16:44:01
+* @Last Modified time: 2019-03-02 09:43:02
 *----------------------------------------------------------------------------*/
 #include "./ffn_state.h"
 
@@ -21,8 +21,9 @@ int FFN_State::init(const int& num_sites, const input::Parameters& inputs)
   num_sites_ = num_sites;
   //set_particle_num(inputs);
   int num_units = 2*num_sites_;
-  add_layer(num_units,"Sigmoid",num_units);
-  add_layer(1,"Sigmoid");
+  add_layer(num_units,"tanh",num_units);
+  add_layer(num_units,"tanh",num_units);
+  add_layer(1,"sigmoid");
   compile();
   //num_varparms_ = ffnet_.num_params();
   return 0;
@@ -31,6 +32,11 @@ int FFN_State::init(const int& num_sites, const input::Parameters& inputs)
 void FFN_State::update_state(const eig::ivec& fock_state)
 {
   SequentialNet::run(fock_state.cast<double>());
+}
+
+void FFN_State::update_params(const eig::real_vec& pvalues, const int& pos)
+{
+  SequentialNet::update_parameters(pvalues, pos);
 }
 
 const double& FFN_State::output(void) const

@@ -57,10 +57,12 @@ int Lattice::define_lattice(void)
     lid = lattice_id::CHAIN;
     extent[dim2] = Extent{1, boundary_type::open, boundary_type::open};
     extent[dim3] = Extent{1, boundary_type::open, boundary_type::open};
+    // basis vectors
+    set_basis_vectors(a1=vec(1,0,0), a2=vec(0,0,0), a3=vec(0,0,0));
     // add sites
     add_basis_site(type=0, coord=vec(0,0,0));
     // add bonds
-    add_bond(type=0, ngb=1, src=0, src_offset=pos(0,0,0), tgt=0, tgt_offset=pos(1,0,0));
+    add_bond(type=0,ngb=1,src=0,src_offset=pos(0,0,0),tgt=0,tgt_offset=pos(1,0,0));
   }
 
   else if (lname == "HONEYCOMB") {

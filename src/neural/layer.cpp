@@ -2,7 +2,7 @@
 * @Author: Amal Medhi
 * @Date:   2018-12-29 12:01:09
 * @Last Modified by:   Amal Medhi, amedhi@mbpro
-* @Last Modified time: 2019-02-11 16:46:04
+* @Last Modified time: 2019-03-02 09:39:35
 *----------------------------------------------------------------------------*/
 #include <locale>
 #include "layer.h"
@@ -27,6 +27,9 @@ NeuralLayer::NeuralLayer(const int& units, const std::string& activation,
   }
   else if (fname=="SIGMOID") {
     activation_.reset(new Sigmoid());
+  }
+  else if (fname=="TANH") {
+    activation_.reset(new TANH());
   }
   else {
     throw std::invalid_argument("NeuralLayer:: undefined activation '"+fname+"'");

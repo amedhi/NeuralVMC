@@ -28,7 +28,7 @@ public:
   void get_parameters(Vector& pvec) const;
   void get_parameter_names(std::vector<std::string>& pnames, const int& pos) const;
   void get_parameter_values(eig::real_vec& pvalues, const int& pos) const;
-  void update_parameters(const Vector& pvec);
+  void update_parameters(const Vector& pvec, const int& pos=0);
   void update_parameter(const int& id, const double& value);
   void run(const eig::real_vec& input); 
   eig::real_vec get_output(const eig::real_vec& input) const;

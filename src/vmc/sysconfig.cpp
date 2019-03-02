@@ -76,7 +76,7 @@ int SysConfig::build(const lattice::LatticeGraph& graph, const var::parm_vector&
 {
   if (num_sites_==0) return -1;
   int start_pos = 0;
-  //ffnet_.update_params(vparm_vector_,start_pos);
+  ffnet_.update_params(pvector, start_pos);
   start_pos += num_net_parms_;
   pj.update(pvector,start_pos);
   start_pos += num_pj_parms_;

@@ -2,7 +2,7 @@
 * @Author: Amal Medhi
 * @Date:   2018-12-29 12:01:09
 * @Last Modified by:   Amal Medhi, amedhi@mbpro
-* @Last Modified time: 2019-03-02 09:39:35
+* @Last Modified time: 2019-03-04 22:39:15
 *----------------------------------------------------------------------------*/
 #include <locale>
 #include "layer.h"
@@ -160,6 +160,8 @@ Vector NeuralLayer::derivative(const int& lid, const int& pid) const
       //derivative_(i) *= activation_.get()->derivative(output_(i));  
       derivative_(i) *= activation_.get()->derivative(lin_output_(i));  
     }
+    //std::cout << "layer = " << id_ << "\n";
+    //getchar();
     return derivative_;
   }
   else if (lid == id_) {
@@ -170,7 +172,9 @@ Vector NeuralLayer::derivative(const int& lid, const int& pid) const
       int j = pid / num_units_; 
       double xj = inlayer_->output()(j); // from 'input' layer
       //std::cout << "j = "<<j<<"\n";
+      //std::cout << inlayer_->output().transpose() <<"\n";
       //std::cout << "xj = "<<xj<<"\n";
+      //getchar();
       // row index of kernel-matrix
       int i = pid % num_units_;
       derivative_(i) = activation_.get()->derivative(lin_output_(i)) * xj;  

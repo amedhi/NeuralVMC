@@ -164,7 +164,8 @@ int StochasticReconf::optimize(VMC& vmc)
       
       //vparms_ += search_tstep * (-grad_);
       // box constraint and max_norm (of components not hitting boundary) 
-      vparms_ = lbound_.cwiseMax(vparms_.cwiseMin(ubound_));
+      std::cout << "Box constraint SWITCHED OFF\n";
+      //vparms_ = lbound_.cwiseMax(vparms_.cwiseMin(ubound_));
       /*double gnorm = std::abs(grad_[0]);
       for (unsigned i=0; i<num_parms_; ++i) {
         double x = vparms_(i);

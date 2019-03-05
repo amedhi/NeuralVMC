@@ -6,7 +6,7 @@
 # Job Specification 
 #---------------------------------------------
 job = "VMC Simulation" 
-optimizing_run = "NO" 
+optimizing_run = "YES" # "YES" 
 mode = "NEW" # ("NEW"/"APPEND")
 print_level = -2 #-2
 
@@ -14,7 +14,7 @@ print_level = -2 #-2
 # Lattice:
 #---------------------------------------------
 lattice = "CHAIN" # "SQUARE" 
-lsize1 = 20
+lsize1 = 4
 #lsize2 = 4
 bc1 = "periodic"
 #bc2 = "periodic"
@@ -55,9 +55,10 @@ max_interval = 20
 #---------------------------------------------
 # Optimization parameters
 #---------------------------------------------
+sr_measure_steps = 5000
 sr_opt_samples = 3
 sr_max_iter = 500
-sr_start_tstep = 0.08
+sr_start_tstep = 0.08 # 0.08
 sr_series_len = 50
 sr_fluctuation_tol = 0.35
 sr_progress_stdout = True

@@ -3,7 +3,7 @@
 * @Author: Amal Medhi, amedhi@mbpro
 * @Date:   2019-01-29 12:56:31
 * @Last Modified by:   Amal Medhi, amedhi@mbpro
-* @Last Modified time: 2019-03-02 09:43:02
+* @Last Modified time: 2019-03-05 18:08:37
 *----------------------------------------------------------------------------*/
 #include "./ffn_state.h"
 
@@ -79,6 +79,7 @@ void FFN_State::get_parm_vector(std::vector<double>& pvalues, const int& pos) co
 void FFN_State::get_gradient(eig::real_vec& grad, const int& pos) const
 {
   grad = SequentialNet::get_gradient().col(0);
+  //std::cout << grad.transpose() << "\n"; getchar();
 }
 
 

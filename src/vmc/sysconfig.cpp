@@ -165,7 +165,9 @@ int SysConfig::do_upspin_hop(void)
       last_accepted_moves_++;
       // upddate state
       fock_basis_.commit_last_move();
-      ffn_psi_ = psi;
+      ffnet_.update_state(fock_basis_.state());
+      ffn_psi_ = ffnet_.output();
+      //ffn_psi_ = psi;
     }
     else {
       fock_basis_.undo_last_move();
@@ -190,7 +192,9 @@ int SysConfig::do_dnspin_hop(void)
       last_accepted_moves_++;
       // upddate state
       fock_basis_.commit_last_move();
-      ffn_psi_ = psi;
+      ffnet_.update_state(fock_basis_.state());
+      ffn_psi_ = ffnet_.output();
+      //ffn_psi_ = psi;
     }
     else {
       fock_basis_.undo_last_move();
@@ -214,7 +218,9 @@ int SysConfig::do_spin_exchange(void)
       num_accepted_moves_[move_t::exch]++;
       last_accepted_moves_++;
       fock_basis_.commit_last_move();
-      ffn_psi_ = psi;
+      ffnet_.update_state(fock_basis_.state());
+      ffn_psi_ = ffnet_.output();
+      //ffn_psi_ = psi;
     }
     else {
       fock_basis_.undo_last_move();
@@ -300,6 +306,8 @@ amplitude_t SysConfig::apply_upspin_hop(const unsigned& i, const unsigned& j,
   if (i == j) return ampl_part(fock_basis_.op_ni_up(i));
   if (fock_basis_.apply_cdagc_up(i,j)) {
     int sign = fock_basis_.op_sign();
+    //std::cout << "i, j, sign =" << i << " " << j << " " << sign << "\n";
+    //getchar();
     double psi = ffnet_.get_output(fock_basis_.state());
     double psi_ratio = psi/ffn_psi_;
     double proj_ratio = pj.gw_ratio(fock_basis_.delta_nd());
@@ -523,10 +531,13 @@ void SysConfig::get_grad_logpsi(RealVector& grad_logpsi) const
 
   // grad_logpsi wrt nnet parameters
   eig::real_vec grad(num_net_parms_);
+  //std::cout << "getting grad" << "\n"; getchar();
   ffnet_.get_gradient(grad,0);
+
   for (int n=0; n<num_net_parms_; ++n) {
     grad_logpsi(n) = grad(n)/ffn_psi_;
   }
+  //std::cout << grad_logpsi.transpose() << "\n"; getchar();
   // grad_logpsi wrt pj parameters
   for (int n=0; n<num_pj_parms_; ++n) {
     if (pj.varparms()[n].name()=="gfactor") {

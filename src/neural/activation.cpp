@@ -2,7 +2,7 @@
 * @Author: amedhi
 * @Date:   2019-01-10 14:22:50
 * @Last Modified by:   Amal Medhi, amedhi@mbpro
-* @Last Modified time: 2019-03-02 09:42:36
+* @Last Modified time: 2019-03-04 11:40:33
 *----------------------------------------------------------------------------*/
 #include "activation.h"
 
@@ -86,7 +86,7 @@ double TANH::function(const double& x) const
 
 Vector TANH::function(const Vector& input) const
 {
-  return input.unaryExpr([](const double& x) {return std::tanh(-x);});
+  return input.unaryExpr([](const double& x) {return std::tanh(x);});
 }
 
 double TANH::derivative(const double& x) const 

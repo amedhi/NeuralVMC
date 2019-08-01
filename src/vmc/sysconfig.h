@@ -33,14 +33,14 @@ public:
     const bool& with_gradient=false);
   int build(const lattice::LatticeGraph& graph, const var::parm_vector& vparms, 
     const bool& need_psi_grad=false);
-  std::string signature_str(void) const { return wf.signature_str(); } 
+  std::string signature_str(void) const { return wf_.signature_str(); } 
   const int& num_varparms(void) const { return num_varparms_; } 
   const var::parm_vector& vparm_values(void);
   const std::vector<double>& vparm_vector(void); 
   const std::vector<std::string>& varp_names(void) const { return vparm_names_; }
   const var::parm_vector& vparm_lbound(void) const { return vparm_lbound_; } 
   const var::parm_vector& vparm_ubound(void) const { return vparm_ubound_; } 
-  const double& hole_doping(void) const { return wf.hole_doping(); }
+  const double& hole_doping(void) const { return wf_.hole_doping(); }
   int update_state(void);
   double accept_ratio(void);
   void reset_accept_ratio(void);
@@ -53,21 +53,21 @@ public:
   int apply_niup_nidn(const unsigned& site_i) const;
   void get_grad_logpsi(RealVector& grad_logpsi) const;
   const int& num_updates(void) const { return num_updates_; }
-  const var::Wavefunction& wavefunc(void) const { return wf; }
+  const var::Wavefunction& wavefunc(void) const { return wf_; }
   void print_stats(std::ostream& os=std::cout) const;
   //var::VariationalParms& var_parms(void) { return wf.var_parms(); }
 private:
   FockBasis fock_basis_;
-  var::WavefunProjector pj;
+  var::WavefunProjector pj_;
   var::FFN_State ffnet_;
-  var::Wavefunction wf;
+  var::Wavefunction wf_;
   double ffn_psi_;
-  Matrix psi_mat;
-  Matrix psi_inv;
-  mutable ColVector psi_row;
-  mutable RowVector psi_col;
-  mutable RowVector inv_row;
-  mutable Matrix psi_grad;
+  Matrix psi_mat_;
+  Matrix psi_inv_;
+  mutable ColVector psi_row_;
+  mutable RowVector psi_col_;
+  mutable RowVector inv_row_;
+  mutable Matrix psi_grad_;
   unsigned num_sites_;
   unsigned num_upspins_;
   unsigned num_dnspins_;

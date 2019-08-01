@@ -209,47 +209,6 @@ bool FockBasis::gen_exchange_move(void)
   return true;
 }
 
-void FockBasis::commit_last_move(void)
-{
-  // double occupancy count
-  switch (proposed_move_) {
-    case move_t::upspin_hop:
-      num_dblocc_sites_ += dblocc_increament_;
-      //operator[](up_fr_state_) = 0;
-      //operator[](up_to_state_) = 1;
-      up_states_[mv_upspin_] = up_to_state_;
-      uphole_states_[mv_uphole_] = up_fr_state_;
-      proposed_move_ = move_t::null;
-      break;
-    case move_t::dnspin_hop:
-      num_dblocc_sites_ += dblocc_increament_;
-      //operator[](dn_fr_state_) = 0;
-      //operator[](dn_to_state_) = 1;
-      dn_states_[mv_dnspin_] = dn_to_state_;
-      dnhole_states_[mv_dnhole_] = dn_fr_state_;
-      proposed_move_ = move_t::null;
-      break;
-    case move_t::exchange:
-      up_states_[mv_upspin_] = up_to_state_;
-      uphole_states_[mv_uphole_] = up_fr_state_;
-      dn_states_[mv_dnspin_] = dn_to_state_;
-      dnhole_states_[mv_dnhole_] = dn_fr_state_;
-      proposed_move_ = move_t::null;
-      break;
-    case move_t::null:
-      break;
-  }
-  // check
-  /*
-  int m = 0;
-  int n = 0;
-  for (int i=0; i<num_sites_; ++i) m += operator[](i);
-  for (int i=num_sites_; i<num_states_; ++i) n += operator[](i);
-  if (m!= num_upspins_ || n!= num_dnspins_) {
-    throw std::logic_error("FockBasis::commit_last_move");
-  }*/
-}
-
 int FockBasis::op_ni_up(const int& site) const
 {
   return basis_[site];
@@ -266,7 +225,7 @@ int FockBasis::op_ni_updn(const int& site) const
   else return 0;
 }
 
-bool FockBasis::apply_cdagc_up(const int& site_i, const int& site_j) const
+bool FockBasis::op_cdagc_up(const int& site_i, const int& site_j) const
 {
   if (proposed_move_!=move_t::null) undo_last_move();
   if (basis_[site_i]==0 && basis_[site_j]==1) {
@@ -298,7 +257,7 @@ bool FockBasis::apply_cdagc_up(const int& site_i, const int& site_j) const
   return true;
 }
 
-bool FockBasis::apply_cdagc_dn(const int& site_i, const int& site_j) const
+bool FockBasis::op_cdagc_dn(const int& site_i, const int& site_j) const
 {
   if (proposed_move_!=move_t::null) undo_last_move();
   if (basis_[site_i]==0 && basis_[site_j]==1) {
@@ -379,6 +338,48 @@ int FockBasis::op_exchange_ud(const int& site_i, const int& site_j) const
   proposed_move_ = move_t::exchange;
   return op_sign_;
 }
+
+void FockBasis::commit_last_move(void)
+{
+  // double occupancy count
+  switch (proposed_move_) {
+    case move_t::upspin_hop:
+      num_dblocc_sites_ += dblocc_increament_;
+      //operator[](up_fr_state_) = 0;
+      //operator[](up_to_state_) = 1;
+      up_states_[mv_upspin_] = up_to_state_;
+      uphole_states_[mv_uphole_] = up_fr_state_;
+      proposed_move_ = move_t::null;
+      break;
+    case move_t::dnspin_hop:
+      num_dblocc_sites_ += dblocc_increament_;
+      //operator[](dn_fr_state_) = 0;
+      //operator[](dn_to_state_) = 1;
+      dn_states_[mv_dnspin_] = dn_to_state_;
+      dnhole_states_[mv_dnhole_] = dn_fr_state_;
+      proposed_move_ = move_t::null;
+      break;
+    case move_t::exchange:
+      up_states_[mv_upspin_] = up_to_state_;
+      uphole_states_[mv_uphole_] = up_fr_state_;
+      dn_states_[mv_dnspin_] = dn_to_state_;
+      dnhole_states_[mv_dnhole_] = dn_fr_state_;
+      proposed_move_ = move_t::null;
+      break;
+    case move_t::null:
+      break;
+  }
+  // check
+  /*
+  int m = 0;
+  int n = 0;
+  for (int i=0; i<num_sites_; ++i) m += operator[](i);
+  for (int i=num_sites_; i<num_states_; ++i) n += operator[](i);
+  if (m!= num_upspins_ || n!= num_dnspins_) {
+    throw std::logic_error("FockBasis::commit_last_move");
+  }*/
+}
+
 
 void FockBasis::undo_last_move(void) const
 {

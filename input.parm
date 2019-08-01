@@ -6,7 +6,7 @@
 # Job Specification 
 #---------------------------------------------
 job = "VMC Simulation" 
-optimizing_run = "YES" # "YES" 
+optimizing_run = "NO" # "YES" 
 mode = "NEW" # ("NEW"/"APPEND")
 print_level = -2 #-2
 
@@ -14,7 +14,7 @@ print_level = -2 #-2
 # Lattice:
 #---------------------------------------------
 lattice = "CHAIN" # "SQUARE" 
-lsize1 = 4
+lsize1 = 8
 #lsize2 = 4
 bc1 = "periodic"
 #bc2 = "periodic"
@@ -47,15 +47,15 @@ Magnetization = "No"
 # Monte Carlo parameters
 #---------------------------------------------
 rng_seed = 1  # (=0 No seed, >0 time_seed)
-measure_steps = 100
-warmup_steps = 100
+measure_steps = 5000
+warmup_steps = 1000
 min_interval = 2
 max_interval = 20
 
 #---------------------------------------------
 # Optimization parameters
 #---------------------------------------------
-sr_measure_steps = 5000
+sr_measure_steps = 2000
 sr_opt_samples = 3
 sr_max_iter = 500
 sr_start_tstep = 0.08 # 0.08

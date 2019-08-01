@@ -14,31 +14,31 @@ SysConfig::SysConfig(const input::Parameters& inputs,
   const lattice::LatticeGraph& graph, const model::Hamiltonian& model)
   : BasisState(graph.num_sites(), model.double_occupancy())
   , fock_basis_(graph.num_sites(), model.double_occupancy())
-  , pj(inputs)
+  , pj_(inputs)
   , ffnet_(graph.num_sites(), inputs)
-  , wf(graph, inputs)
+  , wf_(graph, inputs)
   , num_sites_(graph.num_sites())
 {
   // variational parameters
   num_net_parms_ = ffnet_.num_params();
-  num_pj_parms_ = pj.varparms().size();
-  num_wf_parms_ = wf.varparms().size();
+  num_pj_parms_ = pj_.varparms().size();
+  num_wf_parms_ = wf_.varparms().size();
   num_varparms_ = (num_net_parms_+num_pj_parms_+num_wf_parms_);
   vparm_names_.resize(num_varparms_);
   vparm_lbound_.resize(num_varparms_);
   vparm_ubound_.resize(num_varparms_);
   // names
   ffnet_.get_parm_names(vparm_names_,0);
-  pj.get_vparm_names(vparm_names_,num_net_parms_);
-  wf.get_vparm_names(vparm_names_,num_net_parms_+num_pj_parms_);
+  pj_.get_vparm_names(vparm_names_,num_net_parms_);
+  wf_.get_vparm_names(vparm_names_,num_net_parms_+num_pj_parms_);
   // values are not static and may change
   // bounds
   ffnet_.get_parm_lbound(vparm_lbound_,0);
-  pj.get_vparm_lbound(vparm_lbound_,num_net_parms_);
-  wf.get_vparm_lbound(vparm_lbound_,num_net_parms_+num_pj_parms_);
+  pj_.get_vparm_lbound(vparm_lbound_,num_net_parms_);
+  wf_.get_vparm_lbound(vparm_lbound_,num_net_parms_+num_pj_parms_);
   ffnet_.get_parm_ubound(vparm_ubound_,0);
-  pj.get_vparm_ubound(vparm_ubound_,num_net_parms_);
-  wf.get_vparm_ubound(vparm_ubound_,num_net_parms_+num_pj_parms_);
+  pj_.get_vparm_ubound(vparm_ubound_,num_net_parms_);
+  wf_.get_vparm_ubound(vparm_ubound_,num_net_parms_+num_pj_parms_);
 }
 
 const var::parm_vector& SysConfig::vparm_values(void) 
@@ -46,8 +46,8 @@ const var::parm_vector& SysConfig::vparm_values(void)
   // values as 'var::parm_vector'
   vparm_values_.resize(num_varparms_);
   ffnet_.get_parm_values(vparm_values_,0);
-  pj.get_vparm_values(vparm_values_,num_net_parms_);
-  wf.get_vparm_values(vparm_values_,num_net_parms_+num_pj_parms_);
+  pj_.get_vparm_values(vparm_values_,num_net_parms_);
+  wf_.get_vparm_values(vparm_values_,num_net_parms_+num_pj_parms_);
   return vparm_values_;
 }
 
@@ -56,8 +56,8 @@ const std::vector<double>& SysConfig::vparm_vector(void)
   // values as 'std::double'
   vparm_vector_.resize(num_varparms_);
   ffnet_.get_parm_vector(vparm_vector_,0);
-  pj.get_vparm_vector(vparm_vector_,num_net_parms_);
-  wf.get_vparm_vector(vparm_vector_,num_net_parms_+num_pj_parms_);
+  pj_.get_vparm_vector(vparm_vector_,num_net_parms_);
+  wf_.get_vparm_vector(vparm_vector_,num_net_parms_+num_pj_parms_);
   return vparm_vector_;
 }
 
@@ -65,8 +65,8 @@ int SysConfig::build(const lattice::LatticeGraph& graph, const input::Parameters
     const bool& with_gradient)
 {
   if (num_sites_==0) return -1;
-  pj.update(inputs);
-  wf.compute(graph, inputs, with_gradient);
+  pj_.update(inputs);
+  wf_.compute(graph, inputs, with_gradient);
   init_config();
   return 0;
 }
@@ -78,17 +78,17 @@ int SysConfig::build(const lattice::LatticeGraph& graph, const var::parm_vector&
   int start_pos = 0;
   ffnet_.update_params(pvector, start_pos);
   start_pos += num_net_parms_;
-  pj.update(pvector,start_pos);
+  pj_.update(pvector,start_pos);
   start_pos += num_pj_parms_;
-  wf.compute(graph, pvector, start_pos, need_psi_grad);
+  wf_.compute(graph, pvector, start_pos, need_psi_grad);
   init_config();
   return 0;
 }
 
 int SysConfig::init_config(void)
 {
-  num_upspins_ = wf.num_upspins();
-  num_dnspins_ = wf.num_dnspins();
+  num_upspins_ = wf_.num_upspins();
+  num_dnspins_ = wf_.num_dnspins();
   if (num_upspins_==0 && num_dnspins_==0) return -1;
   if (num_upspins_ != num_dnspins_) 
     throw std::range_error("*SysConfig::init_config: unequal UP & DN spin case not implemented");
@@ -128,10 +128,10 @@ int SysConfig::set_run_parameters(void)
   last_accepted_moves_ = 1;
 
   // work arrays 
-  psi_row.resize(num_dnspins_);
-  psi_col.resize(num_upspins_);
-  inv_row.resize(num_upspins_);
-  psi_grad.resize(num_upspins_,num_dnspins_);
+  psi_row_.resize(num_dnspins_);
+  psi_col_.resize(num_upspins_);
+  inv_row_.resize(num_upspins_);
+  psi_grad_.resize(num_upspins_,num_dnspins_);
   return 0;
 }
 
@@ -232,34 +232,34 @@ int SysConfig::do_spin_exchange(void)
 int SysConfig::inv_update_upspin(const unsigned& upspin, const ColVector& psi_row, 
   const amplitude_t& det_ratio)
 {
-  psi_mat.row(upspin) = psi_row;
+  psi_mat_.row(upspin) = psi_row;
   amplitude_t ratio_inv = amplitude_t(1.0)/det_ratio;
   for (unsigned i=0; i<upspin; ++i) {
-    amplitude_t beta = ratio_inv*psi_row.cwiseProduct(psi_inv.col(i)).sum();
-    psi_inv.col(i) -= beta * psi_inv.col(upspin);
+    amplitude_t beta = ratio_inv*psi_row.cwiseProduct(psi_inv_.col(i)).sum();
+    psi_inv_.col(i) -= beta * psi_inv_.col(upspin);
   }
   for (unsigned i=upspin+1; i<num_upspins_; ++i) {
-    amplitude_t beta = ratio_inv*psi_row.cwiseProduct(psi_inv.col(i)).sum();
-    psi_inv.col(i) -= beta * psi_inv.col(upspin);
+    amplitude_t beta = ratio_inv*psi_row.cwiseProduct(psi_inv_.col(i)).sum();
+    psi_inv_.col(i) -= beta * psi_inv_.col(upspin);
   }
-  psi_inv.col(upspin) *= ratio_inv;
+  psi_inv_.col(upspin) *= ratio_inv;
   return 0;
 }
 
 int SysConfig::inv_update_dnspin(const unsigned& dnspin, const RowVector& psi_col, 
   const amplitude_t& det_ratio)
 {
-  psi_mat.col(dnspin) = psi_col;
+  psi_mat_.col(dnspin) = psi_col;
   amplitude_t ratio_inv = amplitude_t(1.0)/det_ratio;
   for (unsigned i=0; i<dnspin; ++i) {
-    amplitude_t beta = ratio_inv*psi_col.cwiseProduct(psi_inv.row(i)).sum();
-    psi_inv.row(i) -= beta * psi_inv.row(dnspin);
+    amplitude_t beta = ratio_inv*psi_col_.cwiseProduct(psi_inv_.row(i)).sum();
+    psi_inv_.row(i) -= beta * psi_inv_.row(dnspin);
   }
   for (unsigned i=dnspin+1; i<num_dnspins_; ++i) {
-    amplitude_t beta = ratio_inv*psi_col.cwiseProduct(psi_inv.row(i)).sum();
-    psi_inv.row(i) -= beta * psi_inv.row(dnspin);
+    amplitude_t beta = ratio_inv*psi_col_.cwiseProduct(psi_inv_.row(i)).sum();
+    psi_inv_.row(i) -= beta * psi_inv_.row(dnspin);
   }
-  psi_inv.row(dnspin) *= ratio_inv;
+  psi_inv_.row(dnspin) *= ratio_inv;
   return 0;
 }
 
@@ -304,13 +304,13 @@ amplitude_t SysConfig::apply_upspin_hop(const unsigned& i, const unsigned& j,
   const int& bc_phase) const
 {
   if (i == j) return ampl_part(fock_basis_.op_ni_up(i));
-  if (fock_basis_.apply_cdagc_up(i,j)) {
+  if (fock_basis_.op_cdagc_up(i,j)) {
     int sign = fock_basis_.op_sign();
     //std::cout << "i, j, sign =" << i << " " << j << " " << sign << "\n";
     //getchar();
     double psi = ffnet_.get_output(fock_basis_.state());
     double psi_ratio = psi/ffn_psi_;
-    double proj_ratio = pj.gw_ratio(fock_basis_.delta_nd());
+    double proj_ratio = pj_.gw_ratio(fock_basis_.delta_nd());
     return amplitude_t(sign * proj_ratio * psi_ratio);
   }
   else return amplitude_t(0.0);
@@ -320,11 +320,11 @@ amplitude_t SysConfig::apply_dnspin_hop(const unsigned& i, const unsigned& j,
   const int& bc_phase) const
 {
   if (i == j) return ampl_part(fock_basis_.op_ni_dn(i));
-  if (fock_basis_.apply_cdagc_dn(i,j)) {
+  if (fock_basis_.op_cdagc_dn(i,j)) {
     int sign = fock_basis_.op_sign();
     double psi = ffnet_.get_output(fock_basis_.state());
     double psi_ratio = psi/ffn_psi_;
-    double proj_ratio = pj.gw_ratio(fock_basis_.delta_nd());
+    double proj_ratio = pj_.gw_ratio(fock_basis_.delta_nd());
     return amplitude_t(sign * proj_ratio * psi_ratio);
   }
   else return amplitude_t(0.0);
@@ -372,12 +372,12 @@ amplitude_t SysConfig::apply_sisj_plus(const unsigned& i, const unsigned& j) con
   else return amplitude_t(ninj_term);
 
   // det_ratio for the term
-  wf.get_amplitudes(psi_row, up_tosite, dnspin_sites());
-  amplitude_t det_ratio1 = psi_row.cwiseProduct(psi_inv.col(upspin)).sum();
+  wf_.get_amplitudes(psi_row_, up_tosite, dnspin_sites());
+  amplitude_t det_ratio1 = psi_row_.cwiseProduct(psi_inv_.col(upspin)).sum();
   // now for dnspin hop 
-  wf.get_amplitudes(psi_col, upspin_sites(), dn_tosite);
+  wf_.get_amplitudes(psi_col_, upspin_sites(), dn_tosite);
   // since the upspin should have moved
-  wf.get_amplitudes(psi_col(upspin), up_tosite, dn_tosite);
+  wf_.get_amplitudes(psi_col_(upspin), up_tosite, dn_tosite);
   // updated 'dnspin'-th row of psi_inv
   amplitude_t ratio_inv = amplitude_t(1.0)/det_ratio1;
 
@@ -388,16 +388,16 @@ amplitude_t SysConfig::apply_sisj_plus(const unsigned& i, const unsigned& j) con
 
   // elements other than 'upspin'-th
   for (unsigned i=0; i<upspin; ++i) {
-    amplitude_t beta = ratio_inv*psi_row.cwiseProduct(psi_inv.col(i)).sum();
-    inv_row(i) = psi_inv(dnspin,i) - beta * psi_inv(dnspin,upspin);
+    amplitude_t beta = ratio_inv*psi_row_.cwiseProduct(psi_inv_.col(i)).sum();
+    inv_row_(i) = psi_inv_(dnspin,i) - beta * psi_inv_(dnspin,upspin);
   }
   for (unsigned i=upspin+1; i<num_upspins_; ++i) {
-    amplitude_t beta = ratio_inv*psi_row.cwiseProduct(psi_inv.col(i)).sum();
-    inv_row(i) = psi_inv(dnspin,i) - beta * psi_inv(dnspin,upspin);
+    amplitude_t beta = ratio_inv*psi_row_.cwiseProduct(psi_inv_.col(i)).sum();
+    inv_row_(i) = psi_inv_(dnspin,i) - beta * psi_inv_(dnspin,upspin);
   }
-  inv_row(upspin) = ratio_inv * psi_inv(dnspin,upspin);
+  inv_row_(upspin) = ratio_inv * psi_inv_(dnspin,upspin);
   // ratio for the dnspin hop
-  amplitude_t det_ratio2 = psi_col.cwiseProduct(inv_row).sum();
+  amplitude_t det_ratio2 = psi_col_.cwiseProduct(inv_row_).sum();
   amplitude_t det_ratio = ampl_part(std::conj(det_ratio1*det_ratio2));
   /*
   if (std::isnan(det_ratio)) {
@@ -469,8 +469,8 @@ amplitude_t SysConfig::apply_bondsinglet_hop(const unsigned& i_dag,
       det_ratio1 = amplitude_t(1.0);
     }
     else {
-      wf.get_amplitudes(psi_row, up_tosite, dnspin_sites());
-      det_ratio1 = psi_row.cwiseProduct(psi_inv.col(upspin)).sum();
+      wf_.get_amplitudes(psi_row_, up_tosite, dnspin_sites());
+      det_ratio1 = psi_row_.cwiseProduct(psi_inv_.col(upspin)).sum();
     }
 
     // next hop the dn-spin
@@ -479,28 +479,28 @@ amplitude_t SysConfig::apply_bondsinglet_hop(const unsigned& i_dag,
       det_ratio2 = amplitude_t(1.0);
     }
     else {
-      wf.get_amplitudes(psi_col, upspin_sites(), dn_tosite);
+      wf_.get_amplitudes(psi_col_, upspin_sites(), dn_tosite);
       // since one upspin have moved
-      wf.get_amplitudes(psi_col(upspin), up_tosite, dn_tosite);
+      wf_.get_amplitudes(psi_col_(upspin), up_tosite, dn_tosite);
       // updated 'dnspin'-th row of psi_inv
       amplitude_t ratio_inv = amplitude_t(1.0)/det_ratio1;
       // elements other than 'upspin'-th
       for (unsigned i=0; i<upspin; ++i) {
-        amplitude_t beta = ratio_inv*psi_row.cwiseProduct(psi_inv.col(i)).sum();
-        inv_row(i) = psi_inv(dnspin,i) - beta * psi_inv(dnspin,upspin);
+        amplitude_t beta = ratio_inv*psi_row_.cwiseProduct(psi_inv_.col(i)).sum();
+        inv_row_(i) = psi_inv_(dnspin,i) - beta * psi_inv_(dnspin,upspin);
       }
       for (unsigned i=upspin+1; i<num_upspins_; ++i) {
-        amplitude_t beta = ratio_inv*psi_row.cwiseProduct(psi_inv.col(i)).sum();
-        inv_row(i) = psi_inv(dnspin,i) - beta * psi_inv(dnspin,upspin);
+        amplitude_t beta = ratio_inv*psi_row_.cwiseProduct(psi_inv_.col(i)).sum();
+        inv_row_(i) = psi_inv_(dnspin,i) - beta * psi_inv_(dnspin,upspin);
       }
-      inv_row(upspin) = ratio_inv * psi_inv(dnspin,upspin);
+      inv_row_(upspin) = ratio_inv * psi_inv_(dnspin,upspin);
       // ratio for the dnspin hop
-      det_ratio2 = psi_col.cwiseProduct(inv_row).sum();
+      det_ratio2 = psi_col_.cwiseProduct(inv_row_).sum();
     }
     // net ratio for up & dn spin hop
     amplitude_t det_ratio = ampl_part(std::conj(det_ratio1*det_ratio2));
 
-    if (pj.have_gutzwiller()) {
+    if (pj_.have_gutzwiller()) {
       // change in double occupancy for up-spin hop
       delta_nd = 0;
       if (up_fromsite != up_tosite) {
@@ -512,7 +512,7 @@ amplitude_t SysConfig::apply_bondsinglet_hop(const unsigned& i_dag,
         delta_nd += state_ia->count(); 
         if (state_jb->count()==2) delta_nd--;
       }
-      det_ratio *= pj.gw_ratio(delta_nd);
+      det_ratio *= pj_.gw_ratio(delta_nd);
     }
     // contribution from this term
     net_ratio += det_ratio;
@@ -540,8 +540,8 @@ void SysConfig::get_grad_logpsi(RealVector& grad_logpsi) const
   //std::cout << grad_logpsi.transpose() << "\n"; getchar();
   // grad_logpsi wrt pj parameters
   for (int n=0; n<num_pj_parms_; ++n) {
-    if (pj.varparms()[n].name()=="gfactor") {
-      double g = pj.varparms()[n].value();
+    if (pj_.varparms()[n].name()=="gfactor") {
+      double g = pj_.varparms()[n].value();
       grad_logpsi(num_net_parms_+n) = static_cast<double>(dblocc_count())/g;
     }
     else {
@@ -552,8 +552,8 @@ void SysConfig::get_grad_logpsi(RealVector& grad_logpsi) const
   //auto grad = ffnet_.get_gradient()/ffn_psi_;
   int p = num_net_parms_+num_pj_parms_;
   for (unsigned n=0; n<num_wf_parms_; ++n) {
-    wf.get_gradients(psi_grad,n,upspin_sites(),dnspin_sites());
-    grad_logpsi(p+n) = std::real(psi_grad.cwiseProduct(psi_inv.transpose()).sum());
+    wf_.get_gradients(psi_grad_,n,upspin_sites(),dnspin_sites());
+    grad_logpsi(p+n) = std::real(psi_grad_.cwiseProduct(psi_inv_.transpose()).sum());
     //grad_logpsi(p+n) = grad(n);
   }
 }

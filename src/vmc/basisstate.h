@@ -136,8 +136,8 @@ public:
   int op_ni_up(const int& site) const;
   int op_ni_dn(const int& site) const;
   int op_ni_updn(const int& site) const;
-  bool apply_cdagc_up(const int& fr_site, const int& to_site) const;
-  bool apply_cdagc_dn(const int& fr_site, const int& to_site) const;
+  bool op_cdagc_up(const int& fr_site, const int& to_site) const;
+  bool op_cdagc_dn(const int& fr_site, const int& to_site) const;
   int op_exchange_ud(const int& fr_site, const int& to_site) const;
   const int op_sign(void) const { return op_sign_; }
   const int delta_nd(void) const { return dblocc_increament_; }

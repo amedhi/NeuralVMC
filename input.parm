@@ -14,33 +14,34 @@ print_level = -2 #-2
 # Lattice:
 #---------------------------------------------
 lattice = "CHAIN" # "SQUARE" 
-lsize1 = 8
-#lsize2 = 4
+lsize1 = 10
+#lsize2 = 10
 bc1 = "periodic"
-#bc2 = "periodic"
+#bc2 = "antiperiodic"
 
 #---------------------------------------------
 # Model:
 #---------------------------------------------
-#model = "tJ"
 model = "HUBBARD"
 t = 1.0
-#J = 0.35
 U = 0.0
 
 #---------------------------------------------
 # Variational wavefunction
 #---------------------------------------------
-wavefunction = "NeuralNet"
-gutzwiller_proj = "No"
-hole_doping = 0.0 # 0.16 # 0.0
-gfactor = 1.0
+wavefunction = "IDENTITY"
+machine = "FFN"
+gutzwiller_proj = "NO"
+hole_doping = 0.0 
+#delta_sc = 0.08
+#gfactor = 0.3037
+#mu = -0.4263
 
 #---------------------------------------------
 # List of observable to calculate:
 #---------------------------------------------
 Energy = "Yes"
-EnergyGradient = "YES"
+EnergyGradient = "NO"
 Magnetization = "No"
 
 #---------------------------------------------
@@ -48,7 +49,7 @@ Magnetization = "No"
 #---------------------------------------------
 rng_seed = 1  # (=0 No seed, >0 time_seed)
 measure_steps = 5000
-warmup_steps = 1000
+warmup_steps = 5000
 min_interval = 2
 max_interval = 20
 

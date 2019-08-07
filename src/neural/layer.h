@@ -24,7 +24,7 @@ public:
   ~NeuralLayer() {}
   void set_id(const int& id) { id_=id; }
   void set_input(const Vector& v) { input_=v; }
-  void set_input(const eig::ivec& v) { input_=v.cast<double>(); }
+  void set_input(const eig::ivector& v) { input_=v.cast<double>(); }
   void set_kernel(const Matrix& w) { kernel_=w; }
   void set_bias(const Vector& b) { bias_=b; }
   void set_input_layer(NeuralLayer* layer) { inlayer_=layer; }

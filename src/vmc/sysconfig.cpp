@@ -8,17 +8,24 @@
 #include "./sysconfig.h"
 #include <Eigen/SVD>
 
+//#define HAVE_DETERMINANTAL_PART
+
 namespace vmc {
 
 SysConfig::SysConfig(const input::Parameters& inputs, 
   const lattice::LatticeGraph& graph, const model::Hamiltonian& model)
-  : BasisState(graph.num_sites(), model.double_occupancy())
-  , fock_basis_(graph.num_sites(), model.double_occupancy())
+  : fock_basis_(graph.num_sites(), model.double_occupancy())
   , pj_(inputs)
   , ffnet_(graph.num_sites(), inputs)
   , wf_(graph, inputs)
   , num_sites_(graph.num_sites())
 {
+#ifdef HAVE_DETERMINANTAL_PART
+  if (wf_.type() == var::wf_type::IDENTITY) have_mf_part_ = false;
+  else have_mf_part_ = true;
+#else
+  have_mf_part_ = false;
+#endif
   // variational parameters
   num_net_parms_ = ffnet_.num_params();
   num_pj_parms_ = pj_.varparms().size();
@@ -61,6 +68,21 @@ const std::vector<double>& SysConfig::vparm_vector(void)
   return vparm_vector_;
 }
 
+std::string SysConfig::info_str(void) const
+{
+  std::ostringstream info;
+  info << wf_.info_str();
+  info.precision(6);
+  info.setf(std::ios_base::fixed);
+  /*info << "# Variational parameters:\n";
+  for (const auto& v : wf.varparms()) 
+    info << "# " << v.name() << " = " << v.value() << "\n";
+  for (const auto& v : pj.varparms()) 
+    info << "# " << v.name() << " = " << v.value() << "\n";
+  */
+  return info.str();
+}
+
 int SysConfig::build(const lattice::LatticeGraph& graph, const input::Parameters& inputs,
     const bool& with_gradient)
 {
@@ -93,6 +115,33 @@ int SysConfig::init_config(void)
   if (num_upspins_ != num_dnspins_) 
     throw std::range_error("*SysConfig::init_config: unequal UP & DN spin case not implemented");
   fock_basis_.init_spins(num_upspins_,num_dnspins_);
+
+#ifdef HAVE_DETERMINANTAL_PART
+  if (have_mf_part_) {
+    psi_mat_.resize(num_upspins_, num_dnspins_);
+    psi_inv_.resize(num_dnspins_, num_upspins_);
+    // try for a well condictioned amplitude matrix
+    fock_basis_.set_random();
+    int num_attempt = 0;
+    while (true) {
+      wf_.get_amplitudes(psi_mat_,fock_basis_.upspin_sites(),fock_basis_.dnspin_sites());
+      // reciprocal conditioning number
+      Eigen::JacobiSVD<Matrix> svd(psi_mat_);
+      // reciprocal cond. num = smallest eigenval/largest eigen val
+      double rcond = svd.singularValues()(svd.singularValues().size()-1)/svd.singularValues()(0);
+      if (std::isnan(rcond)) rcond = 0.0; 
+      //std::cout << "rcondition number = "<< rcond << "\n";
+      if (rcond>1.0E-15) break;
+      // try new basis state
+      fock_basis_.set_random();
+      if (++num_attempt > 1000) {
+        throw std::underflow_error("*SysConfig::init: configuration wave function ill conditioned.");
+      }
+    }
+    // amplitude matrix invers
+    psi_inv_ = psi_mat_.inverse();
+  }
+#endif
   // run parameters
   ffnet_.update_state(fock_basis_.state());
   ffn_psi_ = ffnet_.output();
@@ -103,11 +152,12 @@ int SysConfig::init_config(void)
 int SysConfig::set_run_parameters(void)
 {
   num_updates_ = 0;
+  num_iterations_ = 0;
   refresh_cycle_ = 100;
   // number of moves per mcstep
   int n_up = static_cast<int>(num_upspins_);
   int n_dn = static_cast<int>(num_dnspins_);
-  if (double_occupancy()) {
+  if (fock_basis_.double_occupancy()) {
     num_uphop_moves_ = num_upspins_;
     num_dnhop_moves_ = num_dnspins_;
     num_exchange_moves_ = std::min(n_up, n_dn);
@@ -141,11 +191,13 @@ int SysConfig::update_state(void)
   for (int n=0; n<num_dnhop_moves_; ++n) do_dnspin_hop();
   for (int n=0; n<num_exchange_moves_; ++n) do_spin_exchange();
   num_updates_++;
-  //if (num_updates_ % refresh_cycle_ == 0) {
-  //  psi_inv = psi_mat.inverse();
-  //}
-  //std::cout << "\n state=" << fock_basis_.transpose() << "\n"; getchar();
-  //throw std::range_error("Exiting at: SysConfig::update_state");
+  if (have_mf_part_) {
+    num_iterations_++;
+    if (num_iterations_ == refresh_cycle_) {
+      psi_inv_ = psi_mat_.inverse();
+      num_iterations_ = 0;
+    }
+  }
   return 0;
 }
 
@@ -155,19 +207,40 @@ int SysConfig::do_upspin_hop(void)
     num_proposed_moves_[move_t::uphop]++;
     last_proposed_moves_++;
     //std::cout << "\n state=" << fock_basis_.transpose() << "\n";
-    double psi = ffnet_.get_output(fock_basis_.state());
-    double psi_ratio = psi/ffn_psi_;
-    double proj_ratio = 1.0;
-    double weight_ratio = psi_ratio * proj_ratio;
-    double transition_proby = std::norm(weight_ratio);
-    if (rng().random_real()<transition_proby) {
+    double nnet_psi = ffnet_.get_output(fock_basis_.state());
+    amplitude_t psi_ratio = nnet_psi/ffn_psi_;
+
+#ifdef HAVE_DETERMINANTAL_PART
+    double proj_ratio = pj_.gw_ratio(fock_basis_.delta_nd());
+    psi_ratio *= proj_ratio;
+    // determinantal part
+    int upspin, to_site;
+    amplitude_t det_ratio;
+    if (have_mf_part_) {
+      upspin = fock_basis_.which_upspin();
+      to_site = fock_basis_.which_site();
+      wf_.get_amplitudes(psi_row_,to_site,fock_basis_.dnspin_sites());
+      det_ratio = psi_row_.cwiseProduct(psi_inv_.col(upspin)).sum();
+      if (std::abs(det_ratio) < 1.0E-12) det_ratio = 0.0;
+      psi_ratio *= det_ratio;
+    }
+#endif
+
+    double transition_proby = std::norm(psi_ratio);
+    if (fock_basis_.rng().random_real()<transition_proby) {
       num_accepted_moves_[move_t::uphop]++;
       last_accepted_moves_++;
       // upddate state
       fock_basis_.commit_last_move();
       ffnet_.update_state(fock_basis_.state());
       ffn_psi_ = ffnet_.output();
-      //ffn_psi_ = psi;
+
+#ifdef HAVE_DETERMINANTAL_PART
+      if (have_mf_part_) {
+        inv_update_upspin(upspin,psi_row_,det_ratio);
+      }
+#endif
+
     }
     else {
       fock_basis_.undo_last_move();
@@ -182,19 +255,37 @@ int SysConfig::do_dnspin_hop(void)
     num_proposed_moves_[move_t::dnhop]++;
     last_proposed_moves_++;
     //std::cout << "\n state=" << fock_basis_.transpose() << "\n";
-    double psi = ffnet_.get_output(fock_basis_.state());
-    double psi_ratio = psi/ffn_psi_;
-    double proj_ratio = 1.0;
-    double weight_ratio = psi_ratio * proj_ratio;
-    double transition_proby = std::norm(weight_ratio);
-    if (rng().random_real()<transition_proby) {
+    double nnet_psi = ffnet_.get_output(fock_basis_.state());
+    amplitude_t psi_ratio = nnet_psi/ffn_psi_;
+
+#ifdef HAVE_DETERMINANTAL_PART
+    double proj_ratio = pj_.gw_ratio(fock_basis_.delta_nd());
+    psi_ratio *= proj_ratio;
+    // determinantal part
+    int dnspin, to_site;
+    amplitude_t det_ratio;
+    if (have_mf_part_) {
+      dnspin = fock_basis_.which_dnspin();
+      to_site = fock_basis_.which_site();
+      wf_.get_amplitudes(psi_col_,fock_basis_.upspin_sites(),to_site);
+      det_ratio = psi_col_.cwiseProduct(psi_inv_.row(dnspin)).sum();
+      if (std::abs(det_ratio) < 1.0E-12) det_ratio = 0.0;
+      psi_ratio *= det_ratio;
+    }
+#endif
+    double transition_proby = std::norm(psi_ratio);
+    if (fock_basis_.rng().random_real()<transition_proby) {
       num_accepted_moves_[move_t::dnhop]++;
       last_accepted_moves_++;
       // upddate state
       fock_basis_.commit_last_move();
       ffnet_.update_state(fock_basis_.state());
       ffn_psi_ = ffnet_.output();
-      //ffn_psi_ = psi;
+#ifdef HAVE_DETERMINANTAL_PART
+      if (have_mf_part_) {
+        inv_update_dnspin(dnspin,psi_col_,det_ratio);
+      }
+#endif
     }
     else {
       fock_basis_.undo_last_move();
@@ -209,18 +300,63 @@ int SysConfig::do_spin_exchange(void)
     num_proposed_moves_[move_t::exch]++;
     last_proposed_moves_++;
     //std::cout << "\n state=" << fock_basis_.transpose() << "\n";
-    double psi = ffnet_.get_output(fock_basis_.state());
-    double psi_ratio = psi/ffn_psi_;
-    double proj_ratio = 1.0;
-    double weight_ratio = psi_ratio * proj_ratio;
-    double transition_proby = std::norm(weight_ratio);
-    if (rng().random_real()<transition_proby) {
+    double nnet_psi = ffnet_.get_output(fock_basis_.state());
+    amplitude_t psi_ratio = nnet_psi/ffn_psi_;
+
+#ifdef HAVE_DETERMINANTAL_PART
+    int upspin, up_tosite, dnspin, dn_tosite;
+    amplitude_t det_ratio1, det_ratio2;
+    if (have_mf_part_) {
+      upspin = fock_basis_.which_upspin();
+      up_tosite = fock_basis_.which_upspin_site();
+      // for upspin hop forward
+      wf_.get_amplitudes(psi_row_, up_tosite, fock_basis_.dnspin_sites());
+      det_ratio1 = psi_row_.cwiseProduct(psi_inv_.col(upspin)).sum();
+      if (std::abs(det_ratio1) < 1.0E-12) {
+        fock_basis_.undo_last_move();
+        return 0; // for safety
+      } 
+      // now for dnspin hop backward
+      dnspin = fock_basis_.which_dnspin();
+      dn_tosite = fock_basis_.which_dnspin_site();
+      // new col for this move
+      wf_.get_amplitudes(psi_col_,fock_basis_.upspin_sites(), dn_tosite);
+      // since the upspin should have moved
+      wf_.get_amplitudes(psi_col_(upspin), up_tosite, dn_tosite);
+      // updated 'dnspin'-th row of psi_inv
+      amplitude_t ratio_inv = amplitude_t(1.0)/det_ratio1;
+      // elements other than 'upspin'-th
+      for (int i=0; i<upspin; ++i) {
+        amplitude_t beta = ratio_inv*psi_row_.cwiseProduct(psi_inv_.col(i)).sum();
+        inv_row_(i) = psi_inv_(dnspin,i) - beta * psi_inv_(dnspin,upspin);
+      }
+      for (int i=upspin+1; i<num_upspins_; ++i) {
+        amplitude_t beta = ratio_inv*psi_row_.cwiseProduct(psi_inv_.col(i)).sum();
+        inv_row_(i) = psi_inv_(dnspin,i) - beta * psi_inv_(dnspin,upspin);
+      }
+      inv_row_(upspin) = ratio_inv * psi_inv_(dnspin,upspin);
+      // ratio for the dnspin hop
+      det_ratio2 = psi_col_.cwiseProduct(inv_row_).sum();
+      if (std::abs(det_ratio2) < dratio_cutoff()) {
+        fock_basis_.undo_last_move();
+        return 0; // for safety
+      }
+      psi_ratio = psi_ratio*det_ratio1*det_ratio2;
+    }
+#endif
+    double transition_proby = std::norm(psi_ratio);
+    if (fock_basis_.rng().random_real()<transition_proby) {
       num_accepted_moves_[move_t::exch]++;
       last_accepted_moves_++;
       fock_basis_.commit_last_move();
       ffnet_.update_state(fock_basis_.state());
       ffn_psi_ = ffnet_.output();
-      //ffn_psi_ = psi;
+#ifdef HAVE_DETERMINANTAL_PART
+      if (have_mf_part_) {
+        inv_update_upspin(upspin,psi_row_,det_ratio1);
+        inv_update_dnspin(dnspin,psi_col_,det_ratio2);
+      }
+#endif
     }
     else {
       fock_basis_.undo_last_move();
@@ -229,16 +365,16 @@ int SysConfig::do_spin_exchange(void)
   return 0;
 }
 
-int SysConfig::inv_update_upspin(const unsigned& upspin, const ColVector& psi_row, 
+int SysConfig::inv_update_upspin(const int& upspin, const ColVector& psi_row, 
   const amplitude_t& det_ratio)
 {
   psi_mat_.row(upspin) = psi_row;
   amplitude_t ratio_inv = amplitude_t(1.0)/det_ratio;
-  for (unsigned i=0; i<upspin; ++i) {
+  for (int i=0; i<upspin; ++i) {
     amplitude_t beta = ratio_inv*psi_row.cwiseProduct(psi_inv_.col(i)).sum();
     psi_inv_.col(i) -= beta * psi_inv_.col(upspin);
   }
-  for (unsigned i=upspin+1; i<num_upspins_; ++i) {
+  for (int i=upspin+1; i<num_upspins_; ++i) {
     amplitude_t beta = ratio_inv*psi_row.cwiseProduct(psi_inv_.col(i)).sum();
     psi_inv_.col(i) -= beta * psi_inv_.col(upspin);
   }
@@ -246,16 +382,16 @@ int SysConfig::inv_update_upspin(const unsigned& upspin, const ColVector& psi_ro
   return 0;
 }
 
-int SysConfig::inv_update_dnspin(const unsigned& dnspin, const RowVector& psi_col, 
+int SysConfig::inv_update_dnspin(const int& dnspin, const RowVector& psi_col, 
   const amplitude_t& det_ratio)
 {
   psi_mat_.col(dnspin) = psi_col;
   amplitude_t ratio_inv = amplitude_t(1.0)/det_ratio;
-  for (unsigned i=0; i<dnspin; ++i) {
+  for (int i=0; i<dnspin; ++i) {
     amplitude_t beta = ratio_inv*psi_col_.cwiseProduct(psi_inv_.row(i)).sum();
     psi_inv_.row(i) -= beta * psi_inv_.row(dnspin);
   }
-  for (unsigned i=dnspin+1; i<num_dnspins_; ++i) {
+  for (int i=dnspin+1; i<num_dnspins_; ++i) {
     amplitude_t beta = ratio_inv*psi_col_.cwiseProduct(psi_inv_.row(i)).sum();
     psi_inv_.row(i) -= beta * psi_inv_.row(dnspin);
   }
@@ -263,9 +399,8 @@ int SysConfig::inv_update_dnspin(const unsigned& dnspin, const RowVector& psi_co
   return 0;
 }
 
-
-amplitude_t SysConfig::apply(const model::op::quantum_op& qn_op, const unsigned& site_i, 
-    const unsigned& site_j, const int& bc_phase) const
+amplitude_t SysConfig::apply(const model::op::quantum_op& qn_op, 
+  const int& site_i, const int& site_j, const int& bc_phase) const
 {
   amplitude_t term(0); 
   switch (qn_op.id()) {
@@ -282,7 +417,7 @@ amplitude_t SysConfig::apply(const model::op::quantum_op& qn_op, const unsigned&
   return term;
 }
 
-int SysConfig::apply(const model::op::quantum_op& qn_op, const unsigned& site_i) const
+int SysConfig::apply(const model::op::quantum_op& qn_op, const int& site_i) const
 {
   switch (qn_op.id()) {
     case model::op_id::ni_sigma:
@@ -294,43 +429,66 @@ int SysConfig::apply(const model::op::quantum_op& qn_op, const unsigned& site_i)
   }
 }
 
-int SysConfig::apply_niup_nidn(const unsigned& site_i) const
+int SysConfig::apply_niup_nidn(const int& site_i) const
 {
-  if (operator[](site_i).count()==2) return 1;
-  else return 0;
+  return fock_basis_.op_ni_updn(site_i);
 }
 
-amplitude_t SysConfig::apply_upspin_hop(const unsigned& i, const unsigned& j,
+amplitude_t SysConfig::apply_upspin_hop(const int& i, const int& j,
   const int& bc_phase) const
 {
   if (i == j) return ampl_part(fock_basis_.op_ni_up(i));
   if (fock_basis_.op_cdagc_up(i,j)) {
     int sign = fock_basis_.op_sign();
-    //std::cout << "i, j, sign =" << i << " " << j << " " << sign << "\n";
-    //getchar();
-    double psi = ffnet_.get_output(fock_basis_.state());
-    double psi_ratio = psi/ffn_psi_;
+    double nnet_psi = ffnet_.get_output(fock_basis_.state());
+    amplitude_t psi_ratio = nnet_psi/ffn_psi_;
+    psi_ratio *= sign;
+#ifdef HAVE_DETERMINANTAL_PART
     double proj_ratio = pj_.gw_ratio(fock_basis_.delta_nd());
-    return amplitude_t(sign * proj_ratio * psi_ratio);
+    if (have_mf_part_) {
+      int upspin = fock_basis_.which_upspin();
+      int to_site = fock_basis_.which_site();
+      wf_.get_amplitudes(psi_row_,to_site,fock_basis_.dnspin_sites());
+      amplitude_t det_ratio = psi_row_.cwiseProduct(psi_inv_.col(upspin)).sum();
+      psi_ratio *= amplitude_t(proj_ratio*bc_phase*sign)*det_ratio;
+    }
+#endif
+    fock_basis_.undo_last_move(); 
+    /* Necessary to 'undo', as next measurement could be 
+      'site diagonal' where no 'undo' is done */
+    return psi_ratio;
   }
   else return amplitude_t(0.0);
 }
 
-amplitude_t SysConfig::apply_dnspin_hop(const unsigned& i, const unsigned& j,
+amplitude_t SysConfig::apply_dnspin_hop(const int& i, const int& j,
   const int& bc_phase) const
 {
   if (i == j) return ampl_part(fock_basis_.op_ni_dn(i));
   if (fock_basis_.op_cdagc_dn(i,j)) {
     int sign = fock_basis_.op_sign();
-    double psi = ffnet_.get_output(fock_basis_.state());
-    double psi_ratio = psi/ffn_psi_;
+    double nnet_psi = ffnet_.get_output(fock_basis_.state());
+    amplitude_t psi_ratio = nnet_psi/ffn_psi_;
+    psi_ratio *= sign;
+#ifdef HAVE_DETERMINANTAL_PART
     double proj_ratio = pj_.gw_ratio(fock_basis_.delta_nd());
-    return amplitude_t(sign * proj_ratio * psi_ratio);
+    if (have_mf_part_) {
+      int dnspin = fock_basis_.which_dnspin();
+      int to_site = fock_basis_.which_site();
+      wf_.get_amplitudes(psi_col_,fock_basis_.upspin_sites(),to_site);
+      amplitude_t det_ratio = psi_col_.cwiseProduct(psi_inv_.row(dnspin)).sum();
+      psi_ratio *= amplitude_t(proj_ratio*bc_phase*sign)*det_ratio;
+    }
+#endif
+    fock_basis_.undo_last_move(); 
+    /* Necessary to 'undo', as next measurement could be 
+      'site diagonal' where no 'undo' is done */
+    return psi_ratio;
   }
   else return amplitude_t(0.0);
 }
 
-amplitude_t SysConfig::apply_sisj_plus(const unsigned& i, const unsigned& j) const
+amplitude_t SysConfig::apply_sisj_plus(const int& i, const int& j) const
 {
 /* It evaluates the following operator:
  !   O = (S_i.S_j - (n_i n_j)/4)
@@ -341,6 +499,7 @@ amplitude_t SysConfig::apply_sisj_plus(const unsigned& i, const unsigned& j) con
  !                 - n_{i\up} n_{j_dn})
  ! O_{du} is obtained from O_{ud} by interchanging spin indices. */
 
+#ifdef OLD_STAFF
   const SiteState* state_i = &operator[](i);
   const SiteState* state_j = &operator[](j);
   // ni_nj term
@@ -355,8 +514,8 @@ amplitude_t SysConfig::apply_sisj_plus(const unsigned& i, const unsigned& j) con
   // if any of the two sites doubly occupied, no exchange possible
   if (state_i->count()==2 || state_j->count()==2) return amplitude_t(ninj_term);
 
-  unsigned upspin, up_tosite;
-  unsigned dnspin, dn_tosite;
+  int upspin, up_tosite;
+  int dnspin, dn_tosite;
   if (state_i->have_upspin() && state_j->have_dnspin()) {
     upspin = state_i->upspin_id();
     up_tosite = j;
@@ -387,11 +546,11 @@ amplitude_t SysConfig::apply_sisj_plus(const unsigned& i, const unsigned& j) con
   }
 
   // elements other than 'upspin'-th
-  for (unsigned i=0; i<upspin; ++i) {
+  for (int i=0; i<upspin; ++i) {
     amplitude_t beta = ratio_inv*psi_row_.cwiseProduct(psi_inv_.col(i)).sum();
     inv_row_(i) = psi_inv_(dnspin,i) - beta * psi_inv_(dnspin,upspin);
   }
-  for (unsigned i=upspin+1; i<num_upspins_; ++i) {
+  for (int i=upspin+1; i<num_upspins_; ++i) {
     amplitude_t beta = ratio_inv*psi_row_.cwiseProduct(psi_inv_.col(i)).sum();
     inv_row_(i) = psi_inv_(dnspin,i) - beta * psi_inv_(dnspin,upspin);
   }
@@ -407,11 +566,13 @@ amplitude_t SysConfig::apply_sisj_plus(const unsigned& i, const unsigned& j) con
     std::cout << "NaN detected\n"; getchar();
   }*/
   return -0.5 * det_ratio + amplitude_t(ninj_term);
+#endif
+  return 0.0;
 }
 
-amplitude_t SysConfig::apply_bondsinglet_hop(const unsigned& i_dag, 
-  const unsigned& ia_dag, const int& bphase_i, const unsigned& j, 
-  const unsigned& jb, const int& bphase_j) const
+amplitude_t SysConfig::apply_bondsinglet_hop(const int& i_dag, 
+  const int& ia_dag, const int& bphase_i, const int& j, 
+  const int& jb, const int& bphase_j) const
 {
   // Evaluates the following operator:
   //   F_{ab}(i,j) = (c^{\dag}_{i\up}c^{\dag}_{i+a\dn} -  c^{\dag}_{i\dn}c^{\dag}_{i+a,\up})/sqrt(2)
@@ -421,109 +582,7 @@ amplitude_t SysConfig::apply_bondsinglet_hop(const unsigned& i_dag,
   //                 + c^{\dag}_{i+a\up}c_{j+b\up} x c^{\dag}_{i\dn}c_{j\dn}
   //                 + c^{\dag}_{i\up}c_{j+b\up} x c^{\dag}_{i+a\dn}c_{j\dn}]
 
-  int num_terms = 4;
-  unsigned up_fromsite, up_tosite;
-  unsigned dn_fromsite, dn_tosite;
-  amplitude_t net_ratio(0.0);
-  for (int iterm=0; iterm<num_terms; ++iterm) {
-    switch (iterm) {
-      case 0:
-        up_fromsite = j; up_tosite = i_dag;
-        dn_fromsite = jb; dn_tosite = ia_dag;
-        break;
-      case 1:
-        up_fromsite = j; up_tosite = ia_dag;
-        dn_fromsite = jb; dn_tosite = i_dag;
-        break;
-      case 2:
-        up_fromsite = jb; up_tosite = ia_dag;
-        dn_fromsite = j; dn_tosite = i_dag;
-        break;
-      case 3:
-        up_fromsite = jb; up_tosite = i_dag;
-        dn_fromsite = j; dn_tosite = ia_dag;
-        break;
-    }
-    const SiteState* state_j = &operator[](up_fromsite);
-    const SiteState* state_i = &operator[](up_tosite);
-    const SiteState* state_jb = &operator[](dn_fromsite);
-    const SiteState* state_ia = &operator[](dn_tosite);
-
-    //std::cout << " up_from = " << up_fromsite << "\n";
-    //std::cout << " up_to   = " << up_tosite << "\n";
-    //std::cout << " dn_from = " << dn_fromsite << "\n";
-    //std::cout << " dn_to   = " << dn_tosite << "\n\n";
-    // non-zero contribution from term only if followings
-    if (!state_j->have_upspin()) continue;
-    if (state_i->have_upspin() && up_fromsite!=up_tosite) continue;
-    if (!state_jb->have_dnspin()) continue;
-    if (state_ia->have_dnspin() && dn_fromsite!=dn_tosite) continue;
-
-    unsigned upspin, dnspin;
-    int delta_nd = 0;
-    amplitude_t det_ratio1, det_ratio2;
-
-    // first hop the up-spin
-    upspin = state_j->upspin_id();
-    if (up_fromsite == up_tosite) {
-      det_ratio1 = amplitude_t(1.0);
-    }
-    else {
-      wf_.get_amplitudes(psi_row_, up_tosite, dnspin_sites());
-      det_ratio1 = psi_row_.cwiseProduct(psi_inv_.col(upspin)).sum();
-    }
-
-    // next hop the dn-spin
-    dnspin = state_jb->dnspin_id();
-    if (dn_fromsite == dn_tosite) {
-      det_ratio2 = amplitude_t(1.0);
-    }
-    else {
-      wf_.get_amplitudes(psi_col_, upspin_sites(), dn_tosite);
-      // since one upspin have moved
-      wf_.get_amplitudes(psi_col_(upspin), up_tosite, dn_tosite);
-      // updated 'dnspin'-th row of psi_inv
-      amplitude_t ratio_inv = amplitude_t(1.0)/det_ratio1;
-      // elements other than 'upspin'-th
-      for (unsigned i=0; i<upspin; ++i) {
-        amplitude_t beta = ratio_inv*psi_row_.cwiseProduct(psi_inv_.col(i)).sum();
-        inv_row_(i) = psi_inv_(dnspin,i) - beta * psi_inv_(dnspin,upspin);
-      }
-      for (unsigned i=upspin+1; i<num_upspins_; ++i) {
-        amplitude_t beta = ratio_inv*psi_row_.cwiseProduct(psi_inv_.col(i)).sum();
-        inv_row_(i) = psi_inv_(dnspin,i) - beta * psi_inv_(dnspin,upspin);
-      }
-      inv_row_(upspin) = ratio_inv * psi_inv_(dnspin,upspin);
-      // ratio for the dnspin hop
-      det_ratio2 = psi_col_.cwiseProduct(inv_row_).sum();
-    }
-    // net ratio for up & dn spin hop
-    amplitude_t det_ratio = ampl_part(std::conj(det_ratio1*det_ratio2));
-
-    if (pj_.have_gutzwiller()) {
-      // change in double occupancy for up-spin hop
-      delta_nd = 0;
-      if (up_fromsite != up_tosite) {
-        delta_nd = state_i->count(); // must be 0 or one
-        if (state_j->count()==2) delta_nd--;
-      }
-      // for dn-spin hop
-      if (dn_fromsite != dn_tosite) {
-        delta_nd += state_ia->count(); 
-        if (state_jb->count()==2) delta_nd--;
-      }
-      det_ratio *= pj_.gw_ratio(delta_nd);
-    }
-    // contribution from this term
-    net_ratio += det_ratio;
-    //std::cout << " det_ratio1 = " << det_ratio1 << "\n";
-    //std::cout << " det_ratio2 = " << det_ratio2 << "\n";
-    //std::cout << " delta_nd = " << delta_nd << "\n";
-    //getchar();
-  }
-
-  int bc_phase = bphase_i * bphase_j;
-  return 0.5 * bc_phase * net_ratio;
+  return 0.0;
 }
 
 void SysConfig::get_grad_logpsi(RealVector& grad_logpsi) const
@@ -537,6 +596,7 @@ void SysConfig::get_grad_logpsi(RealVector& grad_logpsi) const
   for (int n=0; n<num_net_parms_; ++n) {
     grad_logpsi(n) = grad(n)/ffn_psi_;
   }
+  /*
   //std::cout << grad_logpsi.transpose() << "\n"; getchar();
   // grad_logpsi wrt pj parameters
   for (int n=0; n<num_pj_parms_; ++n) {
@@ -551,11 +611,12 @@ void SysConfig::get_grad_logpsi(RealVector& grad_logpsi) const
   // grad_logpsi wrt wf parameters
   //auto grad = ffnet_.get_gradient()/ffn_psi_;
   int p = num_net_parms_+num_pj_parms_;
-  for (unsigned n=0; n<num_wf_parms_; ++n) {
-    wf_.get_gradients(psi_grad_,n,upspin_sites(),dnspin_sites());
+  for (int n=0; n<num_wf_parms_; ++n) {
+    wf_.get_gradients(psi_grad_,n,fock_basis_.upspin_sites(),fock_basis_.dnspin_sites());
     grad_logpsi(p+n) = std::real(psi_grad_.cwiseProduct(psi_inv_.transpose()).sum());
     //grad_logpsi(p+n) = grad(n);
   }
+  */
 }
 
 double SysConfig::accept_ratio(void)

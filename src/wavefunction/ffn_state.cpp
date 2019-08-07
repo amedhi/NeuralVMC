@@ -3,7 +3,7 @@
 * @Author: Amal Medhi, amedhi@mbpro
 * @Date:   2019-01-29 12:56:31
 * @Last Modified by:   Amal Medhi, amedhi@mbpro
-* @Last Modified time: 2019-03-05 18:08:37
+* @Last Modified time: 2019-08-06 16:19:52
 *----------------------------------------------------------------------------*/
 #include "./ffn_state.h"
 
@@ -29,7 +29,7 @@ int FFN_State::init(const int& num_sites, const input::Parameters& inputs)
   return 0;
 }
 
-void FFN_State::update_state(const eig::ivec& fock_state)
+void FFN_State::update_state(const eig::ivector& fock_state)
 {
   SequentialNet::run(fock_state.cast<double>());
 }
@@ -44,7 +44,7 @@ const double& FFN_State::output(void) const
   return SequentialNet::output()(0);
 }
 
-double FFN_State::get_output(const eig::ivec& input) const
+double FFN_State::get_output(const eig::ivector& input) const
 {
   return SequentialNet::get_output(input.cast<double>())(0);
 }

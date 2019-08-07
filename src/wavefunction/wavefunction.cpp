@@ -17,20 +17,21 @@ Wavefunction::Wavefunction(const lattice::LatticeGraph& graph,
 {
   name_ = inputs.set_value("wavefunction", "NONE");
   boost::to_upper(name_);
-  if (name_ == "FERMISEA") {
+  if (name_ == "IDENTITY") {
+    groundstate_.reset(new Identity(inputs,graph));
+    type_ = wf_type::IDENTITY;
+  }
+  else if (name_ == "FERMISEA") {
     groundstate_.reset(new Fermisea(inputs,graph));
+    type_ = wf_type::FERMISEA;
   }
   else if (name_ == "SWAVE_SC") {
     groundstate_.reset(new BCS_State(bcs::swave,inputs,graph));
+    type_ = wf_type::BCS;
   }
   else if (name_ == "DWAVE_SC") {
     groundstate_.reset(new BCS_State(bcs::dwave,inputs,graph));
-  }
-  else if (name_ == "DISORDERED_SC") {
-    groundstate_.reset(new DisorderedSC(inputs,graph));
-  }
-  else if (name_ == "NEURALNET") {
-    groundstate_.reset(new Identity(inputs,graph));
+    type_ = wf_type::BCS;
   }
   else {
     throw std::range_error("Wavefunction::Wavefunction: unidefined wavefunction");
@@ -38,7 +39,7 @@ Wavefunction::Wavefunction(const lattice::LatticeGraph& graph,
   // resize
   psi_up_.resize(num_sites_,num_sites_);
   psi_gradient_.resize(varparms().size());
-  for (unsigned i=0; i<varparms().size(); ++i)
+  for (int i=0; i<varparms().size(); ++i)
     psi_gradient_[i].resize(num_sites_,num_sites_);
 }
 
@@ -67,7 +68,7 @@ int Wavefunction::compute(const lattice::LatticeGraph& graph,
 }
 
 int Wavefunction::compute(const lattice::LatticeGraph& graph, const var::parm_vector& pvector,
-  const unsigned& start_pos, const bool& psi_gradient)
+  const int& start_pos, const bool& psi_gradient)
 {
   groundstate_->update(pvector,start_pos);
   groundstate_->get_wf_amplitudes(psi_up_);
@@ -79,32 +80,26 @@ int Wavefunction::compute(const lattice::LatticeGraph& graph, const var::parm_ve
   return 0;
 }
 
-int Wavefunction::compute(const eig::real_vec& fock_state)
-{
-  /* only for FFN ground state */
-  //groundstate_->update_state(fock_state);
-  return 0;
-}
 
 void Wavefunction::get_amplitudes(Matrix& psi, const std::vector<int>& row, 
   const std::vector<int>& col) const
 {
-  for (unsigned i=0; i<row.size(); ++i)
-    for (unsigned j=0; j<col.size(); ++j)
+  for (int i=0; i<row.size(); ++i)
+    for (int j=0; j<col.size(); ++j)
       psi(i,j) = psi_up_(row[i],col[j]);
 }
 
 void Wavefunction::get_amplitudes(ColVector& psi_vec, const int& irow,  
     const std::vector<int>& col) const
 {
-  for (unsigned j=0; j<col.size(); ++j)
+  for (int j=0; j<col.size(); ++j)
     psi_vec[j] = psi_up_(irow,col[j]);
 }
 
 void Wavefunction::get_amplitudes(RowVector& psi_vec, const std::vector<int>& row,
     const int& icol) const
 {
-  for (unsigned j=0; j<row.size(); ++j)
+  for (int j=0; j<row.size(); ++j)
     psi_vec[j] = psi_up_(row[j],icol);
 }
 
@@ -119,51 +114,51 @@ void Wavefunction::get_gradients(Matrix& psi_grad, const int& n,
 {
   if (!have_gradient_) 
     throw std::logic_error("Wavefunction::get_gradients: gradients were not computed");
-  for (unsigned i=0; i<row.size(); ++i)
-    for (unsigned j=0; j<col.size(); ++j)
+  for (int i=0; i<row.size(); ++i)
+    for (int j=0; j<col.size(); ++j)
       psi_grad(i,j) = psi_gradient_[n](row[i],col[j]);
 }
 
 void Wavefunction::get_vparm_names(std::vector<std::string>& vparm_names, 
-  unsigned start_pos) const
+  int start_pos) const
 {
-  unsigned i = 0;
+  int i = 0;
   for (auto& p : groundstate_->varparms()) {
     vparm_names[start_pos+i] = p.name(); ++i;
   }
 }
 
 void Wavefunction::get_vparm_values(var::parm_vector& vparm_values, 
-  unsigned start_pos)
+  int start_pos)
 {
-  unsigned i = 0;
+  int i = 0;
   for (auto& p : groundstate_->varparms()) {
     vparm_values[start_pos+i] = p.value(); ++i;
   }
 }
 
 void Wavefunction::get_vparm_vector(std::vector<double>& vparm_values, 
-  unsigned start_pos)
+  int start_pos)
 {
-  unsigned i = 0;
+  int i = 0;
   for (auto& p : groundstate_->varparms()) {
     vparm_values[start_pos+i] = p.value(); ++i;
   }
 }
 
 void Wavefunction::get_vparm_lbound(var::parm_vector& vparm_lb, 
-  unsigned start_pos) const
+  int start_pos) const
 {
-  unsigned i = 0;
+  int i = 0;
   for (auto& p : groundstate_->varparms()) {
     vparm_lb[start_pos+i] = p.lbound(); ++i;
   }
 }
 
 void Wavefunction::get_vparm_ubound(var::parm_vector& vparm_ub, 
-  unsigned start_pos) const
+  int start_pos) const
 {
-  unsigned i = 0;
+  int i = 0;
   for (auto& p : groundstate_->varparms()) {
     vparm_ub[start_pos+i] = p.ubound(); ++i;
   }
@@ -171,15 +166,15 @@ void Wavefunction::get_vparm_ubound(var::parm_vector& vparm_ub,
 
 /*
 int Wavefunction::compute_gradients(const lattice::LatticeGraph& graph, 
-  const var::parm_vector& pvector, const unsigned& start_pos)
+  const var::parm_vector& pvector, const int& start_pos)
 {
   // Gradient of amplitudes wrt the variational parameters 
   // by numerical differentiation (central defference formula)
-  unsigned num_parm = mf_model_.varparms().size();
+  int num_parm = mf_model_.varparms().size();
   psi_gradient_.resize(num_parm);
   work_mat.resize(num_sites_,num_sites_);
   //double scale = 0.005;
-  unsigned i = 0;
+  int i = 0;
   for (const auto& p : mf_model_.varparms()) {
     psi_gradient_[i].resize(num_sites_,num_sites_);
     //double h = scale * (p.ubound()-p.lbound());
@@ -224,16 +219,16 @@ int Wavefunction::compute_amplitudes(Matrix& psi_mat, const lattice::LatticeGrap
 void Wavefunction::pair_amplitudes(const lattice::LatticeGraph& graph, Matrix& psi_mat)
 {
   double one_by_nk = 1.0/static_cast<double>(num_kpoints_);
-  for (unsigned i=0; i<num_sites_; ++i) {
-    //unsigned m = graph.site_uid(i);
-    unsigned m = blochbasis_.representative_state_idx(i);
+  for (int i=0; i<num_sites_; ++i) {
+    //int m = graph.site_uid(i);
+    int m = blochbasis_.representative_state_idx(i);
     auto Ri = graph.site_cellcord(i);
-    for (unsigned j=0; j<num_sites_; ++j) {
-      //unsigned n = graph.site_uid(j);
-      unsigned n = blochbasis_.representative_state_idx(j);
+    for (int j=0; j<num_sites_; ++j) {
+      //int n = graph.site_uid(j);
+      int n = blochbasis_.representative_state_idx(j);
       auto Rj = graph.site_cellcord(j);
       std::complex<double> ksum(0.0);
-      for (unsigned k=0; k<num_kpoints_; ++k) {
+      for (int k=0; k<num_kpoints_; ++k) {
         Vector3d kvec = blochbasis_.kvector(k);
         ksum += cphi_k[k](m,n) * std::exp(ii()*kvec.dot(Ri-Rj));
       }

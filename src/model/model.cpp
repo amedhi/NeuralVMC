@@ -227,24 +227,24 @@ void Hamiltonian::set_info_string(const lattice::Lattice& L)
 {
   info_str_.clear();
   info_str_ << "# Lattice: " << L.name() << " (";
-  info_str_ << "Size="<<L.size1()<<"x"<<L.size2()<<"x"<< L.size3()<<", ";
-  info_str_ << "Sites/unitcell="<<L.num_basis_sites()<<", ";
-  info_str_ << "Boundary="<<static_cast<int>(L.bc1_periodicity()) << "-"; 
+  info_str_ << "Size = "<<L.size1()<<"x"<<L.size2()<<"x"<< L.size3()<<", ";
+  info_str_ << "Sites/unitcell = "<<L.num_basis_sites()<<", ";
+  info_str_ << "Boundary = "<<static_cast<int>(L.bc1_periodicity()) << "-"; 
   info_str_ << static_cast<int>(L.bc2_periodicity()) << "-";
   info_str_ << static_cast<int>(L.bc3_periodicity()) << ")\n";
   info_str_ << "# No of sites = " << L.num_sites() << "\n";
   info_str_ << "# Model: " << model_name << "\n";
   info_str_.precision(6);
   info_str_.setf(std::ios_base::fixed);
-  for (const auto& p : parms_) 
-    info_str_ << "# " << p.first << " = " << p.second << "\n";
+  //for (const auto& p : parms_) 
+  //  info_str_ << "# " << p.first << " = " << p.second << "\n";
   // signature string
   signature_str_ << "L" << static_cast<int>(L.id()) << "_"; 
   signature_str_ << L.size1() << "x" << L.size2() << "x" << L.size3();
   signature_str_ << "_" << model_name;
   signature_str_.precision(3);
   signature_str_.setf(std::ios_base::fixed);
-  for (const auto& p : parms_) signature_str_ << "_" << p.first << p.second;
+  //for (const auto& p : parms_) signature_str_ << "_" << p.first << p.second;
 }
 
 

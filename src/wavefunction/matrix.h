@@ -11,10 +11,10 @@
 #ifndef MATRIX_H
 #define MATRIX_H
 
-#define REAL_WAVEFUNCTION
+//#define REAL_WAVEFUNCTION
 
 namespace eig {
-  using ivec = Eigen::VectorXi;
+  using ivector = Eigen::VectorXi;
   using real_vec = Eigen::VectorXd;
   using cmpl_vec = Eigen::VectorXcd;
 }

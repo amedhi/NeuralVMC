@@ -23,16 +23,18 @@ namespace vmc {
 constexpr double dratio_cutoff(void) { return 1.0E-8; } 
 constexpr double gfactor_cutoff(void) { return 1.0E-8; } 
 
-class SysConfig : public BasisState
+class SysConfig 
 {
 public:
   SysConfig(const input::Parameters& parms, const lattice::LatticeGraph& graph, 
     const model::Hamiltonian& model);
   ~SysConfig() {}
+  std::string info_str(void) const; 
   int build(const lattice::LatticeGraph& graph, const input::Parameters& inputs, 
     const bool& with_gradient=false);
   int build(const lattice::LatticeGraph& graph, const var::parm_vector& vparms, 
     const bool& need_psi_grad=false);
+  RandomGenerator& rng(void) const { return fock_basis_.rng(); }
   std::string signature_str(void) const { return wf_.signature_str(); } 
   const int& num_varparms(void) const { return num_varparms_; } 
   const var::parm_vector& vparm_values(void);
@@ -44,13 +46,13 @@ public:
   int update_state(void);
   double accept_ratio(void);
   void reset_accept_ratio(void);
-  amplitude_t apply(const model::op::quantum_op& op, const unsigned& site_i, 
-    const unsigned& site_j, const int& bc_phase) const;
-  amplitude_t apply_bondsinglet_hop(const unsigned& idag, const unsigned& ia_dag,
-    const int& bphase_i, const unsigned& j, const unsigned& ja, 
+  amplitude_t apply(const model::op::quantum_op& op, const int& site_i, 
+    const int& site_j, const int& bc_phase) const;
+  amplitude_t apply_bondsinglet_hop(const int& idag, const int& ia_dag,
+    const int& bphase_i, const int& j, const int& ja, 
     const int& bphase_j) const;
-  int apply(const model::op::quantum_op& qn_op, const unsigned& site_i) const;
-  int apply_niup_nidn(const unsigned& site_i) const;
+  int apply(const model::op::quantum_op& qn_op, const int& site_i) const;
+  int apply_niup_nidn(const int& site_i) const;
   void get_grad_logpsi(RealVector& grad_logpsi) const;
   const int& num_updates(void) const { return num_updates_; }
   const var::Wavefunction& wavefunc(void) const { return wf_; }
@@ -62,15 +64,16 @@ private:
   var::FFN_State ffnet_;
   var::Wavefunction wf_;
   double ffn_psi_;
+  bool have_mf_part_{false};
   Matrix psi_mat_;
   Matrix psi_inv_;
   mutable ColVector psi_row_;
   mutable RowVector psi_col_;
   mutable RowVector inv_row_;
   mutable Matrix psi_grad_;
-  unsigned num_sites_;
-  unsigned num_upspins_;
-  unsigned num_dnspins_;
+  int num_sites_;
+  int num_upspins_;
+  int num_dnspins_;
 
   // variational parameters
   int num_net_parms_{0};
@@ -86,6 +89,7 @@ private:
   // mc parameters
   enum move_t {uphop, dnhop, exch, end};
   int num_updates_{0};
+  int num_iterations_{0};
   //int num_total_steps_{0};
   int num_uphop_moves_{0};
   int num_dnhop_moves_{0};
@@ -102,15 +106,15 @@ private:
   int do_upspin_hop(void);
   int do_dnspin_hop(void);
   int do_spin_exchange(void);
-  int inv_update_upspin(const unsigned& upspin, const ColVector& psi_row, 
+  int inv_update_upspin(const int& upspin, const ColVector& psi_row, 
     const amplitude_t& det_ratio);
-  int inv_update_dnspin(const unsigned& dnspin, const RowVector& psi_col, 
+  int inv_update_dnspin(const int& dnspin, const RowVector& psi_col, 
     const amplitude_t& det_ratio);
-  amplitude_t apply_upspin_hop(const unsigned& i, const unsigned& j,
+  amplitude_t apply_upspin_hop(const int& i, const int& j,
     const int& bc_phase) const;
-  amplitude_t apply_dnspin_hop(const unsigned& i, const unsigned& j,
+  amplitude_t apply_dnspin_hop(const int& i, const int& j,
     const int& bc_phase) const;
-  amplitude_t apply_sisj_plus(const unsigned& i, const unsigned& j) const;
+  amplitude_t apply_sisj_plus(const int& i, const int& j) const;
 };
 
 } // end namespace vmc

@@ -95,7 +95,7 @@ private:
   ComplexMatrix quadratic_block_up_;
   ComplexMatrix quadratic_block_dn_;
   ComplexMatrix pairing_block_;
-  ComplexMatrix work; //, work2;
+  ComplexMatrix work, work2;
 
   void build_unitcell_terms(const lattice::LatticeGraph& graph);
   void update_unitcell_terms(void);

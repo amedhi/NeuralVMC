@@ -7,7 +7,7 @@
 *----------------------------------------------------------------------------*/
 #include "mf_model.h"
 #include <boost/algorithm/string.hpp>
-#include "../expression/expression.h"
+#include "../expression/complex_expression.h"
 //#include "../xml/pugixml.hpp"
 
 namespace var {
@@ -24,6 +24,7 @@ int MF_Model::finalize(const lattice::LatticeGraph& graph)
   quadratic_block_up_.resize(dim_,dim_);
   pairing_block_.resize(dim_,dim_);
   work.resize(dim_,dim_);
+  work2.resize(dim_,dim_);
   build_unitcell_terms(graph);
   return 0;
 }
@@ -83,15 +84,23 @@ void MF_Model::construct_kspace_block(const Vector3d& kvec)
   //for (const auto& term : uc_bondterms_) {
   for (const auto& term : ubond_terms_) {
     if (term.qn_operator().is_quadratic() && term.qn_operator().spin_up()) {
-      for (unsigned i=0; i<term.num_out_bonds(); ++i) {
+      for (int i=0; i<term.num_out_bonds(); ++i) {
         Vector3d delta = term.bond_vector(i);
         work += term.coeff_matrix(i) * std::exp(ii()*kvec.dot(delta));
       }
     }
     if (term.qn_operator().is_pairing()) {
-      for (unsigned i=0; i<term.num_out_bonds(); ++i) {
+      /* 
+        in the paring term, sum over 'delta' should include all 
+        the nearest neighbours, which is effectively obtained
+        by adding the 'adjoint' term. the factor of 0.5 is taken
+        as a convention.
+      */
+      for (int i=0; i<term.num_out_bonds(); ++i) {
         Vector3d delta = term.bond_vector(i);
-        pairing_block_ += term.coeff_matrix(i) * std::exp(ii()*kvec.dot(delta));
+        //pairing_block_ += term.coeff_matrix(i) * std::exp(ii()*kvec.dot(delta));
+        work2 = term.coeff_matrix(i) * std::exp(ii()*kvec.dot(delta));
+        pairing_block_ += 0.5*(work2 + work2.adjoint());
       }
     }
   }
@@ -198,10 +207,10 @@ void UnitcellTerm::build_bondterm(const model::HamiltonianTerm& hamterm,
   // build the matrices (for each 'bond vector')
   for (unsigned i=0; i<dim_; ++i) {
     for (std::tie(ei,ei_end)=graph.out_bonds(i); ei!=ei_end; ++ei) {
-      unsigned id = graph.vector_id(ei);
+      int id = graph.vector_id(ei);
       unsigned t = graph.target(ei);
       unsigned j = graph.site_uid(t);
-      unsigned btype = graph.bond_type(ei);
+      int btype = graph.bond_type(ei);
       // expression
       std::string cc_expr(hamterm.coupling_expr(btype));
       boost::trim(cc_expr);
@@ -248,20 +257,19 @@ void UnitcellTerm::build_siteterm(const model::HamiltonianTerm& hamterm,
 
 void UnitcellTerm::eval_coupling_constant(const model::ModelParams& pvals, const model::ModelParams& cvals)
 {
-  expr::Expression expr;
-  expr::Expression::variables vars;
-  for (const auto& p : pvals) {
-    vars[p.first] = p.second;
-    //std::cout << p.first << " = " << p.second << "\n"; getchar();
-  }
-  for (const auto& c : cvals) vars[c.first] = c.second;
+  expr::ComplexExpr expr;
+  for (const auto& p : pvals) expr.add_var(p.first, p.second);
+  for (const auto& c : cvals) expr.add_var(c.first, c.second);
   try { 
-    for (unsigned n=0; n<num_out_bonds_; ++n) {
-      for (unsigned i=0; i<dim_; ++i) {
-        for (unsigned j=0; j<dim_; ++j) {
+    for (int n=0; n<num_out_bonds_; ++n) {
+      for (int i=0; i<dim_; ++i) {
+        for (int j=0; j<dim_; ++j) {
           std::string cc_expr(expr_matrices_[n][i][j]);
+          // strip '+' sign, if any, in the first character (bug in muparserx)
+          if (cc_expr[0]=='+') cc_expr.erase(0,1);
           if (cc_expr.size()>0) {
-            coeff_matrices_[n](i,j) = expr.evaluate(cc_expr, vars); 
+            expr.set_expr(cc_expr);
+            coeff_matrices_[n](i,j) = expr.evaluate(); 
             //std::cout << "cc = " << coeff_matrices_[n](i,j) << "\n"; getchar();
           }
           else

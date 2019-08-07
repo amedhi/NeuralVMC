@@ -21,10 +21,10 @@ public:
   ~FFN_State() {} 
   int init(const int& num_sites, const input::Parameters& inputs);
   void update(const var::parm_vector& pvector, const unsigned& start_pos=0); 
-  void update_state(const eig::ivec& fock_state);
+  void update_state(const eig::ivector& fock_state);
   void update_params(const eig::real_vec& pvalues, const int& pos);
   const double& output(void) const; 
-  double get_output(const eig::ivec& fock_state) const;
+  double get_output(const eig::ivector& fock_state) const;
   void get_parm_names(std::vector<std::string>& pnames, const int& pos) const;
   void get_parm_values(eig::real_vec& pvalues, const int& pos) const;
   void get_parm_lbound(eig::real_vec& lbound, const int& pos) const;

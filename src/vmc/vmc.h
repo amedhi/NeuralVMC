@@ -85,6 +85,9 @@ private:
   int check_interval_{0};
   bool silent_mode_{false};
 
+  mutable std::ostringstream info_str_;
+
+  void make_info_str(const input::Parameters& inputs);
   void print_progress(const int& num_measurement, const int& num_measure_steps) const;
 };
 

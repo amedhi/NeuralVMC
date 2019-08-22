@@ -3,7 +3,7 @@
 * @Author: Amal Medhi, amedhi@mbpro
 * @Date:   2019-08-13 12:00:53
 * @Last Modified by:   Amal Medhi, amedhi@mbpro
-* @Last Modified time: 2019-08-22 15:51:13
+* @Last Modified time: 2019-08-22 16:47:42
 *----------------------------------------------------------------------------*/
 #include <locale>
 #include "nqs_wf.h"
@@ -26,7 +26,7 @@ int NQS_Wavefunction::init(const int& num_sites, const input::Parameters& inputs
   if (name_ == "FFNN") {
     nnet_.reset(new ann::FFNet());
   	nnet_->add_layer(num_units,"tanh",num_units);
-  	nnet_->add_layer(num_units,"tanh",num_units);
+  	//nnet_->add_layer(num_units,"tanh",num_units);
   	nnet_->add_layer(1,"sigmoid");
   	nnet_->compile();
   }

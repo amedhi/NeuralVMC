@@ -15,7 +15,6 @@
 #include "../model/model.h"
 #include "./observables.h"
 #include "./sysconfig.h"
-#include "./disorder.h"
 //#include "../optimizer/optimizer.h"
 
 namespace vmc {

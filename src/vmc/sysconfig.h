@@ -15,7 +15,6 @@
 #include "../wavefunction/wavefunction.h"
 #include "../wavefunction/projector.h"
 #include "../wavefunction/matrix.h"
-#include "../wavefunction/ffn_state.h"
 #include "../machine/nqs_wf.h"
 #include "./basisstate.h"
 

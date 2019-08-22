@@ -2,7 +2,7 @@
 * @Author: Amal Medhi
 * @Date:   2018-12-29 20:39:14
 * @Last Modified by:   Amal Medhi, amedhi@mbpro
-* @Last Modified time: 2019-08-22 15:57:17
+* @Last Modified time: 2019-08-22 16:38:06
 *----------------------------------------------------------------------------*/
 #include "ffnet.h"
 
@@ -157,7 +157,6 @@ const Matrix& FFNet::get_gradient(void) const
 
   /*
   // derivative by 'forward propagation' - highly Inefficient
-
   int n=0;
   for (int i=1; i<num_layers_; ++i) {
     for (int id=num_params_fwd_[i-1]; id<num_params_fwd_[i]; ++id) {

@@ -41,9 +41,12 @@ int StochasticReconf::init(const input::Parameters& inputs, const VMC& vmc)
   if (mk_series_len_ > refinement_cycle_) {
     throw std::domain_error("StochasticReconf::init: sr_series_len > sr_max_iter/5");
   }
+
+#ifdef MK_STATISTIC
   // Mann-Kendall statistic
   mk_statistic_.resize(num_parms_);
   mk_statistic_.set_maxlen(mk_series_len_);
+#endif
   // optimal parameter values
   std::string mode = inputs.set_value("mode", "NEW");
   boost::to_upper(mode);
@@ -94,7 +97,8 @@ int StochasticReconf::optimize(VMC& vmc)
 {
   // start optimization
   optimal_parms_.reset();
-  for (int n=0; n<num_opt_samples_; ++n) {
+  //for (int n=0; n<num_opt_samples_; ++n) {
+  for (int n=0; n<1; ++n) {
     //std::cout << " optimal sample = " << n << "\n";
     if (print_log_) {
       logfile_ << "Starting sample " << n << " of " 
@@ -108,61 +112,26 @@ int StochasticReconf::optimize(VMC& vmc)
     vparms_ = vmc.varp_values();
     //vparms_ = lbound_+(ubound_-lbound_)*vmc.rng().random_real();
     // Stochastic reconfiguration iterations
+#ifdef MK_STATISTIC
     mk_statistic_.reset();
+#endif
     double search_tstep = start_tstep_;
     int mc_samples = num_sim_samples_;
     int iter;
-    for (iter=1; iter<=max_iter_; ++iter) {
+    //for (iter=1; iter<=max_iter_; ++iter) {
+    for (iter=1; iter<=100; ++iter) {
       double en = vmc.sr_function(vparms_, grad_, sr_matrix_, mc_samples);
       std::cout << " energy = " << en << "\n";
       // apply to stabilizer to sr matrix 
-      for (unsigned i=0; i<num_parms_; ++i) sr_matrix_(i,i) += stabilizer_;
+      for (int i=0; i<num_parms_; ++i) sr_matrix_(i,i) += stabilizer_;
       //for (unsigned i=0; i<num_parms_; ++i) 
-       // sr_matrix_(i,i) += sr_matrix_(i,i) * stabilizer_;
-
-      /*
-      // stabilization by truncation of redundant direaction
-      // reciprocal conditioning number
-      Eigen::JacobiSVD<Eigen::MatrixXd> svd(sr_matrix_,
-        Eigen::ComputeFullU);
-      Eigen::VectorXd lambda_inv(num_parms_);
-      double lambda0_inv = 1.0/svd.singularValues()[0];
-      lambda_inv[0] = lambda0_inv;
-      unsigned num_kept = num_parms_;
-      for (int i=1; i<num_parms_; ++i) {
-        double lambdai = svd.singularValues()[i];
-        if (lambdai * lambda0_inv < 1.0E-4) {
-          num_kept = i; break;
-        }
-        lambda_inv[i] = 1.0/lambdai;
-      }
-      Eigen::VectorXd del_x(num_parms_);
-      for (unsigned k=0; k<num_parms_; ++k) {
-        double isum = 0.0;
-        for (unsigned i=0; i<num_parms_; ++i) {
-          double jsum = 0.0;
-          for (unsigned j=0; j<num_kept; ++j) {
-            jsum += lambda_inv[j] * svd.matrixU()(k,j) * svd.matrixU()(i,j);  
-          }
-          isum += jsum * grad_[i];
-        }
-        del_x[k] = -search_tstep * isum;
-      }
-      // update variables
-      vparms_ += del_x;
-      //std::cout << "singular values\n" << svd.singularValues() << "\n";
-      //std::cout << "num_kept \n" << num_kept << "\n";
-      //getchar();
-      */
-
-      
+      // sr_matrix_(i,i) += sr_matrix_(i,i) * stabilizer_;
       // search direction
       Eigen::VectorXd search_dir = sr_matrix_.fullPivLu().solve(-grad_);
       //Eigen::VectorXd search_dir = sr_matrix_.inverse()*(-grad_);
       //getchar();
       // update variables
-      vparms_ += search_tstep * search_dir;
-      
+      vparms_.noalias() += search_tstep * search_dir;
       //vparms_ += search_tstep * (-grad_);
       // box constraint and max_norm (of components not hitting boundary) 
       std::cout << "Box constraint SWITCHED OFF\n";
@@ -180,9 +149,11 @@ int StochasticReconf::optimize(VMC& vmc)
         }
       } */
       // add data to Mann-Kendall statistic
+#ifdef MK_STATISTIC
       double gnorm = grad_.squaredNorm();
       if (gnorm/grad_.size() < 0.50) mk_statistic_ << vparms_;
       double mk_trend = mk_statistic_.elem_max_trend();
+#endif
       if (print_progress_) {
         std::ios  state(NULL);
         state.copyfmt(std::cout);
@@ -195,10 +166,13 @@ int StochasticReconf::optimize(VMC& vmc)
         std::cout << " varp =\n" << vparms_.transpose() << "\n";
         std::cout.copyfmt(state);
         std::cout << " energy = " << en << "\n";
+#ifdef MK_STATISTIC
         std::cout << " gnorm = " << gnorm << "\n";
         std::cout << " trend = " << mk_trend << "\n"; 
+#endif
       }
 
+#ifdef MK_STATISTIC
       // convergence criteria
       if (mk_statistic_.is_full() && mk_trend<mk_thresold_) {
         // converged, add data point to store
@@ -231,7 +205,9 @@ int StochasticReconf::optimize(VMC& vmc)
         }
         break;
       }
+#endif
       // refinement if not converged early
+      /*
       if (iter % refinement_cycle_ == 0) {
         if (print_log_) {
           logfile_ << "next refinement cycle" << std::endl;
@@ -242,6 +218,7 @@ int StochasticReconf::optimize(VMC& vmc)
         mc_samples *= 2;
         search_tstep *= 0.5;
       }
+      */
     }
     if (iter>=max_iter_ && print_log_) {
       logfile_ << "NOT converged):" << std::endl << std::endl;

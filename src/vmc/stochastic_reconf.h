@@ -28,7 +28,7 @@ public:
   //const var::parm_vector& vp(void) { return varparms; }
 private:
   mcdata::MC_Observable optimal_parms_;
-  unsigned num_parms_;
+  int num_parms_;
   var::parm_vector vparms_;
   var::parm_vector lbound_;
   var::parm_vector ubound_;
@@ -37,11 +37,11 @@ private:
   // Mann-Kendall trend test for converegence
   util::MK_Statistic mk_statistic_;
   // optimization parameters
-  unsigned num_sim_samples_{1000};
-  unsigned num_opt_samples_{30};
-  unsigned max_iter_{500};
-  unsigned refinement_cycle_{100};
-  unsigned mk_series_len_{40};
+  int num_sim_samples_{1000};
+  int num_opt_samples_{30};
+  int max_iter_{500};
+  int refinement_cycle_{100};
+  int mk_series_len_{40};
   double start_tstep_{0.05};
   double stabilizer_{1.0E-4};
   double grad_tol_{0.01};

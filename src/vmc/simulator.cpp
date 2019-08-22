@@ -8,7 +8,6 @@
 *----------------------------------------------------------------------------*/
 #include <iomanip>
 #include "simulator.h"
-#include "../neural/layer.h"
 
 namespace vmc {
 

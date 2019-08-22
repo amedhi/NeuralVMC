@@ -33,7 +33,6 @@ SRCS+= wavefunction/groundstate.cpp
 SRCS+= wavefunction/identity.cpp
 SRCS+= wavefunction/fermisea.cpp
 SRCS+= wavefunction/bcs_state.cpp
-SRCS+= wavefunction/ffn_state.cpp
 SRCS+= wavefunction/wavefunction.cpp
 SRCS+= wavefunction/projector.cpp
 SRCS+= mcdata/mcdata.cpp
@@ -78,7 +77,6 @@ HDRS=    scheduler/mpi_comm.h \
 	 wavefunction/identity.h \
 	 wavefunction/fermisea.h \
 	 wavefunction/bcs_state.h \
-	 wavefunction/ffn_state.h \
 	 variational/wavefunction.h \
 	 wavefunction/projector.h \
 	 mcdata/mcdata.h  \

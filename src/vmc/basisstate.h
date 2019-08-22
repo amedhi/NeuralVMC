@@ -46,6 +46,7 @@ public:
   const int& which_site(void) const; 
   const int& which_upspin_site(void) const; 
   const int& which_dnspin_site(void) const; 
+  const std::vector<int> new_elems(void) const { return new_elems_; }
   void commit_last_move(void);
   void undo_last_move(void) const;
   int op_ni_up(const int& site) const;
@@ -91,6 +92,7 @@ private:
   mutable int mv_dnhole_;
   mutable int dn_tostate_;
   mutable int op_sign_;
+  mutable std::vector<int> new_elems_;
   int null_id_{-1};
   void clear(void); 
 };

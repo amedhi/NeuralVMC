@@ -3,7 +3,7 @@
 * @Author: Amal Medhi, amedhi@mbpro
 * @Date:   2019-01-29 12:56:31
 * @Last Modified by:   Amal Medhi, amedhi@mbpro
-* @Last Modified time: 2019-08-06 16:19:52
+* @Last Modified time: 2019-08-14 12:12:28
 *----------------------------------------------------------------------------*/
 #include "./ffn_state.h"
 

@@ -191,6 +191,9 @@ bool FockBasis::gen_upspin_hop(void)
     state_[up_to_state_] = 1;
     dblocc_increament_ = state_[num_sites_+up_to_state_]; // must be 0 or 1
     dblocc_increament_ -= state_[num_sites_+up_fr_state_];
+    new_elems_.resize(2);
+    new_elems_[0] = up_fr_state_;
+    new_elems_[1] = up_to_state_;
     //fr_state = up_fr_state_;
     //to_state = up_to_state_;
     return true;
@@ -286,6 +289,9 @@ bool FockBasis::gen_dnspin_hop(void)
     state_[dn_to_state_] = 1;
     dblocc_increament_ = state_[dn_to_site_]; // must be 0 or 1
     dblocc_increament_ -= state_[dn_fr_site_];
+    new_elems_.resize(2);
+    new_elems_[0] = dn_fr_state_;
+    new_elems_[1] = dn_to_state_;
     return true;
   }
 }
@@ -323,6 +329,11 @@ bool FockBasis::gen_exchange_move(void)
   state_[up_to_state_] = 1;
   state_[dn_fr_state_] = 0;
   state_[dn_to_state_] = 1;
+  new_elems_.resize(4);
+  new_elems_[0] = up_fr_state_;
+  new_elems_[1] = up_to_state_;
+  new_elems_[2] = dn_fr_state_;
+  new_elems_[3] = dn_to_state_;
   return true;
 }
 
@@ -372,6 +383,9 @@ bool FockBasis::op_cdagc_up(const int& site_i, const int& site_j) const
   for (int i=up_fr_state_+1; i<up_to_state_; ++i) {
     if (state_[i]) op_sign_ = -op_sign_;
   }
+  new_elems_.resize(2);
+  new_elems_[0] = up_fr_state_;
+  new_elems_[1] = up_to_state_;
   return true;
 }
 
@@ -409,6 +423,9 @@ bool FockBasis::op_cdagc_dn(const int& site_i, const int& site_j) const
   for (int i=dn_fr_state_+1; i<dn_to_state_; ++i) {
     if (state_[i]) op_sign_ = -op_sign_;
   }
+  new_elems_.resize(2);
+  new_elems_[0] = dn_fr_state_;
+  new_elems_[1] = dn_to_state_;
   return true;
 }
 

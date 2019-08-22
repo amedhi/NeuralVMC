@@ -94,7 +94,7 @@ int StochasticReconf::optimize(VMC& vmc)
 {
   // start optimization
   optimal_parms_.reset();
-  for (unsigned n=0; n<num_opt_samples_; ++n) {
+  for (int n=0; n<num_opt_samples_; ++n) {
     //std::cout << " optimal sample = " << n << "\n";
     if (print_log_) {
       logfile_ << "Starting sample " << n << " of " 
@@ -111,9 +111,10 @@ int StochasticReconf::optimize(VMC& vmc)
     mk_statistic_.reset();
     double search_tstep = start_tstep_;
     int mc_samples = num_sim_samples_;
-    unsigned iter;
+    int iter;
     for (iter=1; iter<=max_iter_; ++iter) {
       double en = vmc.sr_function(vparms_, grad_, sr_matrix_, mc_samples);
+      std::cout << " energy = " << en << "\n";
       // apply to stabilizer to sr matrix 
       for (unsigned i=0; i<num_parms_; ++i) sr_matrix_(i,i) += stabilizer_;
       //for (unsigned i=0; i<num_parms_; ++i) 
@@ -197,6 +198,7 @@ int StochasticReconf::optimize(VMC& vmc)
         std::cout << " gnorm = " << gnorm << "\n";
         std::cout << " trend = " << mk_trend << "\n"; 
       }
+
       // convergence criteria
       if (mk_statistic_.is_full() && mk_trend<mk_thresold_) {
         // converged, add data point to store

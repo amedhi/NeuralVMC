@@ -16,6 +16,7 @@
 #include "../wavefunction/projector.h"
 #include "../wavefunction/matrix.h"
 #include "../wavefunction/ffn_state.h"
+#include "../machine/nqs_wf.h"
 #include "./basisstate.h"
 
 namespace vmc {
@@ -61,9 +62,11 @@ public:
 private:
   FockBasis fock_basis_;
   var::WavefunProjector pj_;
-  var::FFN_State ffnet_;
+  //var::FFN_State ffnet_;
   var::Wavefunction wf_;
-  double ffn_psi_;
+  nqs::NQS_Wavefunction nqs_;
+  //double ffn_psi_;
+  double nqs_psi_;
   bool have_mf_part_{false};
   Matrix psi_mat_;
   Matrix psi_inv_;

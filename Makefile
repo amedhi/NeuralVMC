@@ -21,9 +21,11 @@ SRCS+= lattice/graph.cpp
 SRCS+= model/hamiltonian_term.cpp
 SRCS+= model/model.cpp
 SRCS+= model/modellibrary.cpp
-SRCS+= neural/activation.cpp
-SRCS+= neural/layer.cpp
-SRCS+= neural/neuralnet.cpp
+SRCS+= machine/abstract_net.cpp
+SRCS+= machine/activation.cpp
+SRCS+= machine/neural_layer.cpp
+SRCS+= machine/ffnet.cpp
+SRCS+= machine/nqs_wf.cpp
 SRCS+= wavefunction/varparm.cpp
 SRCS+= wavefunction/blochbasis.cpp
 SRCS+= wavefunction/mf_model.cpp
@@ -63,6 +65,12 @@ HDRS=    scheduler/mpi_comm.h \
          model/modelparams.h  model/quantum_op.h \
 	 model/hamiltonian_term.h \
 	 model/model.h \
+	 machine/dtype.h \
+	 machine/activation.h \
+	 machine/neural_layer.h \
+	 machine/abstract_net.h \
+	 machine/ffnet.h \
+	 machine/nqs.h \
 	 wavefunction/varparm.h \
 	 wavefunction/blochbasis.h \
 	 wavefunction/mf_model.h \

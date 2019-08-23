@@ -3,7 +3,7 @@
 * @Author: Amal Medhi, amedhi@mbpro
 * @Date:   2019-08-13 12:00:53
 * @Last Modified by:   Amal Medhi, amedhi@mbpro
-* @Last Modified time: 2019-08-22 16:47:42
+* @Last Modified time: 2019-08-23 23:36:27
 *----------------------------------------------------------------------------*/
 #include <locale>
 #include "nqs_wf.h"
@@ -85,6 +85,12 @@ const double& NQS_Wavefunction::output(void) const
 double NQS_Wavefunction::get_new_output(const ann::ivector& fock_state) const
 {
   return nnet_->get_new_output(fock_state.cast<double>())(0);
+}
+
+double NQS_Wavefunction::get_new_output(const ann::ivector& fock_state, 
+  const std::vector<int> new_elems) const
+{
+  return nnet_->get_new_output(fock_state.cast<double>(), new_elems)(0);
 }
 
 void NQS_Wavefunction::get_gradient(ann::Vector& grad, const int& pos) const

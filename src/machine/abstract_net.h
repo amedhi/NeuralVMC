@@ -35,6 +35,7 @@ public:
   virtual void do_update_run(const Vector& new_input, const std::vector<int> new_elems) = 0; 
   virtual const Vector& output(void) const = 0;
   virtual Vector get_new_output(const Vector& input) const = 0;
+  virtual Vector get_new_output(const Vector& new_input, const std::vector<int> new_elems) const = 0; 
   virtual const Matrix& get_gradient(void) const = 0;
 };
 

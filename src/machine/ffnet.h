@@ -39,6 +39,7 @@ public:
   //void run(const eig::real_vec& input); 
   const Vector& output(void) const override { return layers_.back().output(); }
   Vector get_new_output(const Vector& input) const override;
+  Vector get_new_output(const Vector& new_input, const std::vector<int> new_elems) const override; 
   const Matrix& get_gradient(void) const override;
 private:
   int num_layers_{0};

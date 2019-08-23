@@ -221,7 +221,7 @@ int SysConfig::do_upspin_hop(void)
     num_proposed_moves_[move_t::uphop]++;
     last_proposed_moves_++;
     //std::cout << "\n state=" << fock_basis_.transpose() << "\n";
-    double psi = nqs_.get_new_output(fock_basis_.state());
+    double psi = nqs_.get_new_output(fock_basis_.state(),fock_basis_.new_elems());
     amplitude_t psi_ratio = psi/nqs_psi_;
 
 #ifdef HAVE_DETERMINANTAL_PART
@@ -269,7 +269,7 @@ int SysConfig::do_dnspin_hop(void)
     num_proposed_moves_[move_t::dnhop]++;
     last_proposed_moves_++;
     //std::cout << "\n state=" << fock_basis_.transpose() << "\n";
-    double psi = nqs_.get_new_output(fock_basis_.state());
+    double psi = nqs_.get_new_output(fock_basis_.state(),fock_basis_.new_elems());
     amplitude_t psi_ratio = psi/nqs_psi_;
 
 #ifdef HAVE_DETERMINANTAL_PART
@@ -314,7 +314,7 @@ int SysConfig::do_spin_exchange(void)
     num_proposed_moves_[move_t::exch]++;
     last_proposed_moves_++;
     //std::cout << "\n state=" << fock_basis_.transpose() << "\n";
-    double psi = nqs_.get_new_output(fock_basis_.state());
+    double psi = nqs_.get_new_output(fock_basis_.state(),fock_basis_.new_elems());
     amplitude_t psi_ratio = psi/nqs_psi_;
 
 #ifdef HAVE_DETERMINANTAL_PART

@@ -2,7 +2,7 @@
 * @Author: Amal Medhi
 * @Date:   2018-12-29 12:01:09
 * @Last Modified by:   Amal Medhi, amedhi@mbpro
-* @Last Modified time: 2019-08-22 16:12:48
+* @Last Modified time: 2019-08-23 23:12:13
 *----------------------------------------------------------------------------*/
 #include <locale>
 #include "neural_layer.h"
@@ -47,6 +47,7 @@ NeuralLayer::NeuralLayer(const int& units, const std::string& activation,
   input_ = Vector::Zero(input_dim_);
   output_ = Vector::Zero(num_units_);
   lin_output_ = Vector::Zero(num_units_);
+  output_tmp_ = Vector::Zero(num_units_);
   lin_output_tmp_ = Vector::Zero(num_units_);
   output_changes_ = Vector::Zero(num_units_);
   der_activation_ = Vector::Zero(num_units_);
@@ -203,22 +204,53 @@ int NeuralLayer::update_forward(const Vector& new_input,
   return 0;
 }
 
-Vector NeuralLayer::feed_forward(const Vector& input) const
+int NeuralLayer::feed_forward(const Vector& input) const
 {
   /* Feed forward without changing the state of the layer */
   if (inlayer_ == nullptr) {
-    return outlayer_->feed_forward(input);
+    output_tmp_ = input;
+    outlayer_->feed_forward(output_tmp_);
+    return 0;
   }
   else {
     lin_output_tmp_.noalias() = kernel_*input+bias_;
-    if (outlayer_ == nullptr) {
-      return activation_.get()->function(lin_output_tmp_);
-    }
-    else {
-      return outlayer_->feed_forward(activation_.get()->function(lin_output_tmp_));
-    }
+    output_tmp_ = activation_.get()->function(lin_output_tmp_);
+    if (outlayer_ == nullptr) return 0;
+    outlayer_->feed_forward(output_tmp_);
   } 
+  return 0;
 }
+
+int NeuralLayer::feed_forward(const Vector& new_input, 
+  const std::vector<int>& new_elems, const Vector& input_changes) const
+{
+  /* Feed forward without changing the state of the layer */
+  if (inlayer_ == nullptr) {
+    // for the first layer, since output = input, 
+    for (const auto& i : new_elems) {
+      output_changes_(i) = input_changes(i);
+      output_tmp_(i) = new_input(i);
+    }
+    outlayer_->feed_forward(output_tmp_,new_elems,output_changes_);
+    return 0;
+  }
+  else {
+    // other layers
+    if (new_elems.size()<new_input.size()) {
+      // true for the first, hidden layer only
+      lin_output_tmp_ = lin_output_;
+      for (const auto& i : new_elems)  {
+        lin_output_tmp_.noalias() += kernel_.col(i) * input_changes(i);
+      }
+    }
+    else lin_output_tmp_.noalias() = kernel_*new_input+bias_;
+    output_tmp_ = activation_.get()->function(lin_output_tmp_);
+    if (outlayer_ == nullptr) return 0;
+    outlayer_->feed_forward(output_tmp_);
+  } 
+  return 0;
+}
+
 
 Vector NeuralLayer::get_new_output(const Vector& input) const
 {

@@ -2,7 +2,7 @@
 * @Author: Amal Medhi
 * @Date:   2018-12-29 20:39:14
 * @Last Modified by:   Amal Medhi, amedhi@mbpro
-* @Last Modified time: 2019-08-22 16:38:06
+* @Last Modified time: 2019-08-23 23:23:14
 *----------------------------------------------------------------------------*/
 #include "ffnet.h"
 
@@ -146,8 +146,18 @@ void FFNet::do_update_run(const Vector& new_input, const std::vector<int> new_el
 Vector FFNet::get_new_output(const Vector& input) const
 {
   /* does not change the state */
-  return layers_.back().get_new_output(input);
-  //return layers_.front().feed_forward(input);
+  //return layers_.back().get_new_output(input);
+  layers_.front().feed_forward(input);
+  return layers_.back().new_output();
+}
+
+Vector FFNet::get_new_output(const Vector& new_input, const std::vector<int> new_elems) const
+{
+  for (const auto& i : new_elems) {
+    input_changes_(i) = new_input(i)-layers_.front().output()(i);
+  }
+  layers_.front().feed_forward(new_input,new_elems,input_changes_);
+  return layers_.back().new_output();
 }
 
 const Matrix& FFNet::get_gradient(void) const

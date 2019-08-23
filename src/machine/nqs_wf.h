@@ -33,6 +33,7 @@ public:
   void update_state(const ann::ivector& fock_state, const std::vector<int> new_elems);
   const double& output(void) const; 
   double get_new_output(const ann::ivector& fock_state) const;
+  double get_new_output(const ann::ivector& fock_state, const std::vector<int> new_elems) const;
   void get_parm_lbound(eig::real_vec& lbound, const int& pos) const;
   void get_parm_ubound(eig::real_vec& ubound, const int& pos) const;
   void get_gradient(ann::Vector& grad, const int& pos) const;

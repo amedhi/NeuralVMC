@@ -42,7 +42,10 @@ public:
   int update_forward(const Vector& new_input, const std::vector<int>& new_elems, 
     const Vector& input_changes); 
   const Vector& output(void) const { return output_; }
-  Vector feed_forward(const Vector& input) const; 
+  const Vector& new_output(void) const { return output_tmp_; }
+  int feed_forward(const Vector& input) const; 
+  int feed_forward(const Vector& new_input, 
+  const std::vector<int>& new_elems, const Vector& input_changes) const;
   Vector get_new_output(const Vector& input) const; 
   const Vector& linear_output(void) const { return lin_output_; }
   int derivative(Matrix& derivative, const int& num_total_params) const;
@@ -57,7 +60,8 @@ private:
   Vector bias_;
   Vector output_;
   Vector lin_output_;
-  Vector output_changes_;
+  mutable Vector output_changes_;
+  mutable Vector output_tmp_;
   mutable Vector lin_output_tmp_;
   mutable Vector der_activation_;
   mutable RowVector der_backflow_;

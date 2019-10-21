@@ -7,7 +7,7 @@
 *----------------------------------------------------------------------------*/
 #include "./mpi_comm.h"
 
-namespace scheduler {
+namespace mpi {
 
 #ifdef HAVE_BOOST_MPI
 
@@ -15,11 +15,15 @@ mpi_communicator::mpi_communicator(void)
   : boost::mpi::communicator()
 {
   for (int i=0; i<this->size(); ++i) {
-    if (i != this->rank()) slave_procs_.push_back(i);
+    if (i != this->rank()) {
+    	slave_procs_.push_back(i);
+    }
   }
+	slave_min_id_ = slave_procs_.front();
+	slave_max_id_ = slave_procs_.back();
 }
 
 #endif
 
 
-} // end namespace input
+} // end namespace mpi

@@ -26,10 +26,13 @@ class VMC //: public optimizer::Problem
 public:
   VMC(const input::Parameters& inputs); 
   virtual ~VMC() {}
-  int start(const input::Parameters& inputs, const run_mode& mode=run_mode::normal, 
+  int init(const input::Parameters& inputs, const run_mode& mode=run_mode::normal, 
     const bool& silent=false);
+  int do_warmup(const int& num_steps=-1);
+  int do_steps(const int& num_steps=1);
   int run_simulation(const int& sample_size=-1);
   int run_simulation(const Eigen::VectorXd& varp);
+  bool not_done(void) const;
   double energy_function(const Eigen::VectorXd& varp, Eigen::VectorXd& grad);
   double operator()(const Eigen::VectorXd& varp, Eigen::VectorXd& grad) 
     { return energy_function(varp, grad); }
@@ -47,29 +50,13 @@ public:
   void print_results(void); 
   std::ostream& print_info(std::ostream& os) const { return model.print_info(os); }
   static void copyright_msg(std::ostream& os);
-  const bool& disordered_system(void) const { return site_disorder_.exists(); }
-  const unsigned& num_disorder_configs(void) const { return site_disorder_.num_configs(); }
 
-  // disordered case
-  int disorder_start(const input::Parameters& inputs, const unsigned& disorder_config, 
-    const run_mode& mode=run_mode::normal, const bool& silent=false);
-  void save_optimal_parms(const var::parm_vector& optimal_parms) 
-    { site_disorder_.save_optimal_parms(optimal_parms); }
-  bool optimal_parms_exists(const unsigned& config) 
-    { return site_disorder_.optimal_parms_exists(config); } 
-  void set_disorder_config(const unsigned& config) 
-    { site_disorder_.set_current_config(config); }
-
-  // optimizer
-  //void set_box_constraints(void) 
-  //  { Problem::setBoxConstraint(varp_lbound(), varp_ubound()); }
 private:
   run_mode run_mode_{run_mode::normal};
   lattice::LatticeGraph graph;
   model::Hamiltonian model;
   SysConfig config;
-  SiteDisorder site_disorder_;
-  unsigned num_sites_;
+  int num_sites_;
   int num_varparms_;
 
   // observables
@@ -77,11 +64,14 @@ private:
 
   // mc parameters
   enum move_t {uphop, dnhop, exch, end};
-  int num_measure_steps_{0}; 
+  int samples_required_{0}; 
+  int samples_collected_{0}; 
+  //int num_measure_steps_{0}; 
   int num_warmup_steps_{0};
   int min_interval_{0};
   int max_interval_{0};
   int check_interval_{0};
+  int skip_count_{0};
   bool silent_mode_{false};
 
   mutable std::ostringstream info_str_;

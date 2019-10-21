@@ -25,8 +25,7 @@ void Energy::setup(const lattice::LatticeGraph& graph,
 }
   
 void Energy::measure(const lattice::LatticeGraph& graph, 
-  const model::Hamiltonian& model, const SysConfig& config, 
-  const SiteDisorder& site_disorder)
+  const model::Hamiltonian& model, const SysConfig& config)
 {
   using op_id = model::op_id;
   //for (auto& elem : config_value_) elem = 0.0;
@@ -98,23 +97,6 @@ void Energy::measure(const lattice::LatticeGraph& graph,
       }
       i++;
     }
-  }
-
-  // disorder term
-  if (site_disorder) {
-    //std::cout << "\ndisorder energy\n"; 
-    unsigned n = model.num_bondterms()+model.num_siteterms();
-    double disorder_en = 0.0;
-    for (auto s=graph.sites_begin(); s!=graph.sites_end(); ++s) {
-      unsigned site = graph.site(s);
-      int n_i = config.apply(model::op::ni_sigma(), site);
-      disorder_en += std::real(n_i * site_disorder.potential(site));
-      //std::cout <<"site= "<<site<<" ni= "<<n_i;
-      //std::cout <<" V= "<<site_disorder.potential(site)<<"\n";
-      //std::cout << "E+ = " << disorder_en << "\n"; 
-    }
-    config_value_(n) = disorder_en;
-    //std::cout << "\ndisorder_en = " << disorder_en << "\n"; getchar();
   }
 
   // energy per site

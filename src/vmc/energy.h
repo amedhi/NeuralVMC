@@ -12,7 +12,6 @@
 #include "../lattice/graph.h"
 #include "../model/model.h"
 #include "./sysconfig.h"
-#include "./disorder.h"
 
 namespace vmc {
 
@@ -22,7 +21,7 @@ public:
   using MC_Observable::MC_Observable;
   void setup(const lattice::LatticeGraph& graph, const model::Hamiltonian& model);
   void measure(const lattice::LatticeGraph& graph, const model::Hamiltonian& model,
-    const SysConfig& config, const SiteDisorder& site_disorder);
+    const SysConfig& config);
   const mcdata::data_t& config_value(void) const { return config_value_; }
 private:
   bool setup_done_{false};

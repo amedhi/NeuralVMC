@@ -25,7 +25,7 @@ int Scheduler::run(const mpi_communicator& mpi_comm)
 {
   bool task_exist = false;
   while (true) {
-    mpi_status msg = mpi_comm.probe();
+    mpi::mpi_status msg = mpi_comm.probe();
     switch (msg.tag()) {
       case MP_quit_tasks:
         mpi_comm.recv(msg.source(),msg.tag());

@@ -2,7 +2,7 @@
 * @Author: Amal Medhi
 * @Date:   2018-12-29 12:01:09
 * @Last Modified by:   Amal Medhi, amedhi@mbpro
-* @Last Modified time: 2019-08-23 23:12:13
+* @Last Modified time: 2019-08-28 12:18:10
 *----------------------------------------------------------------------------*/
 #include <locale>
 #include "neural_layer.h"

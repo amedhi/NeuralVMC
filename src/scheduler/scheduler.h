@@ -23,6 +23,8 @@ namespace scheduler {
 
 int start(int argc, const char *argv[], const AbstractTask& theTask);
 
+using namespace mpi;
+
 class Scheduler 
 {
 public:
@@ -37,7 +39,7 @@ protected:
   //Worker theWorker_;
   AbstractWorker* theWorker;
   input::JobInput input;
-  unsigned int task_size;
+  int task_size;
   bool valid_{false};
 
 private:

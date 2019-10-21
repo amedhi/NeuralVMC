@@ -59,7 +59,7 @@ int MasterScheduler::run(const mpi_communicator& mpi_comm)
   if (!valid_) return -1;
   auto start_time = std::chrono::steady_clock::now();
   //std::cout << " starting..." << std::endl;
-  for (unsigned task=0; task<task_size; ++task) {
+  for (int task=0; task<task_size; ++task) {
     //------------ timing -------------
     auto tp = std::chrono::system_clock::now();
     std::time_t t = std::chrono::system_clock::to_time_t(tp);

@@ -14,7 +14,7 @@ print_level = -2 #-2
 # Lattice:
 #---------------------------------------------
 lattice = "CHAIN" # "SQUARE" 
-lsize1 = 30
+lsize1 = 10
 lsize2 = 4
 bc1 = "periodic"
 bc2 = "periodic"
@@ -24,7 +24,7 @@ bc2 = "periodic"
 #---------------------------------------------
 model = "HUBBARD"
 t = 1.0
-U = 0.0
+U = 4.0
 
 #---------------------------------------------
 # Variational wavefunction
@@ -41,7 +41,7 @@ hole_doping = 0.0
 # List of observable to calculate:
 #---------------------------------------------
 Energy = "Yes"
-EnergyGradient = "YES"
+EnergyGradient = "NO"
 Magnetization = "No"
 
 #---------------------------------------------

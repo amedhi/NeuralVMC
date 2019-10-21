@@ -36,7 +36,7 @@ public:
   void switch_off(void);
   void reset(void); 
   int do_measurement(const lattice::LatticeGraph& graph, 
-    const model::Hamiltonian& model, const SysConfig& config, const SiteDisorder& site_disorder);
+    const model::Hamiltonian& model, const SysConfig& config);
   inline Energy& energy(void) { return energy_; }
   inline EnergyGradient& energy_grad(void) { return energy_grad_; }
   inline SC_Correlation& sc_corr(void) { return sc_corr_; }

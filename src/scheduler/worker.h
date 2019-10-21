@@ -15,6 +15,8 @@
 
 namespace scheduler {
 
+using namespace mpi;
+
 class AbstractWorker
 {
 public:

@@ -11,12 +11,13 @@
 #include <iostream>
 #include <list>
 #include <exception>
+#include <boost/optional.hpp>
 #ifdef HAVE_BOOST_MPI
   #include <boost/mpi/environment.hpp>
   #include <boost/mpi/communicator.hpp>
 #endif
 
-namespace scheduler {
+namespace mpi {
 
 enum {MP_make_task, MP_task_params, MP_run_task, MP_task_finished,
   MP_quit_tasks};
@@ -28,6 +29,7 @@ enum {MP_make_task, MP_task_params, MP_run_task, MP_task_finished,
 #ifdef HAVE_BOOST_MPI
 
 using mpi_status = boost::mpi::status;
+using mpi_status_opt = boost::optional<boost::mpi::status>;
 using plist = std::list<int>;
 //  using mpi_environment = boost::mpi::environment;
 //  using mpi_communicator = boost::mpi::communicator;
@@ -47,8 +49,12 @@ public:
   bool is_master(void) const { return rank()==0; }
   int master(void) const { return 0; }
   const plist& slave_procs(void) const { return slave_procs_; }
+  const int& slave_min_id(void) const { return slave_min_id_; }
+  const int& slave_max_id(void) const { return slave_max_id_; }
 private:
   plist slave_procs_;
+  int slave_min_id_{0};
+  int slave_max_id_{0};
 };
 
 #else
@@ -68,6 +74,24 @@ private:
     throw std::logic_error("** mpi_communicator:: not an mpi program");
   }
 };
+
+using mpi_status_opt = boost::optional<mpi_status>;
+
+/*
+class mpi_status_opt
+{
+public:
+  mpi_status_opt() {}
+  ~mpi_status_opt() {}
+  int tag(void) const { throw_exception(); return 0; }
+  int source(void) const { throw_exception(); return 0; }
+private:
+  void throw_exception(void) const
+  {
+    throw std::logic_error("** mpi_status_opt:: not an mpi program");
+  }
+};
+*/
 
 class mpi_environment
 {
@@ -98,11 +122,14 @@ public:
     { throw_exception(); return mpi_status(); }
   mpi_status probe(int dest=0, int tag=0) const 
     { throw_exception(); return mpi_status(); }
-  mpi_status iprobe(int dest=0, int tag=0) const 
-    { throw_exception(); return mpi_status(); }
+  mpi_status_opt iprobe(int dest=0, int tag=0) const 
+    { throw_exception(); return mpi_status_opt(); }
   const plist& slave_procs(void) const { return slave_procs_; }
+  const int& slave_min_id(void) const { throw_exception(); return dummy_id_; }
+  const int& slave_max_id(void) const { throw_exception(); return dummy_id_; }
 private:
   plist slave_procs_;
+  int dummy_id_{0};
   void throw_exception(void) const
   {
     throw std::logic_error("** mpi_communicator:: not an mpi program");
@@ -113,6 +140,6 @@ private:
 
 
 
-} // end namespace scheduler
+} // end namespace mpi
 
 #endif

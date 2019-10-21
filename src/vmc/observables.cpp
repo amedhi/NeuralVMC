@@ -59,9 +59,9 @@ void ObservableSet::reset(void)
 }
 
 int ObservableSet::do_measurement(const lattice::LatticeGraph& graph, 
-    const model::Hamiltonian& model, const SysConfig& config, const SiteDisorder& site_disorder)
+    const model::Hamiltonian& model, const SysConfig& config)
 {
-  if (energy_) energy_.measure(graph,model,config,site_disorder);
+  if (energy_) energy_.measure(graph,model,config);
   if (energy_grad_) {
     if (!energy_) 
       throw std::logic_error("ObservableSet::measure: dependency not met for 'energy'");

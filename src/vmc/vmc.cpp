@@ -20,19 +20,11 @@ VMC::VMC(const input::Parameters& inputs)
   config.rng().seed(inputs.set_value("rng_seed", 1));
   // mc parameters
   num_sites_ = graph.num_sites();
-  num_measure_steps_ = inputs.set_value("measure_steps", 0);
+  samples_required_ = inputs.set_value("measure_steps", 0);
   num_warmup_steps_ = inputs.set_value("warmup_steps", 0);
   min_interval_ = inputs.set_value("min_interval", 0);
   max_interval_ = inputs.set_value("max_interval", 0);
-  check_interval_ = std::max(1,num_measure_steps_/10);
-
-  // disorder
-  if (site_disorder_.check(inputs)) {
-    site_disorder_.init(inputs,graph,model,config,config.rng());
-    model.add_disorder_term("disorder", model::op::ni_sigma());
-    model.finalize(graph.lattice());
-  }
-  //if (model.have_disorder_term()) 
+  check_interval_ = std::max(1,samples_required_/10);
 
   // observables
   make_info_str(inputs);
@@ -41,39 +33,11 @@ VMC::VMC(const input::Parameters& inputs)
   observables.as_functions_of("x");
 }
 
-int VMC::disorder_start(const input::Parameters& inputs, 
-  const unsigned& disorder_config, const run_mode& mode, const bool& silent)
-{
-  site_disorder_.set_current_config(disorder_config);
-  //site_disorder_.save_optimal_parms(config.vparm_values());
-  run_mode_ = mode;
-  bool with_psi_grad = false;
-  switch (mode) {
-    case run_mode::normal:
-      if (observables.energy_grad()) with_psi_grad = true;
-      break;
-    case run_mode::energy_function:
-      observables.switch_off();
-      observables.energy().setup(graph,model);
-      observables.energy_grad().setup(config);
-      break;
-    case run_mode::sr_function:
-      observables.switch_off();
-      observables.energy().setup(graph,model);
-      observables.energy_grad().setup(config);
-      observables.sr_matrix().setup(graph,config);
-      break;
-  }
-  silent_mode_ = silent;
-  if (inputs.have_option_quiet()) silent_mode_ = true;
-  //site_disorder_.get_optimal_parms();
-  //return config.build(graph, inputs, with_psi_grad);
-  return config.build(graph,site_disorder_.get_optimal_parms(),with_psi_grad);
-}
-
-int VMC::start(const input::Parameters& inputs, const run_mode& mode, 
+int VMC::init(const input::Parameters& inputs, const run_mode& mode, 
   const bool& silent)
 {
+  samples_collected_ = 0;
+  skip_count_ = min_interval_;
   run_mode_ = mode;
   bool with_psi_grad = false;
   switch (mode) {
@@ -146,6 +110,38 @@ int VMC::run_simulation(const Eigen::VectorXd& varp)
   return 0;
 }
 
+int VMC::do_warmup(const int& num_steps)
+{
+  if (num_steps>0) {
+    for (int n=0; n<num_steps; ++n) config.update_state();
+  }
+  else {
+    for (int n=0; n<num_warmup_steps_; ++n) config.update_state();
+  }
+  // prepare for measurement
+  samples_collected_ = 0;
+  skip_count_ = min_interval_;
+  observables.reset();
+  return 0;
+}
+
+int VMC::do_steps(const int& num_steps)
+{
+  for (int n=0; n<num_steps; ++n) {
+    config.update_state();
+    if (skip_count_ >= min_interval_) {
+      if (config.accept_ratio()>0.5 || skip_count_>=max_interval_) {
+        skip_count_ = 0;
+        config.reset_accept_ratio();
+        observables.do_measurement(graph,model,config);
+        ++samples_collected_;
+      }
+    }
+    skip_count_++;
+  }
+  return 0;
+}
+
 int VMC::run_simulation(const int& sample_size)
 {
   // warmup run
@@ -153,20 +149,21 @@ int VMC::run_simulation(const int& sample_size)
   for (int n=0; n<num_warmup_steps_; ++n) config.update_state();
   if (!silent_mode_) std::cout << "done\n";
   // measuring run
-  int num_measure_steps = num_measure_steps_;
-  if (sample_size>0) num_measure_steps = sample_size;
-  int measurement_count = 0;
+  //int num_measure_steps = samples_required_;
+  if (sample_size>0) samples_required_ = sample_size;
+  //int measurement_count = 0;
+  samples_collected_ = 0;
   int skip_count = min_interval_;
   observables.reset();
-  while (measurement_count < num_measure_steps) {
+  while (samples_collected_ < samples_required_) {
     config.update_state();
     if (skip_count >= min_interval_) {
       if (config.accept_ratio()>0.5 || skip_count==max_interval_) {
         skip_count = 0;
         config.reset_accept_ratio();
-        observables.do_measurement(graph,model,config,site_disorder_);
-        ++measurement_count;
-        if (!silent_mode_) print_progress(measurement_count, num_measure_steps);
+        observables.do_measurement(graph,model,config);
+        ++samples_collected_;
+        if (!silent_mode_) print_progress(samples_collected_, samples_required_);
       }
     }
     skip_count++;
@@ -189,6 +186,11 @@ void VMC::print_results(void)
   //std::cout << observables.energy().with_statistic() << "\n";
 }
 
+bool VMC::not_done(void) const
+{
+  return samples_collected_<samples_required_;
+}
+
 void VMC::print_progress(const int& num_measurement, const int& num_measure_steps) const
 {
   if (num_measurement%check_interval_==0)
@@ -202,7 +204,7 @@ void VMC::make_info_str(const input::Parameters& inputs)
   info_str_ << "# "<< inputs.job_id() <<"\n"; 
   info_str_ << model.info_str(); 
   info_str_ << config.info_str(); 
-  info_str_ << "# Samples = " << num_measure_steps_;
+  info_str_ << "# Samples = " << samples_required_;
   info_str_ << ", warmup = " << num_warmup_steps_;
   info_str_ << ", min_interval = " << min_interval_;
   info_str_ << ", max_interval = " << max_interval_ << "\n";

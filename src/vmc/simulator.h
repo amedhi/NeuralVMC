@@ -13,6 +13,9 @@
 
 namespace vmc {
 
+enum {MP_init_simulation, MP_do_steps, MP_halt_simulation, MP_quit_simulation,
+      MP_poll_results, MP_run_results};
+
 class Simulator : public scheduler::Worker
 {
 public:

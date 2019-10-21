@@ -36,8 +36,11 @@ public:
   double energy_function(const Eigen::VectorXd& varp, Eigen::VectorXd& grad);
   double operator()(const Eigen::VectorXd& varp, Eigen::VectorXd& grad) 
     { return energy_function(varp, grad); }
-  double sr_function(const Eigen::VectorXd& vparms, Eigen::VectorXd& grad, 
-    Eigen::MatrixXd& sr_matrix, const int& sample_size=-1);
+  //double sr_function(const Eigen::VectorXd& vparms, Eigen::VectorXd& grad, 
+  //  Eigen::MatrixXd& sr_matrix, const int& sample_size=-1);
+  int sr_function(const Eigen::VectorXd& varp, double& en_mean, 
+    double& en_stddev, Eigen::VectorXd& grad, Eigen::MatrixXd& sr_matrix, 
+    const int& sample_size=-1, const int& rng_seed=-1);
   //void get_vparm_values(var::parm_vector& varparms) 
   //  { varparms = config.vparm_values(); }
   const int& num_varp(void) const { return config.num_varparms(); } 
@@ -47,6 +50,9 @@ public:
   const std::vector<std::string>& varp_names(void) const { return config.varp_names(); }
   RandomGenerator& rng(void) const { return config.rng(); }
   const double& hole_doping(void) const { return config.hole_doping(); }
+  const std::vector<std::string>& xvar_names(void) const { return xvar_names_; }
+  const std::vector<double>& xvar_values(void) const { return xvar_values_; }
+  const std::string prefix_dir(void) const { return prefix_; }
   void print_results(void); 
   std::ostream& print_info(std::ostream& os) const { return model.print_info(os); }
   static void copyright_msg(std::ostream& os);
@@ -61,6 +67,9 @@ private:
 
   // observables
   ObservableSet observables;
+  std::string prefix_{"./"};
+  std::vector<std::string> xvar_names_;
+  std::vector<double> xvar_values_;
 
   // mc parameters
   enum move_t {uphop, dnhop, exch, end};

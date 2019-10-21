@@ -36,7 +36,10 @@ EIGEN_INCLUDE=-I/usr/local/include
 
 # Boost MPI library
 ifeq ($(MPI), HAVE_BOOST_MPI)
-BOOST_LIBS=-lboost_mpi -lboost_serialization
+BOOST_LIBS=-lboost_filesystem -lboost_system -lboost_mpi -lboost_serialization
+BOOST_LDFLAGS=-L/usr/local/lib
+else
+BOOST_LIBS=-lboost_filesystem -lboost_system
 BOOST_LDFLAGS=-L/usr/local/lib
 endif
 

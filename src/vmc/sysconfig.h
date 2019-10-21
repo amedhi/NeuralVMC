@@ -43,6 +43,7 @@ public:
   const var::parm_vector& vparm_lbound(void) const { return vparm_lbound_; } 
   const var::parm_vector& vparm_ubound(void) const { return vparm_ubound_; } 
   const double& hole_doping(void) const { return wf_.hole_doping(); }
+  int num_particles(void) const { return num_upspins_+num_dnspins_; }
   int update_state(void);
   double accept_ratio(void);
   void reset_accept_ratio(void);

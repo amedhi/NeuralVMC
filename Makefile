@@ -42,6 +42,7 @@ SRCS+= vmc/basisstate.cpp
 SRCS+= vmc/sysconfig.cpp
 SRCS+= vmc/disorder.cpp
 SRCS+= vmc/energy.cpp
+SRCS+= vmc/particle.cpp
 SRCS+= vmc/sccorr.cpp
 SRCS+= vmc/observables.cpp
 SRCS+= vmc/stochastic_reconf.cpp
@@ -82,6 +83,7 @@ HDRS=    scheduler/mpi_comm.h \
 	 mcdata/mcdata.h  \
 	 mcdata/mc_observable.h  \
 	 vmc/energy.h \
+	 vmc/particle.h \
 	 vmc/sccorr.h \
 	 vmc/observables.h \
 	 vmc/random.h  vmc/basisstate.h vmc/sysconfig.h \

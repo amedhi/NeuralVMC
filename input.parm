@@ -6,10 +6,10 @@
 # Job Specification 
 #---------------------------------------------
 job = "VMC Simulation" 
-optimizing_run = "NO" # "YES" 
+optimizing_run = "YES" # "YES" 
 mode = "NEW" # ("NEW"/"APPEND")
 print_level = -2 #-2
-
+prefix = "hub_chain"
 #---------------------------------------------
 # Lattice:
 #---------------------------------------------
@@ -24,7 +24,7 @@ bc2 = "periodic"
 #---------------------------------------------
 model = "HUBBARD"
 t = 1.0
-U = 4.0
+U = 0.0
 
 #---------------------------------------------
 # Variational wavefunction
@@ -36,12 +36,13 @@ hole_doping = 0.0
 #delta_sc = 0.08
 #gfactor = 0.3037
 #mu = -0.4263
+as_func_of = "hole_doping"
 
 #---------------------------------------------
 # List of observable to calculate:
 #---------------------------------------------
 Energy = "Yes"
-EnergyGradient = "NO"
+EnergyGradient = "YES"
 Magnetization = "No"
 
 #---------------------------------------------
@@ -56,14 +57,16 @@ max_interval = 20
 #---------------------------------------------
 # Optimization parameters
 #---------------------------------------------
+sr_progress_stdout = 'YES'
+sr_progress_log = 'NO'
 sr_measure_steps = 5000
-sr_opt_samples = 3
-sr_max_iter = 500
-sr_start_tstep = 0.1 # 0.08
-sr_series_len = 50
-sr_fluctuation_tol = 0.35
-sr_progress_stdout = False
-sr_progress_log = True
+sr_opt_samples = 6
+sr_max_iter = 200
+sr_start_tstep = 0.1
+sr_flat_tail_len = 20
+sr_random_start = 'YES'
+sr_rslope_tol = 1.0E-2
+sr_aslope_tol = 1.0E-5
 
 
 

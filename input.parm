@@ -14,8 +14,9 @@ prefix = "hub_chain"
 # Lattice:
 #---------------------------------------------
 lattice = "CHAIN" # "SQUARE" 
+#lattice = "SQUARE" 
 lsize1 = 10
-lsize2 = 4
+#lsize2 = 6
 bc1 = "periodic"
 bc2 = "periodic"
 
@@ -24,13 +25,15 @@ bc2 = "periodic"
 #---------------------------------------------
 model = "HUBBARD"
 t = 1.0
-U = 0.0
+U = 4.0
 
 #---------------------------------------------
 # Variational wavefunction
 #---------------------------------------------
 wavefunction = "IDENTITY"
-nqs_wf = "FFNN"
+#nqs_wf = "FFNN"
+nqs_wf = "FFNN_SIGN"
+#nqs_wf = "SymFFNN"
 gutzwiller_proj = "NO"
 hole_doping = 0.0 
 #delta_sc = 0.08
@@ -41,34 +44,42 @@ as_func_of = "hole_doping"
 #---------------------------------------------
 # List of observable to calculate:
 #---------------------------------------------
-Energy = "Yes"
-EnergyGradient = "YES"
-Magnetization = "No"
+Energy = "YES"
+EnergyGradient = "NO"
+Magnetization = "NO"
 
 #---------------------------------------------
 # Monte Carlo parameters
 #---------------------------------------------
 rng_seed = 0  # (=0 No seed, >0 time_seed)
 measure_steps = 5000
-warmup_steps = 5000
+warmup_steps = 1000
 min_interval = 2
 max_interval = 20
 
 #---------------------------------------------
 # Optimization parameters
 #---------------------------------------------
-sr_progress_stdout = 'YES'
-sr_progress_log = 'NO'
-sr_measure_steps = 5000
+#sr_progress_stdout = 'YES'
+#sr_progress_log = 'NO'
+#sr_measure_steps = 1000
+#sr_opt_samples = 1
+#sr_max_iter = 500
+#sr_start_tstep = 0.15 # 0.08
+#sr_flat_tail_len = 20
+#sr_random_start = 'NO'
+#sr_rslope_tol = 1.0E-2
+#sr_aslope_tol = 1.0E-5
+
+
+sr_progress_stdout = "YES"
+sr_progress_log = "NO"
 sr_opt_samples = 6
-sr_max_iter = 200
-sr_start_tstep = 0.1
-sr_flat_tail_len = 20
-sr_random_start = 'YES'
-sr_rslope_tol = 1.0E-2
-sr_aslope_tol = 1.0E-5
-
-
+sr_max_iter = 100
+sr_flat_tail_len = 10
+sr_random_start = "NO"
+sr_ftol = 0.000050
+sr_gradtol = 0.005000
 
 
 

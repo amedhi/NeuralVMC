@@ -17,7 +17,7 @@ endif
 
 #-------------------------------------------------------------
 # other preprocessor directiives
-#VMC_CPPFLAGS+=#-DREAL_WAVEFUNCTION #-DEIGEN_NO_DEBUG
+#VMC_CPPFLAGS+=-DREAL_WAVEFUNCTION #-DEIGEN_NO_DEBUG
 
 #-------------------------------------------------------------
 # 2. Compile flags 

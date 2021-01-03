@@ -27,8 +27,6 @@ void FockBasis::init(const int& num_sites, const bool& allow_dbl)
   proposed_move_ = move_t::null;
   // rng site generator
   if (num_sites_>0) rng_.set_site_generator(0,num_sites_-1);
-  // rng site generator
-  if (num_sites_>0) rng_.set_site_generator(0,num_sites_-1);
 }
 
 void FockBasis::init_spins(const int& num_upspins, const int& num_dnspins)
@@ -196,6 +194,54 @@ bool FockBasis::gen_upspin_hop(void)
     new_elems_[1] = up_to_state_;
     //fr_state = up_fr_state_;
     //to_state = up_to_state_;
+
+    // sign (considered that the state is aready changed above)
+    op_sign_ = 1;
+    for (int i=up_to_state_+1; i<up_fr_state_; ++i) {
+      if (state_[i]) op_sign_ = -op_sign_;
+    }
+    for (int i=up_fr_state_+1; i<up_to_state_; ++i) {
+      if (state_[i]) op_sign_ = -op_sign_;
+    }
+    return true;
+  }
+}
+
+bool FockBasis::gen_dnspin_hop(void)
+{
+  if (proposed_move_!=move_t::null) undo_last_move();
+  if (num_dnholes_==0 || num_dnspins_==0) {
+    proposed_move_ = move_t::null;
+    return false;
+  }
+  mv_dnspin_ = rng_.random_dnspin();
+  mv_dnhole_ = rng_.random_dnhole();
+  //std::cout << " rng test = " << spin_site_pair.first << "\n";
+  dn_fr_state_ = dn_states_[mv_dnspin_]; 
+  dn_to_state_ = dnhole_states_[mv_dnhole_]; 
+  dn_fr_site_ = dn_fr_state_-num_sites_;
+  dn_to_site_ = dn_to_state_-num_sites_;
+  if (!double_occupancy_ && state_[dn_to_site_]) {
+    proposed_move_ = move_t::null;
+    return false;
+  }
+  else {
+    proposed_move_=move_t::dnspin_hop;
+    state_[dn_fr_state_] = 0;
+    state_[dn_to_state_] = 1;
+    dblocc_increament_ = state_[dn_to_site_]; // must be 0 or 1
+    dblocc_increament_ -= state_[dn_fr_site_];
+    new_elems_.resize(2);
+    new_elems_[0] = dn_fr_state_;
+    new_elems_[1] = dn_to_state_;
+    // sign (considered that the state is aready changed above)
+    op_sign_ = 1;
+    for (int i=dn_to_state_+1; i<dn_fr_state_; ++i) {
+      if (state_[i]) op_sign_ = -op_sign_;
+    }
+    for (int i=dn_fr_state_+1; i<dn_to_state_; ++i) {
+      if (state_[i]) op_sign_ = -op_sign_;
+    }
     return true;
   }
 }
@@ -265,36 +311,6 @@ const int& FockBasis::which_dnspin_site(void) const
   }
 }
 
-bool FockBasis::gen_dnspin_hop(void)
-{
-  if (proposed_move_!=move_t::null) undo_last_move();
-  if (num_dnholes_==0 || num_dnspins_==0) {
-    proposed_move_ = move_t::null;
-    return false;
-  }
-  mv_dnspin_ = rng_.random_dnspin();
-  mv_dnhole_ = rng_.random_dnhole();
-  //std::cout << " rng test = " << spin_site_pair.first << "\n";
-  dn_fr_state_ = dn_states_[mv_dnspin_]; 
-  dn_to_state_ = dnhole_states_[mv_dnhole_]; 
-  dn_fr_site_ = dn_fr_state_-num_sites_;
-  dn_to_site_ = dn_to_state_-num_sites_;
-  if (!double_occupancy_ && state_[dn_to_site_]) {
-    proposed_move_ = move_t::null;
-    return false;
-  }
-  else {
-    proposed_move_=move_t::dnspin_hop;
-    state_[dn_fr_state_] = 0;
-    state_[dn_to_state_] = 1;
-    dblocc_increament_ = state_[dn_to_site_]; // must be 0 or 1
-    dblocc_increament_ -= state_[dn_fr_site_];
-    new_elems_.resize(2);
-    new_elems_[0] = dn_fr_state_;
-    new_elems_[1] = dn_to_state_;
-    return true;
-  }
-}
 
 bool FockBasis::gen_exchange_move(void)
 {
@@ -334,6 +350,20 @@ bool FockBasis::gen_exchange_move(void)
   new_elems_[1] = up_to_state_;
   new_elems_[2] = dn_fr_state_;
   new_elems_[3] = dn_to_state_;
+  // sign (considered that the state is aready changed above)
+  op_sign_ = 1;
+  for (int i=up_to_state_; i<up_fr_state_; ++i) {
+    if (state_[i]) op_sign_ = -op_sign_;
+  }
+  for (int i=up_fr_state_; i<up_to_state_; ++i) {
+    if (state_[i]) op_sign_ = -op_sign_;
+  }
+  for (int i=dn_to_state_; i<dn_fr_state_; ++i) {
+    if (state_[i]) op_sign_ = -op_sign_;
+  }
+  for (int i=dn_fr_state_; i<dn_to_state_; ++i) {
+    if (state_[i]) op_sign_ = -op_sign_;
+  }
   return true;
 }
 
@@ -383,6 +413,15 @@ bool FockBasis::op_cdagc_up(const int& site_i, const int& site_j) const
   for (int i=up_fr_state_+1; i<up_to_state_; ++i) {
     if (state_[i]) op_sign_ = -op_sign_;
   }
+  /*
+  if (op_sign_==-1) {
+    std::cout << "up_fr_state = " << up_fr_state_ << "\n";
+    std::cout << "up_to_state = " << up_to_state_ << "\n";
+    std::cout << "state: |" << state_.transpose() << ">\n";
+    std::cout << "sign(op_cdagc_up) = "<<op_sign_<<"\n"; getchar();
+  }
+  */
+
   new_elems_.resize(2);
   new_elems_[0] = up_fr_state_;
   new_elems_[1] = up_to_state_;
@@ -423,6 +462,16 @@ bool FockBasis::op_cdagc_dn(const int& site_i, const int& site_j) const
   for (int i=dn_fr_state_+1; i<dn_to_state_; ++i) {
     if (state_[i]) op_sign_ = -op_sign_;
   }
+
+  /*
+  if (op_sign_==-1) {
+    std::cout << "dn_fr_state = " << dn_fr_state_ << "\n";
+    std::cout << "dn_to_state = " << dn_to_state_ << "\n";
+    std::cout << "state: |" << state_.transpose() << ">\n";
+    std::cout << "sign(op_cdagc_up) = "<<op_sign_<<"\n"; getchar();
+  }
+  */
+
   new_elems_.resize(2);
   new_elems_[0] = dn_fr_state_;
   new_elems_[1] = dn_to_state_;

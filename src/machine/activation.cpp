@@ -2,7 +2,7 @@
 * @Author: amedhi
 * @Date:   2019-01-10 14:22:50
 * @Last Modified by:   Amal Medhi, amedhi@mbpro
-* @Last Modified time: 2019-08-13 14:20:45
+* @Last Modified time: 2020-03-10 21:51:53
 *----------------------------------------------------------------------------*/
 #include "activation.h"
 
@@ -123,6 +123,54 @@ Vector Sigmoid::derivative(const Vector& input) const
 	{ double y = 1.0/(1.0+std::exp(-x)); return y*(1.0-y); });
 }
 
+//---------------- log[cosh(x)]-----------------------
+double LCOSH::function(const double& x) const 
+{
+  return std::log(std::cosh(x));
+}
+
+Vector LCOSH::function(const Vector& input) const
+{
+  return input.unaryExpr([](const double& x) {return std::log(std::cosh(x));});
+}
+
+double LCOSH::derivative(const double& x) const 
+{
+  return std::tanh(x);
+}
+
+Vector LCOSH::derivative(const Vector& input) const
+{
+  return input.unaryExpr([](const double& x) 
+	{ return std::tanh(x); });
+}
+
+//---------------- cos(pi*x)-----------------------
+double COSPI::function(const double& x) const 
+{
+  //return std::cos(pi()*x);
+  return std::cos(M_PI*x);
+}
+
+Vector COSPI::function(const Vector& input) const
+{
+  //return input.unaryExpr([](const double& x) {return std::cos(pi()*x);});
+  return input.unaryExpr([](const double& x) {return std::cos(M_PI*x);});
+}
+
+double COSPI::derivative(const double& x) const 
+{
+  //return -pi()*std::sin(pi()*x);
+  return -M_PI*std::sin(M_PI*x);
+}
+
+Vector COSPI::derivative(const Vector& input) const
+{
+  //return input.unaryExpr([](const double& x) 
+	//{ return -pi()*std::sin(pi()*x); });
+  return input.unaryExpr([](const double& x) 
+	{ return -M_PI*std::sin(M_PI*x); });
+}
 
 
 

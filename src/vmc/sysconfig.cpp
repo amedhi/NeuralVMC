@@ -28,7 +28,7 @@ SysConfig::SysConfig(const input::Parameters& inputs,
   have_mf_part_ = false;
 #endif
   // variational parameters
-  //nqs_.init_parameters(fock_basis_.rng(), 0.5);
+  //nqs_.init_parameters(fock_basis_.rng(), 0.005);
   //num_net_parms_ = ffnet_.num_params();
   num_net_parms_ = nqs_.num_params();
   num_pj_parms_ = pj_.varparms().size();
@@ -97,7 +97,7 @@ int SysConfig::build(const lattice::LatticeGraph& graph, const input::Parameters
 #ifdef HAVE_DETERMINANTAL_PART
   wf_.compute(graph, inputs, with_gradient);
 #endif
-  //nqs_.init_parameters(fock_basis_.rng(), 0.5);
+  //nqs_.init_parameters(fock_basis_.rng(), 0.005);
   init_config();
   return 0;
 }
@@ -158,6 +158,7 @@ int SysConfig::init_config(void)
   //ffn_psi_ = ffnet_.output();
   nqs_.update_state(fock_basis_.state());
   nqs_psi_ = nqs_.output();
+  nqs_sign_ = 1;
 
   set_run_parameters();
   return 0;
@@ -221,7 +222,7 @@ int SysConfig::do_upspin_hop(void)
     num_proposed_moves_[move_t::uphop]++;
     last_proposed_moves_++;
     //std::cout << "\n state=" << fock_basis_.transpose() << "\n";
-    double psi = nqs_.get_new_output(fock_basis_.state(),fock_basis_.new_elems());
+    amplitude_t psi = nqs_.get_new_output(fock_basis_.state(),fock_basis_.new_elems());
     amplitude_t psi_ratio = psi/nqs_psi_;
 
 #ifdef HAVE_DETERMINANTAL_PART
@@ -248,6 +249,7 @@ int SysConfig::do_upspin_hop(void)
       fock_basis_.commit_last_move();
       nqs_.update_state(fock_basis_.state(),fock_basis_.new_elems());
       nqs_psi_ = nqs_.output();
+      nqs_sign_ *= fock_basis_.op_sign();
 
 #ifdef HAVE_DETERMINANTAL_PART
       if (have_mf_part_) {
@@ -269,7 +271,7 @@ int SysConfig::do_dnspin_hop(void)
     num_proposed_moves_[move_t::dnhop]++;
     last_proposed_moves_++;
     //std::cout << "\n state=" << fock_basis_.transpose() << "\n";
-    double psi = nqs_.get_new_output(fock_basis_.state(),fock_basis_.new_elems());
+    amplitude_t psi = nqs_.get_new_output(fock_basis_.state(),fock_basis_.new_elems());
     amplitude_t psi_ratio = psi/nqs_psi_;
 
 #ifdef HAVE_DETERMINANTAL_PART
@@ -295,6 +297,7 @@ int SysConfig::do_dnspin_hop(void)
       fock_basis_.commit_last_move();
       nqs_.update_state(fock_basis_.state(),fock_basis_.new_elems());
       nqs_psi_ = nqs_.output();
+      nqs_sign_ *= fock_basis_.op_sign();
 #ifdef HAVE_DETERMINANTAL_PART
       if (have_mf_part_) {
         inv_update_dnspin(dnspin,psi_col_,det_ratio);
@@ -314,7 +317,7 @@ int SysConfig::do_spin_exchange(void)
     num_proposed_moves_[move_t::exch]++;
     last_proposed_moves_++;
     //std::cout << "\n state=" << fock_basis_.transpose() << "\n";
-    double psi = nqs_.get_new_output(fock_basis_.state(),fock_basis_.new_elems());
+    amplitude_t psi = nqs_.get_new_output(fock_basis_.state(),fock_basis_.new_elems());
     amplitude_t psi_ratio = psi/nqs_psi_;
 
 #ifdef HAVE_DETERMINANTAL_PART
@@ -365,6 +368,7 @@ int SysConfig::do_spin_exchange(void)
       fock_basis_.commit_last_move();
       nqs_.update_state(fock_basis_.state(),fock_basis_.new_elems());
       nqs_psi_ = nqs_.output();
+      nqs_sign_ *= fock_basis_.op_sign();
 #ifdef HAVE_DETERMINANTAL_PART
       if (have_mf_part_) {
         inv_update_upspin(upspin,psi_row_,det_ratio1);
@@ -454,9 +458,11 @@ amplitude_t SysConfig::apply_upspin_hop(const int& i, const int& j,
   if (i == j) return ampl_part(fock_basis_.op_ni_up(i));
   if (fock_basis_.op_cdagc_up(i,j)) {
     int sign = fock_basis_.op_sign();
-    double psi = nqs_.get_new_output(fock_basis_.state());
+    amplitude_t psi = nqs_.get_new_output(fock_basis_.state());
     amplitude_t psi_ratio = psi/nqs_psi_;
+    //sign *= nqs_sign_;
     psi_ratio *= sign;
+    //if (sign < 0) {std::cout << "sign = " << sign << "\n"; getchar();}
 #ifdef HAVE_DETERMINANTAL_PART
     double proj_ratio = pj_.gw_ratio(fock_basis_.delta_nd());
     if (have_mf_part_) {
@@ -481,8 +487,9 @@ amplitude_t SysConfig::apply_dnspin_hop(const int& i, const int& j,
   if (i == j) return ampl_part(fock_basis_.op_ni_dn(i));
   if (fock_basis_.op_cdagc_dn(i,j)) {
     int sign = fock_basis_.op_sign();
-    double psi = nqs_.get_new_output(fock_basis_.state());
+    amplitude_t psi = nqs_.get_new_output(fock_basis_.state());
     amplitude_t psi_ratio = psi/nqs_psi_;
+    //sign *= nqs_sign_;
     psi_ratio *= sign;
 #ifdef HAVE_DETERMINANTAL_PART
     double proj_ratio = pj_.gw_ratio(fock_basis_.delta_nd());
@@ -603,12 +610,19 @@ void SysConfig::get_grad_logpsi(RealVector& grad_logpsi) const
 {
 
   // grad_logpsi wrt nnet parameters
-  eig::real_vec grad(num_net_parms_);
+  Vector grad(num_net_parms_);
   //std::cout << "getting grad" << "\n"; getchar();
-  nqs_.get_gradient(grad,0);
-
-  for (int n=0; n<num_net_parms_; ++n) {
-    grad_logpsi(n) = grad(n)/nqs_psi_;
+  if (nqs_.is_exponential_type()) {
+    nqs_.get_log_gradient(grad,0);
+    for (int n=0; n<num_net_parms_; ++n) {
+      grad_logpsi(n) = std::real(grad(n));
+    }
+  }
+  else {
+    nqs_.get_gradient(grad,0);
+    for (int n=0; n<num_net_parms_; ++n) {
+      grad_logpsi(n) = std::real(grad(n)/nqs_psi_);
+    }
   }
   /*
   //std::cout << grad_logpsi.transpose() << "\n"; getchar();

@@ -134,6 +134,7 @@ int StochasticReconf::optimize(VMC& vmc)
   // starting value of variational parameters
   int refinement_cycle = 50;
   vparms_start_ = vmc.varp_values();
+  //std::cout << vparms_start_.transpose() << "\n"; getchar();
   bool all_samples_converged = true;
   for (int sample=1; sample<=num_opt_samples_; ++sample) {
     // iteration files
@@ -289,8 +290,8 @@ int StochasticReconf::optimize(VMC& vmc)
       iter_energy_err.push_back(error_bar);
       iter_vparms.push_back(vparms_);
       iter_grads.push_back(grad_);
-      //if (false) {
-      if (iter_energy.size() > flat_tail_len_) {
+      if (false) {
+      //if (iter_energy.size() > flat_tail_len_) {
         iter_vparms.pop_front();
         iter_grads.pop_front();
         RealVector p = lsqfit(iter_energy,flat_tail_len_);

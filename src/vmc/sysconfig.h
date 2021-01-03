@@ -65,8 +65,9 @@ private:
   //var::FFN_State ffnet_;
   var::Wavefunction wf_;
   nqs::NQS_Wavefunction nqs_;
+  int nqs_sign_{1};
   //double ffn_psi_;
-  double nqs_psi_;
+  amplitude_t nqs_psi_;
   bool have_mf_part_{false};
   Matrix psi_mat_;
   Matrix psi_inv_;

@@ -20,8 +20,10 @@ public:
 	virtual ~AbstractNet() {}
   virtual int add_layer(const int& units, const std::string& activation="None", 
     const int& input_dim=0) = 0;
+  virtual int add_sign_layer(const int& input_dim) = 0;
   virtual int compile(void) = 0;
   virtual const int& num_params(void) const = 0;
+  virtual const int& num_output_units(void) const = 0;
   virtual void init_parameters(random_engine& rng, const double& sigma) = 0;
   virtual void get_parameter_names(std::vector<std::string>& pnames, 
     const int& pos=0) const = 0;

@@ -24,6 +24,7 @@ SRCS+= model/modellibrary.cpp
 SRCS+= machine/abstract_net.cpp
 SRCS+= machine/activation.cpp
 SRCS+= machine/neural_layer.cpp
+SRCS+= machine/sign_layer.cpp
 SRCS+= machine/ffnet.cpp
 SRCS+= machine/nqs_wf.cpp
 SRCS+= wavefunction/varparm.cpp
@@ -68,6 +69,7 @@ HDRS=    scheduler/mpi_comm.h \
 	 machine/dtype.h \
 	 machine/activation.h \
 	 machine/neural_layer.h \
+	 machine/sign_layer.h \
 	 machine/abstract_net.h \
 	 machine/ffnet.h \
 	 machine/nqs.h \

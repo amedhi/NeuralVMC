@@ -10,10 +10,12 @@
 
 #include "../scheduler/task.h"
 #include <string>
+#include "../wavefunction/matrix.h"
 #include "abstract_net.h"
 #include "ffnet.h"
 
 namespace nqs {
+constexpr std::complex<double> ii(void) { return std::complex<double>(0.0, 1.0); }
 
 class NQS_Wavefunction 
 {
@@ -23,6 +25,7 @@ public:
   ~NQS_Wavefunction() {} 
   int init(const int& num_sites, const input::Parameters& inputs);
   const int& num_params(void) const;
+  bool is_exponential_type(void) const { return exponential_type_; }
   void init_parameters(ann::random_engine& rng, const double& sigma);
   void get_parm_names(std::vector<std::string>& pnames, const int& pos=0) const;
   void get_parm_values(ann::Vector& pvalues, const int& pos=0) const;
@@ -31,16 +34,22 @@ public:
   void update_parameters(const ann::Vector& pvalues, const int& pos);
   void update_state(const ann::ivector& fock_state);
   void update_state(const ann::ivector& fock_state, const std::vector<int> new_elems);
-  const double& output(void) const; 
-  double get_new_output(const ann::ivector& fock_state) const;
-  double get_new_output(const ann::ivector& fock_state, const std::vector<int> new_elems) const;
+  const amplitude_t& output(void) const; 
+  amplitude_t get_new_output(const ann::ivector& fock_state) const;
+  amplitude_t get_new_output(const ann::ivector& fock_state, const std::vector<int> new_elems) const;
   void get_parm_lbound(eig::real_vec& lbound, const int& pos) const;
   void get_parm_ubound(eig::real_vec& ubound, const int& pos) const;
-  void get_gradient(ann::Vector& grad, const int& pos) const;
+  void get_gradient(Vector& grad, const int& pos) const;
+  void get_log_gradient(Vector& grad, const int& pos) const;
 private:
   std::unique_ptr<ann::AbstractNet> nnet_;
+  std::unique_ptr<ann::AbstractNet> sign_nnet_;
   std::string name_;
+  bool exponential_type_{false};
   int num_sites_{0};
+  int num_params_{0};
+  bool have_sign_nnet_{false};
+  mutable amplitude_t output_{0.0};
 };
 
 

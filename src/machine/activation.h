@@ -13,6 +13,8 @@
 
 namespace ann {
 
+constexpr double pi(void) { return 3.1415926535897932384626433832795028841971693993751058209; }
+
 class Activation
 {
 public:
@@ -75,6 +77,27 @@ public:
   Vector derivative(const Vector& input) const override;
 };
 
+class LCOSH : public Activation
+{
+public:
+  LCOSH() {}
+  ~LCOSH() {}
+  double function(const double& x) const override;
+  Vector function(const Vector& input) const override;
+  double derivative(const double& x) const override;
+  Vector derivative(const Vector& input) const override;
+};
+
+class COSPI : public Activation
+{
+public:
+  COSPI() {}
+  ~COSPI() {}
+  double function(const double& x) const override;
+  Vector function(const Vector& input) const override;
+  double derivative(const double& x) const override;
+  Vector derivative(const Vector& input) const override;
+};
 
 
 } // end namespace ann

@@ -15,24 +15,24 @@ prefix = "hub_chain"
 #---------------------------------------------
 lattice = "CHAIN" # "SQUARE" 
 #lattice = "SQUARE" 
-lsize1 = 10
+lsize1 = 14
 #lsize2 = 6
 bc1 = "periodic"
-bc2 = "periodic"
+#bc2 = "periodic"
 
 #---------------------------------------------
 # Model:
 #---------------------------------------------
 model = "HUBBARD"
 t = 1.0
-U = 4.0
+U = 0.0
 
 #---------------------------------------------
 # Variational wavefunction
 #---------------------------------------------
 wavefunction = "IDENTITY"
-#nqs_wf = "FFNN"
-nqs_wf = "FFNN_SIGN"
+nqs_wf = "FFNN"
+#nqs_wf = "FFNN_SIGN"
 #nqs_wf = "SymFFNN"
 gutzwiller_proj = "NO"
 hole_doping = 0.0 

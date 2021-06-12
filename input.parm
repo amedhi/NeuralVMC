@@ -9,14 +9,14 @@ job = "VMC Simulation"
 optimizing_run = "YES" # "YES" 
 mode = "NEW" # ("NEW"/"APPEND")
 print_level = -2 #-2
-prefix = "hub_chain"
+prefix = "./hub_chain"
 #---------------------------------------------
 # Lattice:
 #---------------------------------------------
 lattice = "CHAIN" # "SQUARE" 
 #lattice = "SQUARE" 
-lsize1 = 14
-#lsize2 = 6
+lsize1 = 10
+#lsize2 = 4
 bc1 = "periodic"
 #bc2 = "periodic"
 
@@ -31,16 +31,19 @@ U = 0.0
 # Variational wavefunction
 #---------------------------------------------
 wavefunction = "IDENTITY"
+#wavefunction = "FERMISEA"
 nqs_wf = "FFNN"
 #nqs_wf = "FFNN_SIGN"
 #nqs_wf = "SymFFNN"
 gutzwiller_proj = "NO"
-hole_doping = 0.0 
+hole_doping = 0.0
 #delta_sc = 0.08
 #gfactor = 0.3037
 #mu = -0.4263
 as_func_of = "hole_doping"
-
+load_parms_from_file = "NO"
+parms_load_path="./hub_chain"
+parms_save_path="./hub_chain"
 #---------------------------------------------
 # List of observable to calculate:
 #---------------------------------------------
@@ -65,7 +68,7 @@ max_interval = 20
 #sr_measure_steps = 1000
 #sr_opt_samples = 1
 #sr_max_iter = 500
-#sr_start_tstep = 0.15 # 0.08
+#sr_start_tstep = 0.05 # 0.08
 #sr_flat_tail_len = 20
 #sr_random_start = 'NO'
 #sr_rslope_tol = 1.0E-2
@@ -78,7 +81,7 @@ sr_opt_samples = 6
 sr_max_iter = 100
 sr_flat_tail_len = 10
 sr_random_start = "NO"
-sr_ftol = 0.000050
+sr_ftol = 0.00050
 sr_gradtol = 0.005000
 
 

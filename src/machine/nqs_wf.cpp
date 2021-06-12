@@ -2,8 +2,8 @@
 * Copyright (C) 2019 by Amal Medhi <amedhi@iisertvm.ac.in>.
 * @Author: Amal Medhi, amedhi@mbpro
 * @Date:   2019-08-13 12:00:53
-* @Last Modified by:   Amal Medhi, amedhi@mbpro
-* @Last Modified time: 2020-06-08 19:45:35
+* @Last Modified by:   Amal Medhi
+* @Last Modified time: 2021-06-10 22:02:57
 *----------------------------------------------------------------------------*/
 #include <locale>
 #include "nqs_wf.h"
@@ -36,6 +36,7 @@ int NQS_Wavefunction::init(const int& num_sites, const input::Parameters& inputs
   	//nnet_->add_layer(num_units,"tanh",num_units);
     //nnet_->add_layer(num_units,"Sigmoid",num_units);
   	nnet_->add_layer(1,"sigmoid");
+    //nnet_->add_layer(1,"tanh");
     //nnet_->add_layer(1,"relu");
   	nnet_->compile();
     num_params_ = nnet_->num_params();
@@ -87,7 +88,42 @@ int NQS_Wavefunction::init(const int& num_sites, const input::Parameters& inputs
   else {
     throw std::range_error("NQS_Wavefunction::NQS_Wavefunction: unidefined neural net");
   }
+
+  // parameter file
+  //std::string read_ = inputs.set_value("nqs_wf", "NONE");
+
   return 0;
+}
+
+void NQS_Wavefunction::init_parameter_file(const std::string& prefix)
+{
+  std::string nqs_dir = prefix+"/nqs";
+  if (name_ == "FFNN") {
+    nnet_->init_parameter_file(nqs_dir+"/ffnn");
+  }
+  else if (name_ == "FFNN_SIGN") {
+    nnet_->init_parameter_file(nqs_dir+"/ffnn");
+    sign_nnet_->init_parameter_file(nqs_dir+"/ffnn_sign");
+  }
+  else if (name_ == "SYMFFNN") {
+    nnet_->init_parameter_file(nqs_dir+"/ffnn");
+  }
+} 
+
+void NQS_Wavefunction::save_parameters(void) const
+{
+  nnet_->save_parameters();
+  if (name_ == "FFNN_SIGN") {
+    sign_nnet_->save_parameters();
+  }
+}
+
+void NQS_Wavefunction::load_parameters(const std::string& load_path) 
+{
+  nnet_->load_parameters(load_path+"/nqs"+"/ffnn");
+  if (name_ == "FFNN_SIGN") {
+    sign_nnet_->load_parameters(load_path+"/nqs"+"/ffnn_sign");
+  }
 }
 
 const int& NQS_Wavefunction::num_params(void) const 

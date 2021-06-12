@@ -1,9 +1,11 @@
 /*---------------------------------------------------------------------------
 * @Author: Amal Medhi
 * @Date:   2018-12-29 20:39:14
-* @Last Modified by:   Amal Medhi, amedhi@mbpro
-* @Last Modified time: 2020-06-02 13:06:28
+* @Last Modified by:   Amal Medhi
+* @Last Modified time: 2021-06-10 18:38:27
 *----------------------------------------------------------------------------*/
+#include <boost/filesystem.hpp>
+#include <filesystem>
 #include "ffnet.h"
 
 namespace ann {
@@ -99,6 +101,46 @@ int FFNet::compile(void)
 void FFNet::init_parameters(random_engine& rng, const double& sigma) 
 {
   for (auto& layer : layers_) layer->init_parameters(rng, sigma);
+}
+
+
+void FFNet::init_parameter_file(const std::string& prefix)
+{
+  prefix_ = prefix;
+  boost::filesystem::path prefix_dir(prefix_);
+  boost::filesystem::create_directories(prefix_dir);
+}
+
+void FFNet::save_parameters(void) const
+{
+  std::cout << "FFNet:: saving parameters to file\n";
+  for (int n=1; n<num_layers_; ++n) {
+    std::string fname = prefix_+"/layer_"+std::to_string(n)+".txt";
+    std::ofstream fs(fname);
+    if (fs.is_open()) {
+      layers_[n]->save_parameters(fs);
+      fs.close();
+    }
+    else {
+      throw std::range_error("FFNet::save_parameters: file open failed");
+    }
+  }
+}
+
+void FFNet::load_parameters(const std::string& load_path)
+{
+  std::cout << "FFNet:: loading parameters from file\n";
+  for (int n=1; n<num_layers_; ++n) {
+    std::string fname = load_path+"/layer_"+std::to_string(n)+".txt";
+    std::ifstream fs(fname);
+    if (fs.is_open()) {
+      layers_[n]->load_parameters(fs);
+      fs.close();
+    }
+    else {
+      throw std::range_error("FFNet::load_parameters: file open failed");
+    }
+  }
 }
 
 const double& FFNet::get_parameter(const int& id) const

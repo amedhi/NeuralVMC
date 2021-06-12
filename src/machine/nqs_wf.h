@@ -26,7 +26,10 @@ public:
   int init(const int& num_sites, const input::Parameters& inputs);
   const int& num_params(void) const;
   bool is_exponential_type(void) const { return exponential_type_; }
+  void init_parameter_file(const std::string& prefix); 
   void init_parameters(ann::random_engine& rng, const double& sigma);
+  void save_parameters(void) const;
+  void load_parameters(const std::string& load_path);
   void get_parm_names(std::vector<std::string>& pnames, const int& pos=0) const;
   void get_parm_values(ann::Vector& pvalues, const int& pos=0) const;
   void get_parm_vector(std::vector<double>& pvalues, const int& pos) const;

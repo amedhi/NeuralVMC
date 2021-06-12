@@ -43,6 +43,7 @@ public:
   const var::parm_vector& vparm_lbound(void) const { return vparm_lbound_; } 
   const var::parm_vector& vparm_ubound(void) const { return vparm_ubound_; } 
   const double& hole_doping(void) const { return wf_.hole_doping(); }
+  void save_parameters(void) const { nqs_.save_parameters(); }
   int num_particles(void) const { return num_upspins_+num_dnspins_; }
   int update_state(void);
   double accept_ratio(void);
@@ -89,6 +90,11 @@ private:
   std::vector<std::string> vparm_names_;
   var::parm_vector vparm_lbound_;
   var::parm_vector vparm_ubound_;
+
+  // variational parameters prefix folder
+  bool load_parms_from_file_{false};
+  std::string save_path_;
+  std::string load_path_;
 
   // mc parameters
   enum move_t {uphop, dnhop, exch, end};

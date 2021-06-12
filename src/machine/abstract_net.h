@@ -24,7 +24,10 @@ public:
   virtual int compile(void) = 0;
   virtual const int& num_params(void) const = 0;
   virtual const int& num_output_units(void) const = 0;
+  virtual void init_parameter_file(const std::string& prefix) = 0;
   virtual void init_parameters(random_engine& rng, const double& sigma) = 0;
+  virtual void save_parameters(void) const = 0;
+  virtual void load_parameters(const std::string& load_path) = 0;
   virtual void get_parameter_names(std::vector<std::string>& pnames, 
     const int& pos=0) const = 0;
   virtual void get_parameter_values(Vector& pvalues, 

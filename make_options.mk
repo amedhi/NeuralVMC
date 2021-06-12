@@ -34,6 +34,10 @@ VMC_OPTFLAGS= -Wall -O3
 BOOST_INCLUDE=-I/usr/local/include
 EIGEN_INCLUDE=-I/usr/local/include
 
+HDF5_INCLUDE=-I/opt/opt/HDF5-1.12.0-Darwin/HDF_Group/HDF5/1.12.0/include/
+HDF5_LDFLAGS=-L/opt/opt/HDF5-1.12.0-Darwin/HDF_Group/HDF5/1.12.0/lib/
+HDF5_LIBS=-lhdf5_cpp
+
 # Boost MPI library
 ifeq ($(MPI), HAVE_BOOST_MPI)
 BOOST_LIBS=-lboost_filesystem -lboost_system -lboost_mpi -lboost_serialization

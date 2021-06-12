@@ -6,9 +6,10 @@
 * Copyright (C) Amal Medhi, amedhi@iisertvm.ac.in
 *----------------------------------------------------------------------------*/
 #include "./sysconfig.h"
+#include <boost/algorithm/string.hpp>
 #include <Eigen/SVD>
 
-//#define HAVE_DETERMINANTAL_PART
+#define HAVE_DETERMINANTAL_PART
 #define MACHINE_ON
 
 namespace vmc {
@@ -27,6 +28,23 @@ SysConfig::SysConfig(const input::Parameters& inputs,
 #else
   have_mf_part_ = false;
 #endif
+  // variational parameters prefix folder
+  int nowarn;
+  save_path_ = inputs.set_value("parms_save_path", "", nowarn);
+  boost::algorithm::trim(save_path_);
+  if (save_path_.size()==0) save_path_ = "./";
+  if (save_path_.back()!='/') save_path_ += "/";
+  save_path_ += "vparms";
+  nqs_.init_parameter_file(save_path_);
+
+  load_path_ = inputs.set_value("parms_load_path", "", nowarn);
+  boost::algorithm::trim(load_path_);
+  if (load_path_.size()==0) load_path_ = "./";
+  if (load_path_.back()!='/') load_path_ += "/";
+  load_path_ += "vparms";
+  // load from file option
+  load_parms_from_file_ = inputs.set_value("load_parms_from_file",false);
+
   // variational parameters
   //nqs_.init_parameters(fock_basis_.rng(), 0.005);
   //num_net_parms_ = ffnet_.num_params();
@@ -98,6 +116,9 @@ int SysConfig::build(const lattice::LatticeGraph& graph, const input::Parameters
   wf_.compute(graph, inputs, with_gradient);
 #endif
   //nqs_.init_parameters(fock_basis_.rng(), 0.005);
+  if (load_parms_from_file_) {
+    nqs_.load_parameters(load_path_);
+  }
   init_config();
   return 0;
 }
@@ -205,6 +226,16 @@ int SysConfig::update_state(void)
   for (int n=0; n<num_uphop_moves_; ++n) do_upspin_hop();
   for (int n=0; n<num_dnhop_moves_; ++n) do_dnspin_hop();
   for (int n=0; n<num_exchange_moves_; ++n) do_spin_exchange();
+
+  // CHECK
+  /* 
+  auto psi = psi_mat_.determinant();
+  std::cout << "Psi = " << psi << "\n";
+  std::cout << "NQS = " << nqs_psi_ << "\n";
+  std::cout << "ratio = " << psi.real()/nqs_psi_ << "\n";
+  getchar();
+  */
+
   num_updates_++;
   if (have_mf_part_) {
     num_iterations_++;

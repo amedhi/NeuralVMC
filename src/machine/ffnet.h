@@ -25,7 +25,10 @@ public:
     const int& input_dim=0) override;
   virtual int add_sign_layer(const int& input_dim) override;
   int compile(void) override;
+  void init_parameter_file(const std::string& prefix) override;
   void init_parameters(random_engine& rng, const double& sigma) override;
+  void save_parameters(void) const override;
+  void load_parameters(const std::string& load_path) override;
   const int& num_params(void) const override { return num_params_; }
   const int& num_output_units(void) const override { return layers_.back()->num_units(); }
   //void set_input(const Vector& input) { front().set_input(input); }
@@ -53,6 +56,8 @@ protected:
   //Vector output_;
   mutable Vector input_changes_;
   mutable Matrix gradient_;
+  // parameter file
+  std::string prefix_{""};
 };
 
 class SymmFFNet: public FFNet

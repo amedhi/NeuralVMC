@@ -11,6 +11,8 @@
 #include <vector>
 #include <string>
 #include <memory>
+#include <fstream>
+#include <iomanip>
 #include <Eigen/Core>
 #include "activation.h"
 
@@ -28,10 +30,13 @@ public:
   void set_kernel(const Matrix& w) { kernel_=w; }
   void set_bias(const Vector& b) { bias_=b; }
   const int& num_units(void) const { return num_units_; }
+  const int& input_dim(void) const { return input_dim_; }
   const int& num_params(void) const { return num_params_; } 
   virtual void set_input_layer(NeuralLayer* layer) { inlayer_=layer; }
   virtual void set_output_layer(NeuralLayer* layer) { outlayer_=layer; }
   virtual void init_parameters(random_engine& rng, const double& sigma); 
+  virtual void save_parameters(std::ofstream& fout) const; 
+  virtual void load_parameters(std::ifstream& fin); 
   virtual const double& get_parameter(const int& id) const;
   virtual void get_parameters(Vector& pvec, const int& start_pos) const;
   virtual void get_parameter_names(std::vector<std::string>& pnames, const int& pos) const;

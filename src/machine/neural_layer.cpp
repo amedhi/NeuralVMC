@@ -1,10 +1,11 @@
 /*---------------------------------------------------------------------------
 * @Author: Amal Medhi
 * @Date:   2018-12-29 12:01:09
-* @Last Modified by:   Amal Medhi, amedhi@mbpro
-* @Last Modified time: 2020-01-23 13:03:59
+* @Last Modified by:   Amal Medhi
+* @Last Modified time: 2021-06-10 20:41:46
 *----------------------------------------------------------------------------*/
 #include <locale>
+#include <boost/tokenizer.hpp>
 #include "neural_layer.h"
 
 namespace ann {
@@ -74,6 +75,50 @@ void NeuralLayer::init_parameters(random_engine& rng, const double& sigma)
     bias_(i) = random_normal(rng);
   }
 }
+
+void NeuralLayer::save_parameters(std::ofstream& fout) const
+{
+  fout << "#  Neural layer: num_units = "<<num_units_<<" , input_dim = "<<input_dim_<<"\n";
+  fout << "#  Bias         |   Kernel\n";
+  fout << std::scientific << std::uppercase << std::setprecision(6) << std::right;
+  for (int i=0; i<num_units_; ++i) {
+    fout << std::setw(15)<< bias_(i) << "  ";
+    for (int j=0; j<input_dim_; ++j) {
+      fout << std::setw(15) << kernel_(i,j);
+    }
+    fout << "\n";
+  }
+} 
+
+void NeuralLayer::load_parameters(std::ifstream& fin) 
+{
+  boost::char_separator<char> space(" ");
+  boost::tokenizer<boost::char_separator<char> >::iterator it;
+  std::string line;
+  std::string::size_type pos;
+  int row = 0;
+  while (std::getline(fin,line)) {
+    // skip comments & blank lines
+    pos = line.find_first_of("#");
+    if (pos != std::string::npos) line.erase(pos);
+    if (line.find_first_not_of(" ") == std::string::npos) continue;
+    boost::tokenizer<boost::char_separator<char> > tokens(line, space);
+    if (std::distance(tokens.begin(), tokens.end()) != (1+input_dim_)) {
+      throw std::range_error("NeuralLayer::load_parameters: incorrect number of columns\n");
+    }
+    it=tokens.begin();
+    // load 
+    bias_(row) = std::stod(*it);
+    int col = 0;
+    for (++it; it!=tokens.end(); ++it) {
+      kernel_(row,col++) = std::stod(*it);
+    }
+    row++;
+  }
+  if (row != num_units_) {
+    throw std::range_error("NeuralLayer::load_parameters: incorrect number of rows\n");
+  }
+} 
 
 
 const double& NeuralLayer::get_parameter(const int& id) const

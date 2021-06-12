@@ -383,6 +383,9 @@ int StochasticReconf::optimize(VMC& vmc)
     optimal_energy_.reset();
     energy_error_bar_.reset();
     optimal_parms_.reset();
+
+    // save parameters
+    vmc.save_parameters();
   } // samples
   logfile_.close();
   // print results
@@ -410,7 +413,6 @@ int StochasticReconf::optimize(VMC& vmc)
   optimal_energy_.reset_grand_data();
   energy_error_bar_.reset_grand_data();
   optimal_parms_.reset_grand_data();
-
   return 0;
 }
 

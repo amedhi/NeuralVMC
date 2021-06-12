@@ -32,6 +32,7 @@ public:
   int do_steps(const int& num_steps=1);
   int run_simulation(const int& sample_size=-1);
   int run_simulation(const Eigen::VectorXd& varp);
+  void save_parameters(void) { config.save_parameters(); }
   bool not_done(void) const;
   double energy_function(const Eigen::VectorXd& varp, Eigen::VectorXd& grad);
   double operator()(const Eigen::VectorXd& varp, Eigen::VectorXd& grad) 

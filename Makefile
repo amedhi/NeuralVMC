@@ -41,7 +41,6 @@ SRCS+= mcdata/mc_observable.cpp
 SRCS+= vmc/random.cpp
 SRCS+= vmc/basisstate.cpp
 SRCS+= vmc/sysconfig.cpp
-SRCS+= vmc/disorder.cpp
 SRCS+= vmc/energy.cpp
 SRCS+= vmc/particle.cpp
 SRCS+= vmc/sccorr.cpp
@@ -101,9 +100,10 @@ VMC_HDRS = $(addprefix src/,$(HDRS))
 MUPARSER_LIB = $(PROJECT_ROOT)/src/expression/muparserx/libmuparserx.a
 #-------------------------------------------------------------
 # Target
-TAGT=a.out
 ifeq ($(MPI), HAVE_BOOST_MPI)
-TAGT=v.out
+  TAGT=nvmc_mpi.x
+else 
+  TAGT=nvmc.x
 endif
 
 # Put all auto generated stuff to this build dir.
@@ -120,7 +120,7 @@ DEPS=$(patsubst %.o,%.d,$(OBJS))
 .PHONY: all
 all: $(TAGT) #$(INCL_HDRS)
 
-$(TAGT): $(OBJS) $(MUPARSER_LIB)
+$(TAGT): $(MUPARSER_LIB) $(OBJS) 
 	$(VMC_CXX) -o $(TAGT) $(OBJS) $(VMC_LDFLAGS) $(VMC_LIBS) $(MUPARSER_LIB)
 
 
@@ -156,6 +156,14 @@ install:
 clean:	
 	@echo "Removing temporary files in the build directory"
 	@rm -f $(OBJS) $(DEPS) 
+	@echo "Removing $(TAGT)"
+	@rm -f $(TAGT) 
+
+.PHONY: aclean
+aclean:	
+	@echo "Removing temporary files in the build directory"
+	@rm -f $(OBJS) $(DEPS) 
+	@cd ./src/expression/muparserx/ && $(MAKE) clean
 	@echo "Removing $(TAGT)"
 	@rm -f $(TAGT) 
 

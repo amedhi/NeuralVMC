@@ -1,17 +1,20 @@
 /*---------------------------------------------------------------------------
 * @Author: Amal Medhi, amedhi@mbpro
 * @Date:   2019-02-20 12:21:42
-* @Last Modified by:   Amal Medhi, amedhi@mbpro
-* @Last Modified time: 2019-08-06 23:09:26
+* @Last Modified by:   Amal Medhi
+* @Last Modified time: 2022-02-13 12:47:01
 * Copyright (C) Amal Medhi, amedhi@iisertvm.ac.in
 *----------------------------------------------------------------------------*/
 #include <numeric>
 #include "./fermisea.h"
+#include <fstream>
+#include <iomanip>
 
 namespace var {
 
-Fermisea::Fermisea(const input::Parameters& inputs, const lattice::LatticeGraph& graph) 
-  : GroundState(true)
+Fermisea::Fermisea(const MF_Order::order_t& order, const input::Parameters& inputs, 
+  const lattice::LatticeGraph& graph) 
+  : GroundState(order, MF_Order::pairing_t::null)
 {
   init(inputs, graph);
 }
@@ -24,6 +27,7 @@ int Fermisea::init(const input::Parameters& inputs,
   num_sites_ = graph.num_sites();
   num_bonds_ = graph.num_bonds();
   // particle number
+  set_nonmagnetic(true);
   set_particle_num(inputs);
 
   // build MF Hamiltonian
@@ -33,8 +37,18 @@ int Fermisea::init(const input::Parameters& inputs,
   double defval;
   using namespace model;
   model::CouplingConstant cc;
-  mf_model_.add_parameter(name="t", defval=1.0, inputs);
-  mf_model_.add_bondterm(name="hopping", cc="-t", op::spin_hop());
+
+  if (graph.lattice().id()==lattice::lattice_id::SQUARE_NNN) {
+    mf_model_.add_parameter(name="t", defval=1.0, inputs);
+    mf_model_.add_parameter(name="tp", defval=1.0, inputs);
+    cc = CouplingConstant({0,"-t"},{1,"-t"},{2,"-tp"},{3,"-tp"});
+    mf_model_.add_bondterm(name="hopping", cc, op::spin_hop());
+  }
+  else {
+    mf_model_.add_parameter(name="t", defval=1.0, inputs);
+    mf_model_.add_bondterm(name="hopping", cc="-t", op::spin_hop());
+  }
+
   // chemical potential
   noninteracting_mu_ = true;
   // finalize MF Hamiltonian
@@ -50,10 +64,34 @@ int Fermisea::init(const input::Parameters& inputs,
   // work arrays
   work_.resize(kblock_dim_,kblock_dim_);
   phi_k_.resize(num_kpoints_);
-  for (unsigned k=0; k<num_kpoints_; ++k) {
+  for (int k=0; k<num_kpoints_; ++k) {
     phi_k_[k].resize(kblock_dim_,kblock_dim_);
   } 
+
+  // for calculating SC correlations 
+  rmax_ =  graph.lattice().size1()/2+1;
+  alpha_ = graph.lattice().basis_vector_a1();
+  beta_ = graph.lattice().basis_vector_a2();
+  R_list_.resize(rmax_);
+  corr_aa_.resize(kblock_dim_,rmax_);
+  corr_ab_.resize(kblock_dim_,rmax_);
+  corr_fs_.resize(kblock_dim_,rmax_);
+  for (int r=0; r<rmax_; ++r) {
+    R_list_[r] = r*alpha_;
+    //std::cout << r << "  " << R_list_[r].transpose() << "\n";
+  }
+  //getchar();
+
   return 0;
+}
+
+void Fermisea::update(const lattice::LatticeGraph& graph)
+{
+  // update for change in lattice BC (same structure & size)
+  // bloch basis
+  blochbasis_.construct(graph);
+  // FT matrix for transformation from 'site basis' to k-basis
+  set_ft_matrix(graph);
 }
 
 std::string Fermisea::info_str(void) const
@@ -63,6 +101,7 @@ std::string Fermisea::info_str(void) const
   info << "# Hole doping = "<<hole_doping()<<"\n";
   info << "# Particles = "<< num_upspins()+num_dnspins();
   info << " (Nup = "<<num_upspins()<<", Ndn="<<num_dnspins()<<")\n";
+  info.precision(6);
   return info.str();
 }
 
@@ -84,6 +123,10 @@ void Fermisea::get_wf_amplitudes(Matrix& psi)
   construct_groundstate();
   get_pair_amplitudes(phi_k_);
   get_pair_amplitudes_sitebasis(phi_k_, psi);
+  /*std::cout << "Fermisea::update: SC correlations\n";
+  get_sc_correlation();
+  getchar();
+  */
 }
 
 void Fermisea::get_wf_gradient(std::vector<Matrix>& psi_gradient) 
@@ -102,9 +145,12 @@ void Fermisea::get_pair_amplitudes(std::vector<ComplexMatrix>& phi_k)
     mf_model_.construct_kspace_block(-kvec);
     es_minusk_up.compute(mf_model_.quadratic_spinup_block());
     phi_k[k] = es_k_up.eigenvectors().block(0,0,kblock_dim_,m)
-      		 * es_minusk_up.eigenvectors().conjugate().block(0,0,m,kblock_dim_);
-    //std::cout << kvec.transpose() << "\n"; 
-    //std::cout << phi_k[k] << "\n"; getchar();
+      		 * es_minusk_up.eigenvectors().transpose().block(0,0,m,kblock_dim_);
+    /*
+    std::cout << "kvec = "<< kvec.transpose() << "\n"; 
+    std::cout << mf_model_.quadratic_spinup_block() << "\n"; 
+    std::cout << phi_k[k] << "\n"; getchar();
+    */
   }
 }
 
@@ -119,9 +165,10 @@ void Fermisea::get_pair_amplitudes_sitebasis(const std::vector<ComplexMatrix>& p
     for (int j=0; j<num_kpoints_; ++j) {
       work_.setZero();
       for (int ks=0; ks<kshells_up_.size(); ++ks) {
-    	int k = kshells_up_[ks].k;
+    	  int k = kshells_up_[ks].k;
         work_ += FTU_(i,k) * phi_k[k] * std::conj(FTU_(j,k));
       }
+      // std::cout << work_ << "\n"; getchar();
       // copy transformed block
       //psi.block(p,q,kblock_dim_,kblock_dim_) = 
       for (int m=0; m<kblock_dim_; ++m) {
@@ -143,6 +190,7 @@ double Fermisea::get_mf_energy(void)
   return mf_energy/num_sites_;
 }
 
+
 void Fermisea::construct_groundstate(void)
 {
   int num_upspins_ = num_upspins();
@@ -159,7 +207,7 @@ void Fermisea::construct_groundstate(void)
       es_k_up.compute(mf_model_.quadratic_spinup_block(), Eigen::EigenvaluesOnly);
       ek.insert(ek.end(),es_k_up.eigenvalues().data(),
         es_k_up.eigenvalues().data()+kblock_dim_);
-      //std::cout << kvec.transpose() << " " << es_k_up_.eigenvalues() << "\n"; getchar();
+      //std::cout << kvec.transpose() << " " << es_k_up.eigenvalues() << "\n"; getchar();
       for (int n=0; n<kblock_dim_; ++n) {
         qn_list.push_back({k, n});
       }
@@ -199,7 +247,7 @@ void Fermisea::construct_groundstate(void)
       total_energy_ += ek[idx[i]];
     }
     total_energy_ = 2.0*total_energy_/num_sites_;
-    std::cout << "Total KE =" << total_energy_ << "\n";
+    std::cout << "Total KE = " << total_energy_ << "\n";
 
     // look upward in energy
     for (int i=top_filled_level+1; i<ek.size(); ++i) {
@@ -234,9 +282,9 @@ void Fermisea::construct_groundstate(void)
     }
     // store the filled k-shells
     kshells_up_.clear();
-    for (unsigned k=0; k<num_kpoints_; ++k) {
+    for (int k=0; k<num_kpoints_; ++k) {
       int nmax = shell_nmax[k];
-      if (nmax != -1) kshells_up_.push_back({k,0,static_cast<unsigned>(nmax)});
+      if (nmax != -1) kshells_up_.push_back({k,0,nmax});
     }
     
     /*
@@ -257,6 +305,65 @@ void Fermisea::construct_groundstate(void)
   }
 }
 
+void Fermisea::get_sc_correlation(void)
+{
+  corr_aa_.setZero();
+  corr_ab_.setZero();
+  corr_fs_.setZero();
+  for (int r=1; r<rmax_; ++r) {
+    Vector3d R = R_list_[r];
+    for (int i=0; i<kshells_up_.size(); ++i) {
+      int k = kshells_up_[i].k;
+      Vector3d kvec = blochbasis_.kvector(k);
+      auto k_ab = std::exp(-ii()*kvec.dot(alpha_-beta_));
+      // 1-body correlations
+      for (int n=0; n<kblock_dim_; ++n) {
+        corr_fs_(n,r) += std::exp(-ii()*kvec.dot(R));
+      }
+      for (int j=0; j<kshells_up_.size(); ++j) {
+        int kp = kshells_up_[j].k;
+        Vector3d kpvec = blochbasis_.kvector(kp);
+        Vector3d kkplus = kvec+kpvec;
+        Vector3d kkminus = kvec-kpvec;
+        auto kkp = std::exp(ii()*kkplus.dot(R));
+        auto kp_ab = std::exp(ii()*kpvec.dot(beta_-alpha_));
+        auto term1 = 2*std::cos(kkminus.dot(alpha_));
+        auto term2 = std::exp(ii()*(-kvec.dot(alpha_)+kpvec.dot(beta_)))
+                    +std::exp(ii()*(kvec.dot(beta_)-kpvec.dot(alpha_)));
+        for (int n=0; n<kblock_dim_; ++n) {
+          if (n<=kshells_up_[i].nmax && n<=kshells_up_[j].nmax) {
+            corr_aa_(n,r) += kkp*(2.0 + term1);
+            corr_ab_(n,r) += kkp*(k_ab + term2 + kp_ab);
+          }
+        }
+      }
+    }
+    for (int n=0; n<kblock_dim_; ++n) {
+      corr_aa_(n,r) /= (2*num_kpoints_*num_kpoints_);
+      corr_ab_(n,r) /= (2*num_kpoints_*num_kpoints_);
+      corr_fs_(n,r) /= num_kpoints_;
+    }
+  }
+
+  // print 
+  std::ofstream fs("fs_sccorr.txt");
+  fs << std::right<<std::scientific<<std::uppercase<<std::setprecision(6);
+  for (int r=1; r<rmax_; ++r) {
+    fs<<std::setw(6)<<r<< " ";
+    for (int n=0; n<kblock_dim_; ++n) {
+      //fs<<std::setw(15)<<std::real(corr_fs_(n,r)); 
+      //fs<<std::setw(15)<<std::imag(corr_fs_(n,r)); 
+      fs<<std::setw(15)<<std::real(corr_aa_(n,r)); 
+      fs<<std::setw(15)<<std::imag(corr_aa_(n,r)); 
+      fs<<std::setw(15)<<std::real(corr_ab_(n,r)); 
+      fs<<std::setw(15)<<std::imag(corr_ab_(n,r)); 
+    }
+    fs<<"\n";
+  }
+  fs.close();
+  std::cout << "sc_correlation done\n";
+  //getchar();
+}
 
 
 } // end namespace var

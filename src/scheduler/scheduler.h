@@ -23,23 +23,21 @@ namespace scheduler {
 
 int start(int argc, const char *argv[], const AbstractTask& theTask);
 
-using namespace mpi;
-
 class Scheduler 
 {
 public:
   //Scheduler(): simmaster(0) {};
   //Scheduler(Task& theTask) {}
   Scheduler() {}
-  Scheduler(const mpi_communicator& mpi_comm, const AbstractTask& theTask);
+  Scheduler(const mpi::mpi_communicator& mpi_comm, const AbstractTask& theTask);
   ~Scheduler() {} 
-  virtual int run(const mpi_communicator& mpi_comm);
+  virtual int run(const mpi::mpi_communicator& mpi_comm);
 
 protected:
   //Worker theWorker_;
   AbstractWorker* theWorker;
   input::JobInput input;
-  int task_size;
+  unsigned int task_size;
   bool valid_{false};
 
 private:
@@ -50,12 +48,12 @@ private:
 class MasterScheduler : public Scheduler
 {
 public:
-  MasterScheduler(int argc, const char *argv[], const mpi_communicator& mpi_comm, 
+  MasterScheduler(int argc, const char *argv[], const mpi::mpi_communicator& mpi_comm, 
     const AbstractTask& theTask);
   //MasterScheduler(int argc, const char *argv[], const Task&);
   MasterScheduler() = delete;
   ~MasterScheduler() {}
-  int run(const mpi_communicator& mpi_comm) override;
+  int run(const mpi::mpi_communicator& mpi_comm) override;
 
 private:
   CommandArg cmdarg;

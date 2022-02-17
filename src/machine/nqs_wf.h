@@ -49,6 +49,7 @@ private:
   std::unique_ptr<ann::AbstractNet> sign_nnet_;
   std::string name_;
   bool exponential_type_{false};
+  bool complex_type_{false};
   int num_sites_{0};
   int num_params_{0};
   bool have_sign_nnet_{false};

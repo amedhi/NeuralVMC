@@ -1,5 +1,5 @@
 # User Configurable Options
-PROJECT_ROOT=/Users/amedhi/Projects/Codes/NeuralVMC
+PROJECT_ROOT=/Users/amedhi/Projects/Codes/MachineLearning/NeuralVMC
 
 #-------------------------------------------------------------
 # need mpi version

@@ -38,11 +38,11 @@ void Energy::measure(const lattice::LatticeGraph& graph,
       unsigned type = graph.bond_type(b);
       unsigned site_i = graph.source(b);
       unsigned site_j = graph.target(b);
-      int bc_phase = graph.bond_sign(b);
       // matrix elements each term & bond type
       unsigned term = 0;
       for (auto it=model.bondterms_begin(); it!=model.bondterms_end(); ++it) {
-        matrix_elem(term,type) += config.apply(it->qn_operator(),site_i,site_j,bc_phase);
+        matrix_elem(term,type) += config.apply(it->qn_operator(),site_i,site_j,
+          graph.bond_sign(b),graph.bond_phase(b));
         term++;
       }
     }
@@ -101,6 +101,7 @@ void Energy::measure(const lattice::LatticeGraph& graph,
 
   // energy per site
   config_value_ /= num_sites_;
+  //std::cout << "En ="<< config_value_[0] << "\n"; getchar();
   // add to databin
   *this << config_value_;
 }
@@ -114,7 +115,9 @@ void EnergyGradient::setup(const SysConfig& config)
   this->resize(config.num_varparms(),config.varp_names());
   grad_logpsi_.resize(config.num_varparms());
   config_value_.resize(2*config.num_varparms());
-  grad_terms_.resize(2*config.num_varparms());
+  //grad_terms_.resize(2*config.num_varparms());
+  grad_terms_.init("gradient_terms",2*config.num_varparms(),true);
+  total_en_.init("total_energy",1,true);
   setup_done_ = true;
 }
   
@@ -128,10 +131,41 @@ void EnergyGradient::measure(const SysConfig& config, const double& config_energ
     n += 2;
   }
   grad_terms_ << config_value_;
+  total_en_ << config_energy;
 }
 
-void EnergyGradient::finalize(const double& mean_energy)
+#ifdef HAVE_BOOST_MPI
+void EnergyGradient::MPI_send_data(const mpi::mpi_communicator& mpi_comm, 
+  const mpi::proc& p, const int& msg_tag)
 {
+  mcdata::MC_Observable::MPI_send_data(mpi_comm, p, msg_tag);
+  grad_terms_.MPI_send_data(mpi_comm, p, msg_tag);
+  total_en_.MPI_send_data(mpi_comm, p, msg_tag);
+}
+
+void EnergyGradient::MPI_add_data(const mpi::mpi_communicator& mpi_comm, 
+  const mpi::proc& p, const int& msg_tag)
+{
+  mcdata::MC_Observable::MPI_add_data(mpi_comm, p, msg_tag);
+  grad_terms_.MPI_add_data(mpi_comm, p, msg_tag);
+  total_en_.MPI_add_data(mpi_comm, p, msg_tag);
+}
+#else
+void EnergyGradient::MPI_send_data(const mpi::mpi_communicator& mpi_comm, 
+  const mpi::proc& p, const int& msg_tag)
+{
+  mcdata::MC_Observable::MPI_send_data(mpi_comm, p, msg_tag);
+}
+void EnergyGradient::MPI_add_data(const mpi::mpi_communicator& mpi_comm, 
+  const mpi::proc& p, const int& msg_tag)
+{
+  mcdata::MC_Observable::MPI_add_data(mpi_comm, p, msg_tag);
+}
+#endif
+
+void EnergyGradient::finalize(void)
+{
+  double mean_energy = total_en_.mean();
   config_value_ = grad_terms_.mean_data(); 
   unsigned n = 0;
   mcdata::data_t energy_grad(num_varp_);
@@ -141,10 +175,13 @@ void EnergyGradient::finalize(const double& mean_energy)
   }
   //-------------------------------------------------
   //std::cout << mean_energy << "\n";
-  //std::cout << energy_grad2_ << "\n";
+  //std::cout << config_value_.transpose() << "\n";
   //for (int i=0; i<energy_grad_.size(); ++i) std::cout << energy_grad_[i] << "\n";
   //-------------------------------------------------
   *this << energy_grad;
+  // can we reset these now?
+  grad_terms_.reset();
+  total_en_.reset();
 }
 
 //-------------------SR_Matrix (Stochastic Reconfiguration)---------------

@@ -15,8 +15,8 @@ namespace var {
 class Identity : public GroundState
 {
 public:
-  Identity() : GroundState(true) {}
-  Identity(const input::Parameters& inputs, const lattice::LatticeGraph& graph); 
+  Identity() : GroundState() {}
+  Identity(const MF_Order::order_t& order, const input::Parameters& inputs, const lattice::LatticeGraph& graph); 
   ~Identity() {} 
   int init(const input::Parameters& inputs, const lattice::LatticeGraph& graph);
   std::string info_str(void) const override; 

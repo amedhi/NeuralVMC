@@ -21,8 +21,10 @@ int StochasticReconf::init(const input::Parameters& inputs, const VMC& vmc)
 {
   // problem size
   num_parms_ = vmc.num_varp();
+  num_parms_print_ = std::min(num_parms_,8);
   vparms_.resize(num_parms_);
   vparms_start_.resize(num_parms_);
+  search_dir_.resize(num_parms_);
   lbound_ = vmc.varp_lbound();
   ubound_ = vmc.varp_ubound();
   range_ = ubound_-lbound_;
@@ -31,20 +33,32 @@ int StochasticReconf::init(const input::Parameters& inputs, const VMC& vmc)
 
   // optimization parameters
   int nowarn;
-  num_sim_samples_ = inputs.set_value("sr_measure_steps", -1, nowarn);
+  num_sim_samples_ = inputs.set_value("measure_steps", -1, nowarn);
+  num_sim_samples2_ = 5*num_sim_samples_;
   num_opt_samples_ = inputs.set_value("sr_opt_samples", 10, nowarn);
-  max_iter_ = inputs.set_value("sr_max_iter", 200, nowarn);
-  start_tstep_ = inputs.set_value("sr_start_tstep", 0.05, nowarn);
-  random_start_ = inputs.set_value("sr_random_start", true, nowarn);
-  flat_tail_len_ = inputs.set_value("sr_flat_tail_len", 20, nowarn);
-  rslope_tol_ = inputs.set_value("sr_rslope_tol", 1.0E-2, nowarn);
-  aslope_tol_ = inputs.set_value("sr_aslope_tol", 1.0E-5, nowarn);
-  //mk_series_len_ = inputs.set_value("sr_series_len", 40, nowarn);
-  //stabilizer_ = inputs.set_value("sr_stabilizer", 1.0E-4, nowarn);
-  //mk_thresold_ = inputs.set_value("sr_fluctuation_tol", 0.30, nowarn);
-  grad_tol_ = inputs.set_value("sr_grad_tol", 0.01, nowarn);
+  max_iter_ = inputs.set_value("sr_max_iter", 100, nowarn);
+  start_tstep_ = inputs.set_value("sr_start_tstep", 0.1, nowarn);
+  stabilizer_ = inputs.set_value("sr_stabilizer", 0.2, nowarn);
+  w_svd_cut_ = inputs.set_value("sr_svd_cut", 0.001, nowarn);
+  random_start_ = inputs.set_value("sr_random_start", false, nowarn);
+  dir_cutoff_ = inputs.set_value("sr_dir_cutoff", false, nowarn);
+  lambda_cut_ = inputs.set_value("sr_lambda_cut", 1.0E-3, nowarn);
+  flat_tail_len_ = inputs.set_value("sr_flat_tail_len", 10, nowarn);
+  ftol_ = inputs.set_value("sr_ftol", 5.0E-5, nowarn);
+  grad_tol_ = inputs.set_value("sr_gradtol", 1.0E-4, nowarn);
   print_progress_ = inputs.set_value("sr_progress_stdout", false, nowarn);
   print_log_ = inputs.set_value("sr_progress_log", true, nowarn);
+
+  //rslope_tol_ = inputs.set_value("sr_rslope_tol", 1.0E-2, nowarn);
+  //stabilizer_ = inputs.set_value("sr_stabilizer", 1.0E-4, nowarn);
+  // Mann-Kendall statistic
+  mk_series_len_ = inputs.set_value("sr_mkseries_len", 20, nowarn);
+  mk_thresold_ = inputs.set_value("sr_mkfluct_tol", 0.30, nowarn);
+  refinement_cycle_ = inputs.set_value("sr_refinement_cycle", 40, nowarn);
+
+  //mk_statistic_.resize(num_parms_);
+  mk_statistic_.resize(1); // time-seris of energy only
+  mk_statistic_.set_maxlen(mk_series_len_);
 
   // optimal parameter values
   std::string mode = inputs.set_value("mode", "NEW");
@@ -69,16 +83,25 @@ int StochasticReconf::init(const input::Parameters& inputs, const VMC& vmc)
   // observable file header
   std::stringstream heading;
   vmc.print_info(heading);
-  optimal_parms_.print_heading(heading.rdbuf()->str(), vmc.xvar_names());
+  //optimal_parms_.print_heading(heading.rdbuf()->str(), vmc.xvar_names());
   optimal_energy_.print_heading(heading.rdbuf()->str(), vmc.xvar_names());
   xvar_values_ = vmc.xvar_values();
 
   // iteration related file names
-  life_fname_ = vmc.prefix_dir()+"ALIVE.d";
-  iter_efile_ = vmc.prefix_dir()+"iter_energy.txt";
-  iter_vfile_ = vmc.prefix_dir()+"iter_params.txt";
+  //life_fname_ = vmc.prefix_dir()+"ALIVE.d";
+  //iter_efile_ = vmc.prefix_dir()+"iter_energy";
+  //iter_vfile_ = vmc.prefix_dir()+"iter_params";
+  boost::filesystem::path iter_prefix(vmc.prefix_dir()+"/iterations");
+  boost::filesystem::create_directory(iter_prefix);
+  life_fname_ = vmc.prefix_dir()+"/iterations/ALIVE.d";
+  iter_efile_ = vmc.prefix_dir()+"/iterations/iter_energy";
+  iter_vfile_ = vmc.prefix_dir()+"/iterations/iter_params";
 
-  // progress file
+  return 0;
+}
+
+int StochasticReconf::print_info(const VMC& vmc)
+{
   if (print_log_) {
     logfile_.open(vmc.prefix_dir()+"log_optimization.txt");
     if (!logfile_.is_open())
@@ -89,13 +112,12 @@ int StochasticReconf::init(const input::Parameters& inputs, const VMC& vmc)
     logfile_ << "num_opt_samples = " << num_opt_samples_ << std::endl;
     logfile_ << "max_iter = " << max_iter_ << std::endl;
     logfile_ << "random_start = " << random_start_ << std::endl;
-    logfile_ << "start_tstep = " << start_tstep_ << std::endl;
     logfile_ << "stabilizer = " << stabilizer_ << std::endl;
+    logfile_ << "start_tstep = " << start_tstep_ << std::endl;
+    logfile_ << "w_svd_cut = " << w_svd_cut_ << std::endl;
     logfile_ << "flat_tail_len = " << flat_tail_len_ << std::endl;
-    logfile_ << "rslope_tol = " << rslope_tol_ << std::endl;
-    logfile_ << "aslope_tol = " << aslope_tol_ << std::endl;
-    //logfile_ << "grad_tol = " << grad_tol_ << std::endl;
-    //logfile_ << "optimization samples = " << num_opt_samples_ << std::endl;
+    logfile_ << "grad_tol = " << grad_tol_ << std::endl;
+    logfile_ << "ftol = " << ftol_ << std::endl;
     logfile_ << "#" << std::string(72, '-') << std::endl;
   }
   if (print_progress_) {
@@ -103,18 +125,319 @@ int StochasticReconf::init(const input::Parameters& inputs, const VMC& vmc)
     std::cout << "Stochastic Reconfiguration" << std::endl;
     std::cout << "num_opt_samples = " << num_opt_samples_ << std::endl;
     std::cout << "max_iter = " << max_iter_ << std::endl;
-    std::cout << "start_tstep = " << start_tstep_ << std::endl;
     std::cout << "random_start = " << random_start_ << std::endl;
     std::cout << "stabilizer = " << stabilizer_ << std::endl;
+    std::cout << "start_tstep = " << start_tstep_ << std::endl;
+    std::cout << "w_svd_cut = " << w_svd_cut_ << std::endl;
     std::cout << "flat_tail_len = " << flat_tail_len_<< std::endl;
-    std::cout << "rslope_tol = " << rslope_tol_ << std::endl;
-    std::cout << "aslope_tol = " << aslope_tol_ << std::endl;
-    //std::cout << "grad_tol = " << grad_tol_ << std::endl;
-    //std::cout << "optimization samples = " << num_opt_samples_ << std::endl;
+    std::cout << "grad_tol = " << grad_tol_ << std::endl;
+    std::cout << "ftol = " << ftol_ << std::endl;
     std::cout << "#" << std::string(72, '-') << std::endl;
   }
   return 0;
 }
+
+int StochasticReconf::start(const VMC& vmc, const int& sample)
+{
+  // reset parameters
+  iter_ = 0;
+  ln_search_ = false;
+  SA_steps_ = true;
+  search_tstep_ = start_tstep_;
+  sample_ = sample;
+  converged_.resize(num_opt_samples_);
+  converged_.setZero();
+  refinement_level_ = 0;
+
+  // Mann-Kendall statistic for converegence test
+  mk_statistic_.reset();
+  iter_energy_.clear();
+  iter_energy_err_.clear();
+  iter_parms_.clear();
+
+  // iteration files
+  std::ostringstream suff;
+  suff << "_sample"<<std::setfill('0')<<std::setw(2)<<sample+1<<".txt";
+  file_life_.open(life_fname_);
+  file_life_.close();
+  file_energy_.open(iter_efile_+suff.str());
+  file_vparms_.open(iter_vfile_+suff.str());
+  // optimal energy & parameters
+  xvar_values_ = vmc.xvar_values();
+  optimal_parms_.reset();
+  optimal_energy_.reset();
+  energy_error_bar_.reset();
+
+  vmc.print_info(file_energy_);
+  file_energy_<<std::scientific<<std::uppercase<<std::setprecision(6)<<std::right;
+  file_vparms_<<std::scientific<<std::uppercase<<std::setprecision(6)<<std::right;
+  file_energy_ << "# Results: " << "Iteration Energy";
+  file_energy_ << " (sample "<<sample<<" of "<<num_opt_samples_<<")\n";
+  file_energy_ << "#" << std::string(72, '-') << "\n";
+  file_energy_ << "# ";
+  file_energy_ << std::left;
+  file_energy_ <<std::setw(7)<<"iter"<<std::setw(15)<<"energy"<<std::setw(15)<<"err";
+  file_energy_ << "\n";
+  file_energy_ << "#" << std::string(72, '-') << "\n";
+  file_energy_ << std::right;
+
+  vmc.print_info(file_vparms_);
+  file_vparms_ << "# Results: " << "Iteration Variational Parameters";
+  file_vparms_ << " (sample "<<sample<<" of "<<num_opt_samples_<<")\n";
+  file_vparms_ << "#" << std::string(72, '-') << "\n";
+  file_vparms_ << "# ";
+  file_vparms_ << std::left;
+  file_vparms_ << std::setw(7)<<"iter";
+  for (const auto& p : vmc.varp_names()) file_vparms_<<std::setw(15)<<p.substr(0,14);
+  file_vparms_ << "\n";
+  file_vparms_ << "#" << std::string(72, '-') << "\n";
+  file_vparms_ << std::right;
+  // message
+  if (print_progress_) {
+    std::cout << " Starting sample "<<sample<<" of "<<num_opt_samples_<<"\n"; 
+    std::cout << std::flush;
+  }
+  if (print_log_) {
+    logfile_ << " Starting sample "<<sample<<" of "<<num_opt_samples_<<"\n"; 
+    logfile_ << std::flush;
+  }
+  return 0;
+}
+
+int StochasticReconf::iterate(var::parm_vector& vparms, const double& energy,
+    const double& error_bar, const Eigen::VectorXd& grad, 
+    Eigen::MatrixXd& sr_matrix, exit_stat& status)
+{
+  bool iter_last = false;
+
+  /*------- Stabilization of SR matrix --------------*/
+  //for (int i=0; i<num_parms_; ++i) sr_matrix(i,i) *= (1.0+stabilizer_);
+  // The above multiplicative stabilizer did not work 
+  for (int i=0; i<num_parms_; ++i) sr_matrix(i,i) += stabilizer_;
+
+  // find search dir 
+  search_dir_ = search_tstep_*sr_matrix.fullPivLu().solve(-grad);
+
+  /*
+  // find search dir after cutting off redundant directions
+  Eigen::MatrixXd sr_inv(num_parms_,num_parms_);
+  Eigen::JacobiSVD<Eigen::MatrixXd> svd(sr_matrix, Eigen::ComputeThinU | Eigen::ComputeThinV); 
+  double lmax = svd.singularValues()(0);
+  for (int i=0; i<num_parms_; ++i) {
+    for (int j=0; j<num_parms_; ++j) {
+      double sum = 0.0;
+      for (int m=0; m<num_parms_; ++m) {
+        double sval = svd.singularValues()(m);
+        if (sval/lmax < w_svd_cut_) break;
+        sum += svd.matrixV()(i,m)*svd.matrixU()(j,m)/sval;
+      }
+      sr_inv(i,j) = sum;
+    }
+  }
+  search_dir_ = -search_tstep_*sr_inv*grad;
+  */
+
+  // max_norm (of components not hitting boundary) 
+  double gnorm = grad.squaredNorm();
+  double proj_norm = proj_grad_norm(vparms,grad,lbound_,ubound_);
+  gnorm = std::min(gnorm, proj_norm);
+
+
+  // file outs
+  iter_++;
+  file_energy_<<std::setw(6)<<iter_<<std::scientific<<std::setw(16)<<energy; 
+  file_energy_<<std::fixed<<std::setw(10)<<error_bar<<std::endl<<std::flush;
+  file_vparms_<<std::setw(6)<<iter_; 
+  for (int i=0; i<vparms.size(); ++i) file_vparms_<<std::setw(15)<<vparms[i];
+  file_vparms_<<std::endl<<std::flush;
+
+  // progress log
+  if (print_progress_) {
+    print_progress(std::cout, vparms, energy, error_bar, grad, gnorm);
+  }
+  if (print_log_) {
+    print_progress(logfile_, vparms, energy, error_bar, grad, gnorm);
+  }
+
+  // iteration step with box constraint 
+  vparms.noalias() += search_dir_;
+
+  // MK test: add data to Mann-Kendall statistic
+  if (gnorm/grad.size() < 0.50) {
+    //mk_statistic_ << vparms;
+    mk_statistic_ << energy;
+    if (mk_statistic_.is_full() && gnorm<10.0*grad_tol_) {
+      iter_energy_.push_back(energy);
+      iter_energy_err_.push_back(error_bar);
+      iter_parms_.push_back(vparms);
+      if (iter_energy_.size()>flat_tail_len_) {
+        iter_energy_.pop_front();
+        iter_energy_err_.pop_front();
+        iter_parms_.pop_front();
+      }
+    }
+  }
+  int trend_elem;
+  double mk_trend = mk_statistic_.elem_max_trend(trend_elem);
+  if (print_progress_) {
+    std::ios state(NULL);
+    state.copyfmt(std::cout);
+    std::cout <<std::fixed<<std::setprecision(6)<<std::right;
+    std::cout <<" MK trend   = "<<std::setw(9)<<mk_trend;
+    std::cout << " ("<<trend_elem<<")"<<"\n"; 
+    std::cout.copyfmt(state);
+  }
+  if (print_log_) {
+    logfile_ <<std::fixed<<std::setprecision(6)<<std::right;
+    logfile_ <<" MK trend   = "<<std::setw(10)<<mk_trend; 
+    logfile_ << " ("<<trend_elem<<")"<<"\n"; 
+  }
+
+  // convergence criteria
+  if (mk_statistic_.is_full() && mk_trend<=mk_thresold_ && gnorm <= grad_tol_) {
+    // converged, add data point to store
+    //mk_statistic_.get_series_avg(energy);
+    converged_[sample_] = 1;
+    status = exit_stat::converged;
+    iter_last = true;
+  }
+  else if (!boost::filesystem::exists(life_fname_)) {
+    status = exit_stat::terminated;
+    iter_last = true;
+  }
+  else if (iter_ >= max_iter_) {
+    status = exit_stat::maxiter;
+    iter_last = true;
+  }
+  else {
+    iter_last = false;
+    if (iter_ % refinement_cycle_ == 0) {
+      refinement_level_++;
+      search_tstep_ *= 0.5;
+      //search_tstep_ *= 2.0;
+    }
+  }
+
+  if (iter_last && converged_[sample_]) {
+    if (print_progress_) {
+      std::cout << " Converged!" << std::endl;
+    }
+    if (print_log_) {
+      logfile_ << " Converged!" << std::endl;
+    }
+  }
+  if (iter_last && !converged_[sample_]) {
+    if (print_progress_) {
+      std::cout << " NOT Converged." << std::endl;
+    }
+    if (print_log_) {
+      logfile_ << " NOT Converged." << std::endl;
+    }
+  }
+
+  if (iter_last && iter_energy_.size()==0) {
+    iter_energy_.push_back(energy);
+    iter_energy_err_.push_back(error_bar);
+    iter_parms_.push_back(vparms);
+  }
+
+  return iter_last;
+}
+
+int StochasticReconf::finalize(var::parm_vector& avg_parms)
+{
+  file_energy_.close();
+  file_vparms_.close();
+  for (int i=0; i<iter_energy_.size(); ++i) {
+    optimal_energy_ << iter_energy_[i];
+    energy_error_bar_ << iter_energy_err_[i];
+    optimal_parms_ << iter_parms_[i];
+  }
+  //for (const auto& p : mk_statistic_.data_series()) {
+  //  optimal_parms_ << p;
+  //}
+
+  // print sample values
+  // optimal energy
+  optimal_energy_.open_file();
+  optimal_energy_.fs()<<std::right;
+  optimal_energy_.fs()<<std::scientific<<std::uppercase<<std::setprecision(6);
+  optimal_energy_.fs()<<"#";
+  for (const auto& p : xvar_values_) 
+    optimal_energy_.fs()<<std::setw(13)<<p;
+  optimal_energy_.fs()<<std::setw(15)<<optimal_energy_.mean();
+  optimal_energy_.fs()<<std::fixed<<std::setw(10)<<energy_error_bar_.mean();
+  optimal_energy_.fs()<<std::setw(10)<<num_sim_samples2_; 
+  if (converged_[sample_]) 
+    optimal_energy_.fs()<<std::setw(11)<<"CONVERGED"<<std::setw(7)<<0<<std::endl;
+  else 
+  optimal_energy_.fs()<<std::setw(11)<<"NOT_CONVD"<<std::setw(7)<<0<<std::endl;
+  // save the values
+  optimal_energy_.save_result();
+  energy_error_bar_.save_result();
+  // grand average for samples done so far
+  optimal_energy_.fs()<<std::right;
+  optimal_energy_.fs()<<std::scientific<<std::uppercase<<std::setprecision(6);
+  optimal_energy_.fs() << "#" << std::string(72, '-') << "\n";
+  optimal_energy_.fs() << "# grand average:\n"; // 
+  optimal_energy_.fs() << "#" << std::string(72, '-') << "\n";
+  for (const auto& p : xvar_values_) 
+    optimal_energy_.fs()<<std::setw(14)<<p;
+  optimal_energy_.fs()<<std::setw(15)<<optimal_energy_.grand_data().mean();
+  optimal_energy_.fs()<<std::fixed<<std::setw(10)<<energy_error_bar_.grand_data().mean();
+  optimal_energy_.fs()<<std::setw(10)<<num_sim_samples2_; 
+  if (converged_.sum()==sample_+1) 
+    optimal_energy_.fs()<<std::setw(11)<<"CONVERGED"<<std::setw(7)<<0<<std::endl;
+  else 
+    optimal_energy_.fs()<<std::setw(11)<<"NOT_CONVD"<<std::setw(7)<<0<<std::endl;
+  optimal_energy_.close_file();
+  //optimal_energy_.print_result(xvar_values_);
+  // optimal variational parameters
+  //optimal_parms_.open_file();
+  //optimal_parms_.fs()<<"#";
+  //optimal_parms_.print_result(xvar_values_);
+  // save the values
+  optimal_parms_.save_result();
+  // grand average for samples done so far
+  //optimal_parms_.print_grand_result(xvar_values_);
+  avg_parms = optimal_parms_.grand_data().mean_data();
+
+  // reset for next sample
+  optimal_energy_.reset();
+  energy_error_bar_.reset();
+  optimal_parms_.reset();
+  return 0;
+}
+
+std::ostream& StochasticReconf::print_progress(std::ostream& os, 
+  const var::parm_vector& vparms, const double& energy,
+  const double& error_bar, const Eigen::VectorXd& grad, const double& gnorm) 
+{
+  std::ios state(NULL);
+  state.copyfmt(os);
+  os << "#" << std::string(60, '-') << std::endl;
+  os << std::left;
+  os << " iteration  =  "<<std::setw(6)<<iter_<<"  ";
+  os << " (refinement - "<<refinement_level_<<")\n";
+  os <<std::scientific<<std::uppercase<<std::setprecision(6)<<std::right;
+  os << " energy     ="<<std::setw(14)<<energy << "   (+/-) ";
+  os <<std::fixed<<std::setw(10)<<error_bar<<"\n";
+  os <<std::scientific<<std::right;
+  os <<std::scientific<<std::uppercase<<std::setprecision(4)<<std::right;
+  os << " varp       =";
+  for (int i=0; i<num_parms_print_; ++i) os<<std::setw(12)<<vparms[i];
+  os << "\n";
+  os << " grad       =";
+  for (int i=0; i<num_parms_print_; ++i) os<<std::setw(12)<<grad[i];
+  os<< "\n";
+  os<< " search_dir =";
+  for (int i=0; i<num_parms_print_; ++i) os<<std::setw(12)<<search_dir_[i];
+  os<< "\n";
+  os<< " gnorm      ="<<std::setw(12)<< gnorm<<"\n";
+  os.copyfmt(state);
+  return os;
+}
+
 
 int StochasticReconf::optimize(VMC& vmc)
 {
@@ -130,11 +453,10 @@ int StochasticReconf::optimize(VMC& vmc)
   optimal_parms_.reset();
   optimal_energy_.reset();
   energy_error_bar_.reset();
+  Eigen::VectorXd search_dir(num_parms_);
   // start optimization
   // starting value of variational parameters
-  int refinement_cycle = 50;
   vparms_start_ = vmc.varp_values();
-  //std::cout << vparms_start_.transpose() << "\n"; getchar();
   bool all_samples_converged = true;
   for (int sample=1; sample<=num_opt_samples_; ++sample) {
     // iteration files
@@ -195,57 +517,101 @@ int StochasticReconf::optimize(VMC& vmc)
       vparms_ = vparms_start_;
     }
     // seed vmc rng
-    int rng_seed = -1;
+    int rng_seed = 1;
     //vmc.seed_rng(1);
     // initial function values
-    double start_en, error_bar; 
-    vmc.sr_function(vparms_,start_en,error_bar,grad_,sr_matrix_,num_sim_samples_,rng_seed);
+
     // Stochastic reconfiguration iterations
     bool converged = false;
+    double energy, error_bar;
     std::vector<double> iter_energy;
     std::vector<double> iter_energy_err;
+    std::vector<double> iter_gnorm;
     std::deque<mcdata::data_t> iter_vparms;
     std::deque<mcdata::data_t> iter_grads;
     RealVector vparm_slope(num_parms_);
     RealVector grads_slope(num_parms_);
-    double tstep = start_tstep_;
-    int rcount = refinement_cycle;
+    //bool ln_search = true;
+    //bool SA_steps = false;
+    bool ln_search = false;
+    bool SA_steps = true;
+    int sim_samples = num_sim_samples_;
     for (int iter=1; iter<=max_iter_; ++iter) {
-      // apply to stabilizer to sr matrix 
-      for (int i=0; i<num_parms_; ++i) sr_matrix_(i,i) += stabilizer_;
-      // search direction
-      Eigen::VectorXd search_dir = sr_matrix_.fullPivLu().solve(-grad_);
-      //Eigen::VectorXd search_dir = sr_matrix_.inverse()*(-grad_);
-      // update variables
-      vparms_.noalias() += tstep * search_dir;
-      // box constraint and max_norm (of components not hitting boundary) 
-      //vparms_ = lbound_.cwiseMax(vparms_.cwiseMin(ubound_));
-      /*
-      for (int n=0; n<num_parms_; ++n) {
-        double x = vparms_[n];
-        if (x < lbound_[n]) vparms_[n] = lbound_[n];
-        if (x > ubound_[n]) vparms_[n] = ubound_[n];
-      }
-      */
-
-      // simulation at new parameters
-      double en;
-      vmc.sr_function(vparms_,en,error_bar,grad_,sr_matrix_,num_sim_samples_,rng_seed);
-      double gnorm = grad_.squaredNorm();
       // file outs
-      file_energy_<<std::setw(6)<<iter<<std::scientific<<std::setw(16)<<en; 
-      file_energy_<<std::fixed<<std::setw(10)<<error_bar<<std::endl<<std::flush;
+      file_energy_<<std::setw(6)<<iter<<std::scientific<<std::setw(16)<<energy; 
       file_vparms_<<std::setw(6)<<iter; 
-      for (int i=0; i<vparms_.size(); ++i) file_vparms_<<std::setw(15)<<vparms_[i];
-      file_vparms_<<std::endl<<std::flush;
+      // progress log
       if (print_progress_) {
         std::ios state(NULL);
         state.copyfmt(std::cout);
         std::cout << "#" << std::string(60, '-') << std::endl;
         std::cout << std::left;
-        std::cout << " iteration  =   "<<std::setw(6)<<iter<<"\n";
+        if (ln_search) 
+          std::cout << " iteration  =  "<<std::setw(6)<<iter<<"(line search)"<<"\n";
+        else
+          std::cout << " iteration  =  "<<std::setw(6)<<iter<<"(SA step)"<<"\n";
+      }
+      if (print_log_) {
+        logfile_ << "#" << std::string(60, '-') << std::endl;
+        logfile_ << std::left;
+        if (ln_search) 
+          logfile_ << " iteration  =  "<<std::setw(6)<<iter<<"(line search)"<<"\n";
+        else 
+          logfile_ << " iteration  =  "<<std::setw(6)<<iter<<"(SA step)"<<"\n";
+      }
+
+      vmc.sr_function(vparms_,energy,error_bar,grad_,sr_matrix_,sim_samples,rng_seed);
+      // apply to stabilizer to sr matrix 
+      // std::cout << sr_matrix_ << "\n"; getchar();
+      //for (int i=0; i<num_parms_; ++i) sr_matrix_(i,i) += stabilizer_;
+      for (int i=0; i<num_parms_; ++i) sr_matrix_(i,i) *= (1.0+stabilizer_);
+      // search direction
+      /*
+      if (dir_cutoff_) {
+        get_stabilized_dir(sr_matrix_, grad_, search_dir);
+      }
+      else {
+        search_dir = sr_matrix_.fullPivLu().solve(-grad_);
+      }
+      */
+      search_dir = sr_matrix_.fullPivLu().solve(-grad_);
+
+      // max step size considering bounds
+      ln_search = false;
+      if (ln_search) {
+        double max_step = max_step_size(vparms_, search_dir, lbound_, ubound_);
+        // line search with Armijio condition
+        ln_search = line_search(vmc,vparms_,energy,error_bar,grad_,
+          search_dir,max_step);
+        if (!ln_search) {
+          SA_steps = true;
+          sim_samples = 5*num_sim_samples_;
+        }
+      }
+      if (SA_steps) {
+        // Stochastic Approximation steps
+        //double tstep = 1.0/(iter+1);
+        //vparms_ += tstep * search_dir;
+        vparms_ += start_tstep_ * search_dir;
+        // box constraint and max_norm (of components not hitting boundary) 
+        vparms_ = lbound_.cwiseMax(vparms_.cwiseMin(ubound_));
+      }
+
+      // simulation at new parameters
+      //vmc.sr_function(vparms_,en,error_bar,grad_,sr_matrix_,num_sim_samples_,rng_seed);
+      double gnorm = grad_.squaredNorm();
+      double proj_norm = proj_grad_norm(vparms_, grad_, lbound_, ubound_);
+      gnorm = std::min(gnorm, proj_norm);
+
+      // file outs
+      file_energy_<<std::fixed<<std::setw(10)<<error_bar<<std::endl<<std::flush;
+      for (int i=0; i<vparms_.size(); ++i) file_vparms_<<std::setw(15)<<vparms_[i];
+      file_vparms_<<std::endl<<std::flush;
+      // progress log
+      if (print_progress_) {
+        std::ios state(NULL);
+        state.copyfmt(std::cout);
         std::cout <<std::scientific<<std::uppercase<<std::setprecision(6)<<std::right;
-        /*
         std::cout << " grad       =";
         for (int i=0; i<grad_.size(); ++i)
           std::cout << std::setw(15)<<grad_[i];
@@ -258,16 +624,12 @@ int StochasticReconf::optimize(VMC& vmc)
         for (int i=0; i<vparms_.size(); ++i)
           std::cout << std::setw(15)<<vparms_[i];
         std::cout << "\n";
-        */
         std::cout << " gnorm      ="<<std::setw(15)<< gnorm<<"\n";
-        std::cout << " energy     ="<<std::setw(15)<<en << "   (+/-) ";
+        std::cout << " energy     ="<<std::setw(15)<<energy << "   (+/-) ";
         std::cout <<std::fixed<<std::setw(10)<<error_bar<<"\n";
         std::cout.copyfmt(state);
       }
       if (print_log_) {
-        logfile_ << "#" << std::string(60, '-') << std::endl;
-        logfile_ << std::left;
-        logfile_ << " iteration  =   "<<std::setw(6)<<iter<<"\n";
         logfile_ <<std::scientific<<std::uppercase<<std::setprecision(6)<<std::right;
         logfile_ << " grad       =";
         for (int i=0; i<grad_.size(); ++i)
@@ -282,51 +644,38 @@ int StochasticReconf::optimize(VMC& vmc)
           logfile_ << std::setw(15)<<vparms_[i];
         logfile_ << "\n";
         logfile_ << " gnorm      ="<<std::setw(15)<< gnorm<<"\n";
-        logfile_ << " energy     ="<<std::setw(15)<<en << "   (+/-) "; 
+        logfile_ << " energy     ="<<std::setw(15)<<energy << "   (+/-) "; 
         logfile_ << std::fixed<<std::setw(10)<<error_bar<<"\n";
       }
-      // check convergence
-      iter_energy.push_back(en);
-      iter_energy_err.push_back(error_bar);
-      iter_vparms.push_back(vparms_);
-      iter_grads.push_back(grad_);
-      if (false) {
-      //if (iter_energy.size() > flat_tail_len_) {
-        iter_vparms.pop_front();
-        iter_grads.pop_front();
-        RealVector p = lsqfit(iter_energy,flat_tail_len_);
-        fit_vparms(iter_vparms, vparm_slope);
-        iter_mean(iter_grads, grads_slope);
-        //std::cout << vparm_slope.transpose() << "\n"; // getchar();
-        //std::cout << grads_slope.transpose() << "\n"; // getchar();
-        double slope = std::abs(p(1));
-        converged = false;
-        if (slope<rslope_tol_*std::abs(start_en-en) || slope<aslope_tol_) {
-	        rcount++;
-          for (int n=0; n<num_parms_; ++n) {
-            double vslope = std::abs(vparm_slope(n));
-            double gslope = std::abs(grads_slope(n));
-            if (vslope<rslope_tol_*range_(n)||vslope<aslope_tol_||gslope<0.1*rslope_tol_) {
-              converged = true;
-            }
-            else {
-              converged = false;
-              break;
-            }
-          }
-	  // reduce stepsize
-	  if (rcount >= refinement_cycle) {
-	    tstep *= 0.5;
-	    rcount = 0;
-	  }
-        }
-        if (converged) break;
-      }
-      // check life
-      if (!boost::filesystem::exists(life_fname_)) break;
-    }
-    if (!converged) all_samples_converged = false;
 
+      // check convergence
+      if (!ln_search) {
+        iter_energy.push_back(energy);
+        iter_energy_err.push_back(error_bar);
+        iter_gnorm.push_back(gnorm);
+        iter_vparms.push_back(vparms_);
+        int len = iter_energy.size();
+        if (len > flat_tail_len_) {
+          iter_vparms.pop_front();
+          RealVector efit = lsqfit(iter_energy,flat_tail_len_);
+          double slope = efit[1];
+          double gnorm_avg = 0.0;
+          for (int i=1; i<=flat_tail_len_; ++i) gnorm_avg += iter_gnorm[len-i];
+          gnorm_avg /= flat_tail_len_;
+          //std::cout << "gnorm_avg = " << gnorm_avg << "\n";
+          //std::cout << "fslope    = " << slope << "\n";
+          if (gnorm_avg<grad_tol_ && slope<ftol_) {
+            converged = true; 
+            break;
+          }
+          else {
+            converged = false;
+          }
+        }
+      }
+      if (!boost::filesystem::exists(life_fname_)) break;
+    } // iteration over
+    if (!converged) all_samples_converged = false;
     if (print_progress_) {
       std::cout << "#" << std::string(60, '-') << std::endl;
       if (converged) std::cout<<" Converged!"<<std::endl;
@@ -343,49 +692,63 @@ int StochasticReconf::optimize(VMC& vmc)
     file_vparms_.close();
 
     // optimized quantities for this sample
-    if (iter_vparms.size()>=flat_tail_len_) {
+    //if (converged) {
+    if (true) {
       int n = iter_energy.size()-flat_tail_len_;
       for (int i=0; i<flat_tail_len_; ++i) {
         optimal_energy_ << iter_energy[n+i];
         energy_error_bar_ << iter_energy_err[n+i];
         optimal_parms_ << iter_vparms[i];
       }
-    }
+      // print sample values
+      // optimal energy
+      optimal_energy_.open_file();
+      optimal_energy_.fs()<<std::right;
+      optimal_energy_.fs()<<std::scientific<<std::uppercase<<std::setprecision(6);
+      optimal_energy_.fs()<<"#";
+      for (const auto& p : xvar_values_) 
+        optimal_energy_.fs()<<std::setw(13)<<p;
+      optimal_energy_.fs()<<std::setw(15)<<optimal_energy_.mean();
+      optimal_energy_.fs()<<std::fixed<<std::setw(10)<<energy_error_bar_.mean();
+      optimal_energy_.fs()<<std::setw(10)<<num_sim_samples2_; 
+      if (converged) 
+        optimal_energy_.fs()<<std::setw(11)<<"CONVERGED"<<std::setw(7)<<0<<std::endl;
+      else 
+        optimal_energy_.fs()<<std::setw(11)<<"NOT_CONVD"<<std::setw(7)<<0<<std::endl;
+      // save the values
+      optimal_energy_.save_result();
+      energy_error_bar_.save_result();
+      // grand average for samples done so far
+      optimal_energy_.fs()<<std::right;
+      optimal_energy_.fs()<<std::scientific<<std::uppercase<<std::setprecision(6);
+      optimal_energy_.fs() << "#" << std::string(72, '-') << "\n";
+      optimal_energy_.fs() << "# grand average:\n"; // 
+      optimal_energy_.fs() << "#" << std::string(72, '-') << "\n";
+      for (const auto& p : xvar_values_) 
+        optimal_energy_.fs()<<std::setw(14)<<p;
+      optimal_energy_.fs()<<std::setw(15)<<optimal_energy_.grand_data().mean();
+      optimal_energy_.fs()<<std::fixed<<std::setw(10)<<energy_error_bar_.grand_data().mean();
+      optimal_energy_.fs()<<std::setw(10)<<num_sim_samples2_; 
+      if (all_samples_converged) 
+        optimal_energy_.fs()<<std::setw(11)<<"CONVERGED"<<std::setw(7)<<0<<std::endl;
+      else 
+        optimal_energy_.fs()<<std::setw(11)<<"NOT_CONVD"<<std::setw(7)<<0<<std::endl;
+      optimal_energy_.close_file();
+      //optimal_energy_.print_result(xvar_values_);
+      // optimal variational parameters
+      optimal_parms_.open_file();
+      optimal_parms_.fs()<<"#";
+      optimal_parms_.print_result(xvar_values_);
+      // save the values
+      optimal_parms_.save_result();
+      // grand average for samples done so far
+      optimal_parms_.print_grand_result(xvar_values_);
 
-    // print sample values
-    // optimal energy
-    optimal_energy_.open_file();
-    optimal_energy_.fs()<<std::right;
-    optimal_energy_.fs()<<std::scientific<<std::uppercase<<std::setprecision(6);
-    optimal_energy_.fs()<<"#";
-    for (const auto& p : xvar_values_) 
-      optimal_energy_.fs()<<std::setw(14)<<p;
-    optimal_energy_.fs()<<std::setw(15)<<optimal_energy_.mean();
-    optimal_energy_.fs()<<std::fixed<<std::setw(10)<<energy_error_bar_.mean();
-    optimal_energy_.fs()<<std::setw(10)<<num_sim_samples_; 
-    if (converged) 
-      optimal_energy_.fs()<<std::setw(11)<<"CONVERGED"<<std::setw(7)<<0<<std::endl;
-    else 
-      optimal_energy_.fs()<<std::setw(11)<<"NOT_CONVD"<<std::setw(7)<<0<<std::endl;
-    optimal_energy_.close_file();
-    //optimal_energy_.print_result(xvar_values_);
-    // optimal variational parameters
-    optimal_parms_.open_file();
-    optimal_parms_.fs()<<"#";
-    optimal_parms_.print_result(xvar_values_);
-
-    // save the values
-    optimal_energy_.save_result();
-    energy_error_bar_.save_result();
-    optimal_parms_.save_result();
-
-    // reset for next sample
-    optimal_energy_.reset();
-    energy_error_bar_.reset();
-    optimal_parms_.reset();
-
-    // save parameters
-    vmc.save_parameters();
+      // reset for next sample
+      optimal_energy_.reset();
+      energy_error_bar_.reset();
+      optimal_parms_.reset();
+    } // one sample converged
   } // samples
   logfile_.close();
   // print results
@@ -413,6 +776,7 @@ int StochasticReconf::optimize(VMC& vmc)
   optimal_energy_.reset_grand_data();
   energy_error_bar_.reset_grand_data();
   optimal_parms_.reset_grand_data();
+
   return 0;
 }
 
@@ -498,7 +862,96 @@ RealVector StochasticReconf::lsqfit_poly(const std::vector<double>& iter_energy,
   return p;
 }
 
+bool StochasticReconf::line_search(VMC& vmc, Eigen::VectorXd& x,
+  double& fx, double& fx_err, Eigen::VectorXd& grad, 
+  const Eigen::VectorXd& dir, const double& max_step) 
+{
+  // save the function value at the current x
+  const Eigen::VectorXd x_init = x;
+  const double fx_init = fx;
+  // projection of gradient on the search direction
+  const double dg_init = grad.dot(dir);
+  if (dg_init > 0)
+     throw std::logic_error("StochasticReconf::line_search: the moving direction uphill\n");
 
+  double decr_factor = lnsearch_mu_*dg_init; 
+  double err_tol = -0.2*fx_err;
+  //std::cout << "decr_factor = " << decr_factor << "\n";
+  double step = 0.8*std::min(lnsearch_step_, max_step);
+
+  int max_linesearch = 5;
+  //std::cout << "\n fx_init = " << fx_init << "\n";
+  for(int iter = 0; iter < max_linesearch; ++iter) {
+    //std::cout << " search iter = " << iter << "\n";
+    //std::cout << " step= " << step << "\n";
+    x.noalias() = x_init + step * dir;
+    // evaluate this candidate
+    vmc(x,fx,fx_err,grad);
+    //std::cout << " fx_next = " << fx << "\n";
+    //std::cout << " gain = " << fx_init-fx << "\n\n";
+    if (fx < fx_init + std::min(err_tol, step*decr_factor)) {
+      return true;
+    }
+    step *= lnsearch_beta_;
+  }
+  // failed: restore initial values
+  x.noalias() = x_init;
+  fx = fx_init;
+  return false;
+}
+
+double StochasticReconf::max_step_size(const Eigen::VectorXd& x0, const Eigen::VectorXd& dir, 
+  const Eigen::VectorXd& lb, const Eigen::VectorXd& ub)
+{
+  const int n = x0.size();
+  double step = std::numeric_limits<double>::infinity();
+  for (int i=0; i<n; ++i) {
+    if(dir[i] > 0.0) {
+      step = std::min(step, (ub[i] - x0[i])/dir[i]);
+    } 
+    else if(dir[i] < 0.0) {
+      step = std::min(step, (lb[i] - x0[i])/dir[i]);
+    }
+  }
+  return step;
+}
+
+double StochasticReconf::proj_grad_norm(const Eigen::VectorXd& x, const Eigen::VectorXd& grad, 
+  const Eigen::VectorXd& lb, const Eigen::VectorXd& ub)
+{
+  const int n = x.size();
+  double res = 0.0;
+  for (int i=0; i<n; ++i) {
+    double proj = std::max(lb[i], x[i] - grad[i]);
+    proj = std::min(ub[i], proj);
+    res = std::max(res, std::abs(proj - x[i]));
+  }
+  return res;
+}
+
+void StochasticReconf::get_stabilized_dir(const Eigen::MatrixXd& sr_matrix, const Eigen::VectorXd& grad,
+  Eigen::VectorXd& dir)
+{
+  // cut-off redundant directions
+  Eigen::SelfAdjointEigenSolver<RealMatrix> es(sr_matrix, Eigen::ComputeEigenvectors);
+  double lamda_max = es.eigenvalues()[num_parms_-1];
+  int cut_idx = 0;
+  for (int i=0; i<num_parms_; ++i) {
+    if (std::abs(es.eigenvalues()[i]/lamda_max)>lambda_cut_) {
+      cut_idx = i;
+      break;
+    }
+  }
+  for (int n=0; n<num_parms_; ++n) {
+    double sum = 0;
+    for (int i=cut_idx; i<num_parms_; ++i) {
+      double sum2 = es.eigenvectors().col(i).dot(grad);
+      sum += es.eigenvectors()(n,i) * sum2/es.eigenvalues()(i);
+    }
+    dir(n) = -sum;
+  }
+  //std::cout << es.eigenvalues().transpose() << "\n";
+}
 
 
 } // end namespace vmc

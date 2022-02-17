@@ -17,6 +17,7 @@ void FockBasis::init(const int& num_sites, const bool& allow_dbl)
   num_states_ = 2*num_sites_;
   state_.resize(num_states_);
   state_.setZero();
+  //ssign_ = 1;
   spin_id_.resize(num_states_);
   spin_id_.setConstant(-1); 
   double_occupancy_ = allow_dbl;
@@ -61,6 +62,7 @@ void FockBasis::init_spins(const int& num_upspins, const int& num_dnspins)
 void FockBasis::set_random(void)
 {
   proposed_move_ = move_t::null;
+  //ssign_ = 1;
   state_.setZero();
   std::vector<int> all_up_states(num_sites_);
   for (int i=0; i<num_sites_; ++i) all_up_states[i] = i;
@@ -121,11 +123,40 @@ void FockBasis::set_random(void)
         num_dblocc_sites_++;
     }
   }
+
+  // Order the numbering of spins according to site index
+  int i = 0;
+  for (int s=0; s<num_sites_; ++s) {
+    if (state_[s]) {
+      spin_id_[i] = i;
+      up_states_[i] = s;
+      i++;
+    }
+  }
+  i = 0;
+  for (int s=num_sites_; s<num_states_; ++s) {
+    if (state_[s]) {
+      spin_id_[i] = i;
+      dn_states_[i] = s;
+      i++;
+    }
+  }
+  /*
+  std::cout << "Initial config = ";
+  std::cout << *this;
+  std::cout << "Up sites = ";
+  for (const auto& s : upspin_sites()) std::cout<<s<<"| ";
+  std::cout << "\nDp sites = ";
+  for (const auto& s : dnspin_sites()) std::cout<<s<<"| ";
+  std::cout << "\n";
+  getchar();
+  */
 }
 
 void FockBasis::set_custom(void)
 {
   proposed_move_ = move_t::null;
+  //ssign_ = 1;
   state_.setZero();
   std::vector<int> all_up_states(num_sites_);
   for (int i=0; i<num_sites_; ++i) all_up_states[i] = i;
@@ -203,6 +234,7 @@ bool FockBasis::gen_upspin_hop(void)
     for (int i=up_fr_state_+1; i<up_to_state_; ++i) {
       if (state_[i]) op_sign_ = -op_sign_;
     }
+    //ssign_ *= op_sign_;
     return true;
   }
 }
@@ -242,6 +274,7 @@ bool FockBasis::gen_dnspin_hop(void)
     for (int i=dn_fr_state_+1; i<dn_to_state_; ++i) {
       if (state_[i]) op_sign_ = -op_sign_;
     }
+    //ssign_ *= op_sign_;
     return true;
   }
 }
@@ -352,18 +385,19 @@ bool FockBasis::gen_exchange_move(void)
   new_elems_[3] = dn_to_state_;
   // sign (considered that the state is aready changed above)
   op_sign_ = 1;
-  for (int i=up_to_state_; i<up_fr_state_; ++i) {
+  for (int i=up_to_state_+1; i<up_fr_state_; ++i) {
     if (state_[i]) op_sign_ = -op_sign_;
   }
-  for (int i=up_fr_state_; i<up_to_state_; ++i) {
+  for (int i=up_fr_state_+1; i<up_to_state_; ++i) {
     if (state_[i]) op_sign_ = -op_sign_;
   }
-  for (int i=dn_to_state_; i<dn_fr_state_; ++i) {
+  for (int i=dn_to_state_+1; i<dn_fr_state_; ++i) {
     if (state_[i]) op_sign_ = -op_sign_;
   }
-  for (int i=dn_fr_state_; i<dn_to_state_; ++i) {
+  for (int i=dn_fr_state_+1; i<dn_to_state_; ++i) {
     if (state_[i]) op_sign_ = -op_sign_;
   }
+  //ssign_ *= op_sign_;
   return true;
 }
 
@@ -512,16 +546,16 @@ int FockBasis::op_exchange_ud(const int& site_i, const int& site_j) const
   }
   // sign (considered that the state is aready changed above)
   op_sign_ = 1;
-  for (int i=up_to_state_; i<up_fr_state_; ++i) {
+  for (int i=up_to_state_+1; i<up_fr_state_; ++i) {
     if (state_[i]) op_sign_ = -op_sign_;
   }
-  for (int i=up_fr_state_; i<up_to_state_; ++i) {
+  for (int i=up_fr_state_+1; i<up_to_state_; ++i) {
     if (state_[i]) op_sign_ = -op_sign_;
   }
-  for (int i=dn_to_state_; i<dn_fr_state_; ++i) {
+  for (int i=dn_to_state_+1; i<dn_fr_state_; ++i) {
     if (state_[i]) op_sign_ = -op_sign_;
   }
-  for (int i=dn_fr_state_; i<dn_to_state_; ++i) {
+  for (int i=dn_fr_state_+1; i<dn_to_state_; ++i) {
     if (state_[i]) op_sign_ = -op_sign_;
   }
   proposed_move_ = move_t::exchange;
@@ -605,7 +639,12 @@ void FockBasis::undo_last_move(void) const
 
 std::ostream& operator<<(std::ostream& os, const FockBasis& bs)
 {
-  os << "state: |" << bs.state_.transpose() << ">\n";
+  os << "state: |";
+  for (int i=0; i<bs.num_sites_; ++i) os << bs.state_[i] << " ";
+  os << ": ";
+  for (int i=bs.num_sites_; i<bs.num_states_; ++i) os << bs.state_[i] << " ";
+  os << ">\n";
+  //os << "state: |" << bs.state_.transpose() << ">\n";
   return os;
 }
 

@@ -26,34 +26,32 @@
 
 namespace var {
 
-enum class wf_type {IDENTITY, FERMISEA, BCS};
-
 // Wavefunction in 'Wannier space' (amplitudes in Wannier representation)
 class Wavefunction 
 {
 public:
   //Wavefunction() {}
-  Wavefunction(const lattice::LatticeGraph& graph, const input::Parameters& inputs,
-    const bool& site_disorder=false);
+  Wavefunction(const lattice::LatticeGraph& graph, const input::Parameters& inputs);
   ~Wavefunction() {}
-  const wf_type& type(void) const { return type_; }
   const std::string& name(void) const { return name_; }
+  const MF_Order::pairing_t& pair_symmetry(void) const { return groundstate_->pair_symm(); }
   const VariationalParms& varparms(void) const { return groundstate_->varparms(); }
   std::string info_str(void) const { return groundstate_->info_str(); } 
   int compute(const lattice::LatticeGraph& graph, const input::Parameters& inputs, 
     const bool& psi_gradient=false);
   int compute(const lattice::LatticeGraph& graph, const var::parm_vector& pvector,
-    const int& start_pos, const bool& psi_gradient=false);
+    const unsigned& start_pos, const bool& psi_gradient=false);
+  int recompute(const lattice::LatticeGraph& graph);
   //int compute_gradients(const lattice::LatticeGraph& graph);
   const int& num_upspins(void) const { return groundstate_->num_upspins(); }
   const int& num_dnspins(void) const { return groundstate_->num_dnspins(); }
   const double& hole_doping(void) const { return groundstate_->hole_doping(); }
   std::string signature_str(void) const; 
-  void get_vparm_names(std::vector<std::string>& names, int start_pos) const; 
-  void get_vparm_values(var::parm_vector& values, int start_pos);
-  void get_vparm_vector(std::vector<double>& vparm_values, int start_pos);
-  void get_vparm_lbound(var::parm_vector& lbounds, int start_pos) const; 
-  void get_vparm_ubound(var::parm_vector& ubounds, int start_pos) const; 
+  void get_vparm_names(std::vector<std::string>& names, unsigned start_pos) const; 
+  void get_vparm_values(var::parm_vector& values, unsigned start_pos);
+  void get_vparm_vector(std::vector<double>& vparm_values, unsigned start_pos);
+  void get_vparm_lbound(var::parm_vector& lbounds, unsigned start_pos) const; 
+  void get_vparm_ubound(var::parm_vector& ubounds, unsigned start_pos) const; 
   void get_amplitudes(Matrix& psi, const std::vector<int>& row,  
     const std::vector<int>& col) const;
   void get_amplitudes(ColVector& psi_vec, const int& irow,  
@@ -65,10 +63,11 @@ public:
     const std::vector<int>& row, const std::vector<int>& col) const;
 private:
   std::unique_ptr<GroundState> groundstate_;
-  wf_type type_;
+  //wf_descriptor wf_;
   std::string name_;
   //bool pairing_type_{false};
-  int num_sites_;
+  //wf_type type_;
+  unsigned num_sites_;
   // BCS_state bcs_state_;
   // FS_state fermisea_;
   Matrix psi_up_;

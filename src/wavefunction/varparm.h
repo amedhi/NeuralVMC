@@ -30,14 +30,26 @@ public:
   : val_{val}, lb_{lb}, ub_{ub}, diff_h_{diff_h} 
     {
       // actual bounds to allow for differentiation 
-      lb_ += 2*diff_h_;  
-      ub_ -= 2*diff_h_;  
+      //lb_ += 2*diff_h_;  
+      //ub_ -= 2*diff_h_;  
     }
   ~varparm_t() {}
   bool change_value(const double& newval) 
   {
-    if (newval<lb_ || newval>ub_) return false;
-    val_ = newval; return true;
+    if (newval<lb_) {
+      val_ = lb_;
+      return false;
+    } 
+    else if (newval>ub_) {
+      val_ = ub_;
+      return false;
+    }
+    else {
+      val_ = newval; 
+      return true;
+    }
+    //if (newval<lb_ || newval>ub_) return false;
+    //val_ = newval; return true;
   }
   void set_name(const name_id_map::const_iterator& it ) { map_it_=it; }
   const double& value(void) const { return val_; }

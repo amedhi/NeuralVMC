@@ -98,9 +98,13 @@ void MF_Model::construct_kspace_block(const Vector3d& kvec)
       */
       for (int i=0; i<term.num_out_bonds(); ++i) {
         Vector3d delta = term.bond_vector(i);
+        //std::cout << "bond "<<i<<": "<<delta.transpose()<<"\n"; 
         //pairing_block_ += term.coeff_matrix(i) * std::exp(ii()*kvec.dot(delta));
+        //std::cout << term.coeff_matrix(i)*std::exp(ii()*kvec.dot(delta))<<"\n"; getchar();
         work2 = term.coeff_matrix(i) * std::exp(ii()*kvec.dot(delta));
-        pairing_block_ += 0.5*(work2 + work2.adjoint());
+        //pairing_block_ += 0.5*(work2 + work2.adjoint());
+        //pairing_block_ += 0.5*(work2 + work2.conjugate());
+        pairing_block_ += work2;
       }
     }
   }
@@ -112,9 +116,13 @@ void MF_Model::construct_kspace_block(const Vector3d& kvec)
     //std::cout << " --------- here --------\n";
     if (term.qn_operator().spin_up()) {
       quadratic_block_up_ += term.coeff_matrix();
-      //std::cout << " sterm =" << term.coeff_matrix() << "\n"; //getchar();
+      //std::cout << " sterm =" << term.coeff_matrix() << "\n"; getchar();
+    }
+    if (term.qn_operator().is_pairing()) {
+      pairing_block_ += term.coeff_matrix();
     }
   }
+  //std::cout << "pairing_block = " << pairing_block_ << "\n"; getchar();
   //quadratic_block_up_ += work1.adjoint();
   //pairing_block_ = work2;
   //pairing_block_ += work2.adjoint();
@@ -200,6 +208,12 @@ void UnitcellTerm::build_bondterm(const model::HamiltonianTerm& hamterm,
   for (auto& M : expr_matrices_) {
     M.resize(dim_);
     for (unsigned i=0; i<dim_; ++i) M[i].resize(dim_);
+    // initialize
+    for (unsigned i=0; i<dim_; ++i) {
+      for (unsigned j=0; j<dim_; ++j) {
+        M[i][j] = "0";
+      }
+    }
   }
 
   // operator
@@ -238,6 +252,12 @@ void UnitcellTerm::build_siteterm(const model::HamiltonianTerm& hamterm,
   expr_matrices_.resize(1);
   expr_matrices_[0].resize(dim_);
   for (unsigned i=0; i<dim_; ++i) expr_matrices_[0][i].resize(dim_);
+  for (unsigned i=0; i<dim_; ++i) {
+    for (unsigned j=0; j<dim_; ++j) {
+      expr_matrices_[0][i][j] = "0";
+    }
+  }
+
   // operator
   op_ = hamterm.qn_operator();
   // build the matrix 

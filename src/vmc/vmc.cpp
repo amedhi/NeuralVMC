@@ -18,14 +18,15 @@ VMC::VMC(const input::Parameters& inputs)
   , num_varparms_{config.num_varparms()}
 {
   // seed random generator
-  config.rng().seed(inputs.set_value("rng_seed", 1));
+  rng_seed_ = inputs.set_value("rng_seed", 1);
+  config.rng().seed(rng_seed_);
   // mc parameters
   num_sites_ = graph.num_sites();
-  samples_required_ = inputs.set_value("measure_steps", 0);
+  num_measure_steps_ = inputs.set_value("measure_steps", 0);
   num_warmup_steps_ = inputs.set_value("warmup_steps", 0);
   min_interval_ = inputs.set_value("min_interval", 0);
   max_interval_ = inputs.set_value("max_interval", 0);
-  check_interval_ = std::max(1,samples_required_/10);
+  check_interval_ = std::max(1,num_measure_steps_/10);
 
   // output directory
   std::string outdir = inputs.set_value("prefix", "");
@@ -50,11 +51,16 @@ VMC::VMC(const input::Parameters& inputs)
   observables.as_functions_of(xvar_names_);
 }
 
-int VMC::init(const input::Parameters& inputs, const run_mode& mode, 
+void VMC::seed_rng(const int& seed)
+{
+  config.rng().seed(seed);
+}
+
+
+int VMC::start(const input::Parameters& inputs, const run_mode& mode, 
   const bool& silent)
 {
-  samples_collected_ = 0;
-  skip_count_ = min_interval_;
+  //config.rng().seed(inputs.set_value("rng_seed", 1));
   run_mode_ = mode;
   bool with_psi_grad = false;
   switch (mode) {
@@ -77,6 +83,7 @@ int VMC::init(const input::Parameters& inputs, const run_mode& mode,
   if (inputs.have_option_quiet()) silent_mode_ = true;
   // build config
   config.build(graph, inputs, with_psi_grad);
+
   // xvariables
   if (xvar_names_[0] == "hole_doping") {
     xvar_values_[0] = config.hole_doping();
@@ -87,27 +94,28 @@ int VMC::init(const input::Parameters& inputs, const run_mode& mode,
   return 0;
 }
 
-double VMC::energy_function(const Eigen::VectorXd& varp, Eigen::VectorXd& grad)
+int VMC::energy_function(const Eigen::VectorXd& varp, double& en_mean, 
+  double& en_stddev, Eigen::VectorXd& grad)
 {
-  // observables to calculate
-  bool with_psi_grad;
-  if (grad.size()>0) {
-    with_psi_grad = true;
-    observables.energy_grad().switch_on();
-  }
-  else {
-    with_psi_grad = false;
-    observables.energy_grad().switch_off();
-  }
+  int rng_seed = 1;
+  config.rng().seed(rng_seed);
   // build the config from the variational parameters
+  bool with_psi_grad = true;
   config.build(graph, varp, with_psi_grad);
+  // run the simulation
   run_simulation();
-  if (grad.size()>0) grad = observables.energy_grad().mean_data();
-  //for (unsigned i=0; i<num_varparms_; ++i)
-  //std::cout << " grad = " << grad.transpose() << "\n";
-  //std::cout << " varp = " << x[0] << " " << x[1] << "\n";
-  //std::cout << " energy = " << en << "\n";
-  return observables.energy().mean_data().sum();
+  // results
+  en_mean = observables.energy().mean();
+  en_stddev = observables.energy().stddev();
+  // gradient
+  grad = observables.energy_grad().mean_data();
+  return 0;
+}
+
+int VMC::build_config(const Eigen::VectorXd& varp, const bool& with_psi_grad) 
+{
+  config.rng().seed(rng_seed_);
+  return config.build(graph, varp, with_psi_grad);
 }
 
 int VMC::sr_function(const Eigen::VectorXd& varp, double& en_mean, 
@@ -142,72 +150,62 @@ int VMC::run_simulation(const Eigen::VectorXd& varp)
   return 0;
 }
 
-int VMC::do_warmup(const int& num_steps)
+int VMC::run_simulation(const int& sample_size, const std::vector<int>& bc_list)
 {
-  if (num_steps>0) {
-    for (int n=0; n<num_steps; ++n) config.update_state();
-  }
-  else {
-    for (int n=0; n<num_warmup_steps_; ++n) config.update_state();
-  }
-  // prepare for measurement
-  samples_collected_ = 0;
-  skip_count_ = min_interval_;
+  // initialize
   observables.reset();
-  return 0;
-}
+  int num_measure_steps = num_measure_steps_;
+  if (sample_size>0) num_measure_steps = sample_size;
 
-int VMC::do_steps(const int& num_steps)
-{
-  for (int n=0; n<num_steps; ++n) {
-    config.update_state();
-    if (skip_count_ >= min_interval_) {
-      if (config.accept_ratio()>0.5 || skip_count_>=max_interval_) {
-        skip_count_ = 0;
-        config.reset_accept_ratio();
-        observables.do_measurement(graph,model,config);
-        ++samples_collected_;
-      }
-    }
-    skip_count_++;
-  }
-  return 0;
-}
-
-int VMC::run_simulation(const int& sample_size)
-{
   // warmup run
   if (!silent_mode_) std::cout << " warming up... " << std::flush;
-  for (int n=0; n<num_warmup_steps_; ++n) config.update_state();
-  if (!silent_mode_) std::cout << "done\n";
+  do_warmup_run();
+  if (!silent_mode_) std::cout << "done\n" << std::flush;
   // measuring run
-  //int num_measure_steps = samples_required_;
-  if (sample_size>0) samples_required_ = sample_size;
-  //int measurement_count = 0;
-  samples_collected_ = 0;
-  int skip_count = min_interval_;
+  do_measure_run(num_measure_steps);
+  // finalize
+  observables.finalize();
+  if (!silent_mode_) {
+    std::cout << " simulation done\n";
+    config.print_stats();
+  }
+
+  return 0;
+}
+
+int VMC::reset_observables(void) 
+{
   observables.reset();
-  while (samples_collected_ < samples_required_) {
+  return 0;
+}
+
+int VMC::do_warmup_run(void) 
+{
+  for (int n=0; n<num_warmup_steps_; ++n) {
+    config.update_state();
+  }
+  return 0;
+}
+
+int VMC::do_measure_run(const int& num_samples) 
+{
+  int skip_count = min_interval_;
+  int measurement_count = 0;
+  while (measurement_count < num_samples) {
     config.update_state();
     if (skip_count >= min_interval_) {
       if (config.accept_ratio()>0.5 || skip_count==max_interval_) {
         skip_count = 0;
         config.reset_accept_ratio();
         observables.do_measurement(graph,model,config);
-        ++samples_collected_;
-        if (!silent_mode_) print_progress(samples_collected_, samples_required_);
+        ++measurement_count;
+        if (!silent_mode_) print_progress(measurement_count, num_samples);
       }
     }
     skip_count++;
   }
-  observables.finalize();
-  if (!silent_mode_) {
-    std::cout << " simulation done\n";
-    config.print_stats();
-  }
   return 0;
 }
-
 
 void VMC::print_results(void) 
 {
@@ -217,11 +215,6 @@ void VMC::print_results(void)
   //observables.print_results(config.hole_doping());
   observables.print_results(xvar_values_);
   //std::cout << observables.energy().with_statistic() << "\n";
-}
-
-bool VMC::not_done(void) const
-{
-  return samples_collected_<samples_required_;
 }
 
 void VMC::print_progress(const int& num_measurement, const int& num_measure_steps) const
@@ -237,7 +230,7 @@ void VMC::make_info_str(const input::Parameters& inputs)
   info_str_ << "# "<< inputs.job_id() <<"\n"; 
   info_str_ << model.info_str(); 
   info_str_ << config.info_str(); 
-  info_str_ << "# Samples = " << samples_required_;
+  info_str_ << "# Samples = " << num_measure_steps_;
   info_str_ << ", warmup = " << num_warmup_steps_;
   info_str_ << ", min_interval = " << min_interval_;
   info_str_ << ", max_interval = " << max_interval_ << "\n";
@@ -250,8 +243,6 @@ void VMC::copyright_msg(std::ostream& os)
   os << "#" << "          (c) Amal Medhi <amedhi@iisertvm.ac.in>\n";
   os << "#" << std::string(72,'-') << "\n";
 }
-
-
 
 } // end namespace vmc
 

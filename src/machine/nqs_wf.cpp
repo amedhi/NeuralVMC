@@ -3,7 +3,7 @@
 * @Author: Amal Medhi, amedhi@mbpro
 * @Date:   2019-08-13 12:00:53
 * @Last Modified by:   Amal Medhi
-* @Last Modified time: 2021-06-10 22:02:57
+* @Last Modified time: 2022-02-17 11:07:49
 *----------------------------------------------------------------------------*/
 #include <locale>
 #include "nqs_wf.h"
@@ -17,8 +17,8 @@ NQS_Wavefunction::NQS_Wavefunction(const int& num_sites, const input::Parameters
 
 int NQS_Wavefunction::init(const int& num_sites, const input::Parameters& inputs)
 {
-  //exponential_type_ = true;
   exponential_type_ = false;
+  //exponential_type_ = false;
   num_sites_ = num_sites;
   int num_units = 2*num_sites_;
 
@@ -42,22 +42,24 @@ int NQS_Wavefunction::init(const int& num_sites, const input::Parameters& inputs
     num_params_ = nnet_->num_params();
   }
 
-/*
-  else if (name_ == "FFNN_SIGN") {
+  else if (name_ == "FFNN_SIGN2") {
     nnet_.reset(new ann::FFNet());
-    //nnet_->add_layer(num_units,"Lcosh",num_units);
-    //nnet_->add_layer(num_units,"tanh",num_units);
     nnet_->add_layer(num_units,"sigmoid",num_units);
-    nnet_->add_layer(1,"relu");
+    nnet_->add_layer(1,"cospi");
     nnet_->compile();
+    num_params_ = nnet_->num_params();
+
     // sign part
     sign_nnet_.reset(new ann::FFNet());
-    sign_nnet_->add_sign_layer(num_units);
+    sign_nnet_->add_layer(num_units,"sigmoid",num_units);
+    sign_nnet_->add_layer(1,"sigmoid",num_units);
     sign_nnet_->compile();
-    have_sign_nnet_ = true;
     num_params_ = nnet_->num_params() + sign_nnet_->num_params();
+
+    have_sign_nnet_ = true;
+    //complex_type_ = true;
+    //exponential_type_ = false;
   }
-*/
   
  // /*
   else if (name_ == "FFNN_SIGN") {
@@ -71,6 +73,8 @@ int NQS_Wavefunction::init(const int& num_sites, const input::Parameters& inputs
     sign_nnet_.reset(new ann::FFNet());
     sign_nnet_->add_layer(1,"cospi",num_units);
     sign_nnet_->compile();
+
+
     have_sign_nnet_ = true;
     num_params_ = nnet_->num_params() + sign_nnet_->num_params();
   }
@@ -99,6 +103,9 @@ void NQS_Wavefunction::init_parameter_file(const std::string& prefix)
 {
   std::string nqs_dir = prefix+"/nqs";
   if (name_ == "FFNN") {
+    nnet_->init_parameter_file(nqs_dir+"/ffnn");
+  }
+  else if (name_ == "FFNN_CMPL") {
     nnet_->init_parameter_file(nqs_dir+"/ffnn");
   }
   else if (name_ == "FFNN_SIGN") {
@@ -182,10 +189,14 @@ void NQS_Wavefunction::update_state(const ann::ivector& fock_state,
 
 const amplitude_t& NQS_Wavefunction::output(void) const
 {
-  if (exponential_type_) {
+  if (complex_type_) {
+    //output_ = std::exp(nnet_->output()(0) + ii()*nnet_->output()(1));
+    output_ = nnet_->output()(0) + ii()*nnet_->output()(1);
+  }
+  else if (exponential_type_) {
     if (have_sign_nnet_) {
       output_ = std::exp(nnet_->output()(0) + ii()*sign_nnet_->output()(0));
-      std::cout << "sign net = "<<sign_nnet_->output()(0)/3.14159265358979323846 <<"\n";
+      //std::cout << "sign net = "<<sign_nnet_->output()(0)/3.14159265358979323846 <<"\n";
     }
     else {
       output_ = std::exp(nnet_->output()(0));
@@ -194,6 +205,8 @@ const amplitude_t& NQS_Wavefunction::output(void) const
   else {
     if (have_sign_nnet_) {
       output_ = nnet_->output()(0) * sign_nnet_->output()(0);
+      //output_ = nnet_->output()(0) + ii()*sign_nnet_->output()(0);
+      //output_ = nnet_->output()(0) * std::exp(ii()*sign_nnet_->output()(0));
     }
     else {
       output_ = nnet_->output()(0);
@@ -204,7 +217,12 @@ const amplitude_t& NQS_Wavefunction::output(void) const
 
 amplitude_t NQS_Wavefunction::get_new_output(const ann::ivector& fock_state) const
 {
-  if (exponential_type_) {
+  if (complex_type_) {
+    Vector v = nnet_->get_new_output(fock_state.cast<double>());
+    return v(0)+ii()*v(1);
+    //return std::exp(v(0)+ii()*v(1));
+  }
+  else if (exponential_type_) {
     if (have_sign_nnet_) {
       return std::exp(nnet_->get_new_output(fock_state.cast<double>())(0) 
              + ii()*sign_nnet_->get_new_output(fock_state.cast<double>())(0));
@@ -217,6 +235,12 @@ amplitude_t NQS_Wavefunction::get_new_output(const ann::ivector& fock_state) con
     if (have_sign_nnet_) {
       return nnet_->get_new_output(fock_state.cast<double>())(0) 
              * sign_nnet_->get_new_output(fock_state.cast<double>())(0);
+
+      //return nnet_->get_new_output(fock_state.cast<double>())(0) 
+      //     + ii()*sign_nnet_->get_new_output(fock_state.cast<double>())(0);
+
+      //return nnet_->get_new_output(fock_state.cast<double>())(0) * 
+      //   std::exp(ii()*sign_nnet_->get_new_output(fock_state.cast<double>())(0));
     }
     else {
       return nnet_->get_new_output(fock_state.cast<double>())(0);
@@ -227,7 +251,12 @@ amplitude_t NQS_Wavefunction::get_new_output(const ann::ivector& fock_state) con
 amplitude_t NQS_Wavefunction::get_new_output(const ann::ivector& fock_state, 
   const std::vector<int> new_elems) const
 {
-  if (exponential_type_) {
+  if (complex_type_) {
+    Vector v = nnet_->get_new_output(fock_state.cast<double>(),new_elems);
+    return v(0) + ii()*v(1);
+    //return std::exp(v(0) + ii()*v(1));
+  }
+  else if (exponential_type_) {
     if (have_sign_nnet_) {
       return std::exp(nnet_->get_new_output(fock_state.cast<double>(), new_elems)(0)
             + ii()*sign_nnet_->get_new_output(fock_state.cast<double>(), new_elems)(0));
@@ -240,6 +269,12 @@ amplitude_t NQS_Wavefunction::get_new_output(const ann::ivector& fock_state,
     if (have_sign_nnet_) {
       return nnet_->get_new_output(fock_state.cast<double>(), new_elems)(0)
            * sign_nnet_->get_new_output(fock_state.cast<double>(), new_elems)(0);
+
+      //return nnet_->get_new_output(fock_state.cast<double>(), new_elems)(0) 
+      //  + ii()*sign_nnet_->get_new_output(fock_state.cast<double>(), new_elems)(0);
+
+      //return nnet_->get_new_output(fock_state.cast<double>(), new_elems)(0) *
+      //   std::exp(ii()*sign_nnet_->get_new_output(fock_state.cast<double>(), new_elems)(0));
     }
     else {
      return nnet_->get_new_output(fock_state.cast<double>(), new_elems)(0);
@@ -249,7 +284,12 @@ amplitude_t NQS_Wavefunction::get_new_output(const ann::ivector& fock_state,
 
 void NQS_Wavefunction::get_gradient(Vector& grad, const int& pos) const
 {
-  if (exponential_type_) {
+  if (complex_type_) {
+    Matrix g = nnet_->get_gradient();
+    grad = g.col(0) + ii()*g.col(1);
+    //grad = output_ * (g.col(0) + ii()*g.col(1));
+  }
+  else if (exponential_type_) {
     if (have_sign_nnet_) {
       grad.head(nnet_->num_params()) = output_ * nnet_->get_gradient().col(0).cast<amplitude_t>();
       grad.tail(sign_nnet_->num_params()) = output_ * sign_nnet_->get_gradient().col(0).cast<amplitude_t>();
@@ -262,6 +302,13 @@ void NQS_Wavefunction::get_gradient(Vector& grad, const int& pos) const
     if (have_sign_nnet_) {
       grad.head(nnet_->num_params()) = sign_nnet_->output()(0)*nnet_->get_gradient().col(0).cast<amplitude_t>();
       grad.tail(sign_nnet_->num_params()) = nnet_->output()(0)*sign_nnet_->get_gradient().col(0).cast<amplitude_t>();
+
+      //grad.head(nnet_->num_params()) = nnet_->get_gradient().col(0).cast<amplitude_t>();
+      //grad.tail(sign_nnet_->num_params()) = ii()*sign_nnet_->get_gradient().col(0).cast<amplitude_t>();
+
+      //grad.head(nnet_->num_params()) = nnet_->get_gradient().col(0).cast<amplitude_t>() 
+      //    * std::exp(ii()*sign_nnet_->output()(0));
+      //grad.tail(sign_nnet_->num_params()) = output_*sign_nnet_->get_gradient().col(0).cast<amplitude_t>();
     }
     else {
       grad = nnet_->get_gradient().col(0).cast<amplitude_t>();
@@ -271,7 +318,12 @@ void NQS_Wavefunction::get_gradient(Vector& grad, const int& pos) const
 
 void NQS_Wavefunction::get_log_gradient(Vector& grad, const int& pos) const
 {
-  if (exponential_type_) {
+  if (complex_type_) {
+    Matrix g = nnet_->get_gradient();
+    grad = (g.col(0) + ii()*g.col(1))/output_;
+    //grad = (g.col(0) + ii()*g.col(1));
+  }
+  else if (exponential_type_) {
     if (have_sign_nnet_) {
       grad.head(nnet_->num_params()) = nnet_->get_gradient().col(0).cast<amplitude_t>();
       grad.tail(sign_nnet_->num_params()) = ii()*sign_nnet_->get_gradient().col(0).cast<amplitude_t>();
@@ -285,6 +337,12 @@ void NQS_Wavefunction::get_log_gradient(Vector& grad, const int& pos) const
     if (have_sign_nnet_) {
       grad.head(nnet_->num_params()) = inv*sign_nnet_->output()(0)*nnet_->get_gradient().col(0).cast<amplitude_t>();
       grad.tail(sign_nnet_->num_params()) = inv*nnet_->output()(0)*sign_nnet_->get_gradient().col(0).cast<amplitude_t>();
+
+      //grad.head(nnet_->num_params()) = inv*nnet_->get_gradient().col(0).cast<amplitude_t>();
+      //grad.tail(sign_nnet_->num_params()) = ii()*inv*sign_nnet_->get_gradient().col(0).cast<amplitude_t>();
+
+      //grad.head(nnet_->num_params()) = nnet_->get_gradient().col(0).cast<amplitude_t>();
+      //grad.tail(sign_nnet_->num_params()) = ii()*sign_nnet_->get_gradient().col(0).cast<amplitude_t>();
     }
     else {
       grad = inv*nnet_->get_gradient().col(0).cast<amplitude_t>();

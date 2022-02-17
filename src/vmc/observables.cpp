@@ -68,6 +68,34 @@ void ObservableSet::reset(void)
   if (site_occupancy_) site_occupancy_.reset();
 }
 
+void ObservableSet::reset_grand_data(void)
+{
+  if (energy_) energy_.reset_grand_data();
+  if (energy_grad_) energy_grad_.reset_grand_data();
+  if (sc_corr_) sc_corr_.reset_grand_data();
+  if (sr_matrix_) sr_matrix_.reset_grand_data();
+  if (site_occupancy_) site_occupancy_.reset_grand_data();
+}
+
+void ObservableSet::save_results(void)
+{
+  if (energy_) energy_.save_result();
+  if (energy_grad_) energy_grad_.save_result();
+  if (sc_corr_) sc_corr_.save_result();
+  if (sr_matrix_) sr_matrix_.save_result();
+  if (site_occupancy_) site_occupancy_.save_result();
+}
+
+void ObservableSet::avg_grand_data(void)
+{
+  if (energy_) energy_.avg_grand_data();
+  if (energy_grad_) energy_grad_.avg_grand_data();
+  if (sc_corr_) sc_corr_.avg_grand_data();
+  if (sr_matrix_) sr_matrix_.avg_grand_data();
+  if (site_occupancy_) site_occupancy_.avg_grand_data();
+}
+
+
 int ObservableSet::do_measurement(const lattice::LatticeGraph& graph, 
     const model::Hamiltonian& model, const SysConfig& config)
 {
@@ -90,10 +118,9 @@ int ObservableSet::do_measurement(const lattice::LatticeGraph& graph,
 void ObservableSet::finalize(void)
 {
   if (energy_grad_) {
-    energy_grad_.finalize(energy_.mean_data().sum());
+    energy_grad_.finalize();
   }
 }
-
 
 void ObservableSet::as_functions_of(const std::vector<std::string>& xvars)
 {
@@ -169,6 +196,25 @@ void ObservableSet::print_results(const double& xval)
   }
 }
 
+void ObservableSet::MPI_send_results(const mpi::mpi_communicator& mpi_comm, 
+  const mpi::proc& proc, const int& msg_tag)
+{
+  if (energy_) energy_.MPI_send_data(mpi_comm, proc, msg_tag);
+  if (energy_grad_) energy_grad_.MPI_send_data(mpi_comm, proc, msg_tag);
+  if (sc_corr_) sc_corr_.MPI_send_data(mpi_comm, proc, msg_tag);
+  if (sr_matrix_) sr_matrix_.MPI_send_data(mpi_comm, proc, msg_tag);
+  if (site_occupancy_) site_occupancy_.MPI_send_data(mpi_comm, proc, msg_tag);
+}
+
+void ObservableSet::MPI_recv_results(const mpi::mpi_communicator& mpi_comm, 
+  const mpi::proc& proc, const int& msg_tag)
+{
+  if (energy_) energy_.MPI_add_data(mpi_comm, proc, msg_tag);
+  if (energy_grad_) energy_grad_.MPI_add_data(mpi_comm, proc, msg_tag);
+  if (sc_corr_) sc_corr_.MPI_add_data(mpi_comm, proc, msg_tag);
+  if (sr_matrix_) sr_matrix_.MPI_add_data(mpi_comm, proc, msg_tag);
+  if (site_occupancy_) site_occupancy_.MPI_add_data(mpi_comm, proc, msg_tag);
+}
 
 } // end namespace vmc
 

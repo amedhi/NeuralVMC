@@ -2,7 +2,7 @@
 * @Author: Amal Medhi
 * @Date:   2018-12-29 12:01:09
 * @Last Modified by:   Amal Medhi
-* @Last Modified time: 2021-06-10 20:41:46
+* @Last Modified time: 2022-02-10 17:08:49
 *----------------------------------------------------------------------------*/
 #include <locale>
 #include <boost/tokenizer.hpp>
@@ -65,14 +65,18 @@ NeuralLayer::NeuralLayer(const int& units, const std::string& activation,
 
 void NeuralLayer::init_parameters(random_engine& rng, const double& sigma) 
 {
-  std::normal_distribution<double> random_normal(1.0,sigma);
+  //std::uniform_real_distribution<double> real_generator(-1.0,1.0);
+  //std::normal_distribution<double> random_normal(1.0,sigma);
+  std::normal_distribution<double> random_normal(0.0,sigma);
   for (int i=0; i<kernel_.rows(); ++i) {
     for (int j=0; j<kernel_.cols(); ++j) {
       kernel_(i,j) = random_normal(rng);
+      //kernel_(i,j) = real_generator(rng);
     }
   }
   for (int i=0; i<bias_.size(); ++i) {
     bias_(i) = random_normal(rng);
+    //bias_(i) = real_generator(rng);
   }
 }
 

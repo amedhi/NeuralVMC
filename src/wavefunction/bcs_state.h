@@ -21,24 +21,22 @@
 
 namespace var {
 
-enum class bcs {swave, dwave, af_swave, af_dwave};
-
 class BCS_State : public GroundState
 {
 public:
-  BCS_State() : GroundState(true) {}
-  BCS_State(const bcs& order_type, const input::Parameters& inputs, 
-    const lattice::LatticeGraph& graph); 
-  ~BCS_State() {} 
-  int init(const bcs& order_type, const input::Parameters& inputs, 
+  BCS_State() {}
+  BCS_State(const MF_Order::order_t& order, const MF_Order::pairing_t& pair_symm,
+    const input::Parameters& inputs, const lattice::LatticeGraph& graph); 
+  virtual ~BCS_State() {} 
+  int init(const input::Parameters& inputs, 
     const lattice::LatticeGraph& graph);
   std::string info_str(void) const override; 
   void update(const input::Parameters& inputs) override;
   void update(const var::parm_vector& pvector, const unsigned& start_pos=0) override;
+  void update(const lattice::LatticeGraph& graph) override;
   void get_wf_amplitudes(Matrix& psi) override;
   void get_wf_gradient(std::vector<Matrix>& psi_gradient) override; 
 private:
-  bcs order_type_;
   std::string order_name_;
   bool noninteracting_mu_{true};
   double large_number_{1.0E+2};
@@ -49,6 +47,7 @@ private:
   std::vector<ComplexMatrix> phi_k_;
   std::vector<ComplexMatrix> work_k_;
 
+  void add_chemical_potential(const input::Parameters& inputs);
   void get_pair_amplitudes_oneband(std::vector<ComplexMatrix>& phi_k);
   void get_pair_amplitudes_multiband(std::vector<ComplexMatrix>& phi_k);
   void get_pair_amplitudes_sitebasis(const std::vector<ComplexMatrix>& phi_k, Matrix& psi);

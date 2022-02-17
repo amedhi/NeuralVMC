@@ -13,18 +13,17 @@
 
 namespace vmc {
 
-enum {MP_init_simulation, MP_do_steps, MP_halt_simulation, MP_quit_simulation,
-      MP_poll_results, MP_run_results};
+enum class mpi_mode {NORMAL};
 
 class Simulator : public scheduler::Worker
 {
 public:
   Simulator(const input::Parameters& parms); 
   ~Simulator() {}
-  int start(const input::Parameters& parms) override { return 0; }
+  int start(const mpi::mpi_communicator& mpi_comm) override; 
   int run(const input::Parameters& parms) override;
   int run(const input::Parameters& parms, 
-    const scheduler::mpi_communicator& mpi_comm) override;
+    const mpi::mpi_communicator& mpi_comm) override;
   void finish(void) override {} 
   void dostep(void) override {} 
   void halt(void) override {} 
@@ -34,9 +33,15 @@ public:
 private:
   VMC vmc;
   StochasticReconf sreconf;
-  //optimizer::Optimizer nlopt_;
+  //opt::Optimizer optimizer_;
+  mpi_mode mpi_mode_; 
   bool optimization_mode_{false};
-
+  int mpirun_vmc(const mpi::mpi_communicator& mpi_comm, 
+    const std::set<mpi::proc>& working_procs, const int& proc_samples,
+    const bool& quiet=false); 
+  int mpirun_vmc(const mpi::mpi_communicator& mpi_comm, 
+    const std::set<mpi::proc>& working_procs, const std::vector<int>& bc_list,
+    const bool& quiet=false); 
   //static double enfunc(const std::vector<double>& x, std::vector<double>& grad, 
   //  void *my_func_data);
 };

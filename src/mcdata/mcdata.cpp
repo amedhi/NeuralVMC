@@ -60,6 +60,34 @@ bool DataBin::add_sample(const data_t& new_sample)
   return !waiting_sample_exist_;
 }
 
+// add samples from another bin
+bool DataBin::add_samples(const DataBin& bin)
+{
+  //std::cout << num_samples_ << "\n";
+  carry_exist_ = false;
+  if (bin.num_samples() == 0) return false;
+  num_samples_ += bin.num_samples();
+  ssum_ += bin.ssum();
+  if (no_error_bar_) return false;
+  sumsq_ += bin.sumsq();
+  if (waiting_sample_exist_) {
+    if (bin.waiting_sample_exist()) {
+      carry_ = (waiting_sample_ + bin.waiting_sample())*0.5;
+      waiting_sample_exist_ = false;
+      carry_exist_ = true;
+    }
+    // else, 'waiting_sample' in the host bin remains as it is
+  }
+  else {
+    if (bin.waiting_sample_exist()) {
+      waiting_sample_ = bin.waiting_sample();
+      waiting_sample_exist_ = true;
+    }
+    // else, 'carry_' in the host bin remains as it is
+  }
+  return carry_exist_;
+}
+
 void DataBin::finalize(void) const
 {
   if (num_samples_last_ != num_samples_) {
@@ -85,6 +113,8 @@ void DataBin::finalize(void) const
 }
 
 /*----------------------MC_Data class------------------*/
+int MC_Data::num_objs = 0; 
+
 void MC_Data::init(const std::string& name, const int& size, const bool& no_error_bar) 
 {
   std::vector<DataBin>::clear();
@@ -158,6 +188,76 @@ void MC_Data::operator<<(const double& sample)
   add_sample(new_sample);
 }
 
+// MPI transfer of data samples
+//---------------------------------------------------------------
+#ifdef HAVE_BOOST_MPI
+
+void MC_Data::MPI_send_data(const mpi::mpi_communicator& mpi_comm, 
+  const mpi::proc& p, const int& msg_tag)
+{
+  //std::cout<<"sending data from " << name_ << "\n";
+  //std::cout << "Sending data statistic\n";
+  //show_statistic();
+  mpi_comm.send(p, msg_tag, *this);
+}
+
+void MC_Data::MPI_add_data(const mpi::mpi_communicator& mpi_comm, 
+  const mpi::proc& p, const int& msg_tag)
+{
+  //std::cout<<"reciving data to " << name_ << "\n";
+  MC_Data new_data;
+  mpi_comm.recv(p, msg_tag, new_data);
+  //std::cout << "id  incoming id = " << id_ << "  " << new_data.id() << "\n";
+  if (id_ != new_data.id()) {
+    throw std::logic_error("MC_Data::MPI_add_data: object id-s not matching");
+  }
+  // check 
+  //std::cout << "Reciving data statistic\n";
+  //show_statistic();
+
+  // add the data
+  for (int i=0; i<max_binlevel_default_; ++i) {
+    if (new_data.data_bin(i).num_samples()==0) break;
+    this->operator[](i).add_samples(new_data.data_bin(i));
+  }
+  //std::cout << "Total data statistic\n";
+  //show_statistic();
+  // perform 'carry_over' tasks created by the previous operation
+  for (auto rbin=rbegin(); rbin!=rend(); ++rbin) {
+    if (rbin->num_samples()>0 && rbin->carry_exist()) {
+      data_t new_sample(rbin->carry());
+      // 'this_bin' actually the next to the one pointed by 'rbin' (which is we want)
+      auto this_bin = rbin.base();  
+      if (this_bin == end_bin) break;
+      while (this_bin->add_sample(new_sample)) {
+        new_sample = this_bin->carry();
+        //if (this_bin++ == end_bin) break; // wrong logic?
+        if (++this_bin == end_bin) break;
+      }
+    }
+  }
+  //std::cout << "Mopped up data statistic\n";
+  //show_statistic();
+
+}
+
+#else
+
+void MC_Data::MPI_send_data(const mpi::mpi_communicator& mpi_comm, 
+  const mpi::proc& p, const int& msg_tag)
+{
+  throw std::logic_error("MC_Data::MPI_send_data: this is not an mpi program");
+}
+
+void MC_Data::MPI_add_data(const mpi::mpi_communicator& mpi_comm, 
+  const mpi::proc& p, const int& msg_tag)
+{
+  throw std::logic_error("MC_Data::MPI_add_data: this is not an mpi program");
+}
+
+#endif
+//---------------------------------------------------------------
+
 const data_t& MC_Data::mean_data(void) const 
 {
   this->finalize(); return mean_;
@@ -194,7 +294,7 @@ const double& MC_Data::tau(void) const
   return tau_;
 }
 
-void MC_Data::finalize(void)  const
+void MC_Data::finalize(void) const
 { 
   if (top_bin->have_new_samples()) {
     // mean
@@ -209,6 +309,17 @@ void MC_Data::finalize(void)  const
     }
   }
 }
+
+// assign to averages from another object
+void MC_Data::copy_finalize(const MC_Data& mcdata) 
+{
+  finalize();
+  mean_ = mcdata.mean_data();
+  stddev_ = mcdata.stddev_data();
+  tau_ = mcdata.tau();
+  error_converged_ = mcdata.error_converged();
+}
+
 
 void MC_Data::find_conv_and_tau(const unsigned& n) const 
 { 
@@ -281,6 +392,7 @@ std::string MC_Data::conv_str(const int& n) const
   os << std::scientific << std::uppercase << std::setprecision(6) << std::right;
   os << std::setw(10) << this->num_samples();
   os << std::setw(11) << error_converged_;
+
   os << std::setw(7) << std::setprecision(2) << std::right << std::fixed << tau_;
   os << std::resetiosflags(std::ios_base::floatfield) << std::nouppercase; 
   return os.str();
@@ -291,7 +403,7 @@ void MC_Data::show_statistic(std::ostream& os) const
   auto bin = top_bin;
   os << name_ << " Statistic:\n";
   unsigned i = 0;
-  while (bin->num_samples()>1) {
+  while (bin->num_samples()>0) {
     os <<"bin-"<<std::setw(2)<<i++<<": "<< std::right<<std::setw(8)<<bin->num_samples(); 
     data_t mean = bin->mean();
     data_t stddev = bin->stddev();

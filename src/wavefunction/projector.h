@@ -32,7 +32,10 @@ public:
   void update(const var::parm_vector& pvector, const unsigned& start_pos=0);
   const bool& have_gutzwiller(void) const { return gutzwiller_proj_; }
   double gw_factor(void) const; 
-  const double& gw_ratio(const int& nd_incre) const { return gw_ratio_[nd_incre+1]; } 
+  const double& gw_ratio(const int& nd_incre) const 
+  { 
+    return gw_ratio_[nd_incre+2]; 
+  } 
   const VariationalParms& varparms(void) const { return varparms_; }
   void get_vparm_names(std::vector<std::string>& names, unsigned start_pos=0) const; 
   void get_vparm_values(var::parm_vector& values, unsigned start_pos=0) const; 

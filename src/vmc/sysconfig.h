@@ -43,13 +43,13 @@ public:
   const var::parm_vector& vparm_lbound(void) const { return vparm_lbound_; } 
   const var::parm_vector& vparm_ubound(void) const { return vparm_ubound_; } 
   const double& hole_doping(void) const { return wf_.hole_doping(); }
-  void save_parameters(void) const { nqs_.save_parameters(); }
+  int save_parameters(const var::parm_vector& pvector); 
   int num_particles(void) const { return num_upspins_+num_dnspins_; }
   int update_state(void);
   double accept_ratio(void);
   void reset_accept_ratio(void);
   amplitude_t apply(const model::op::quantum_op& op, const int& site_i, 
-    const int& site_j, const int& bc_phase) const;
+    const int& site_j, const int& bc_state, const std::complex<double>& bc_phase) const;
   amplitude_t apply_bondsinglet_hop(const int& idag, const int& ia_dag,
     const int& bphase_i, const int& j, const int& ja, 
     const int& bphase_j) const;
@@ -121,9 +121,9 @@ private:
   int inv_update_dnspin(const int& dnspin, const RowVector& psi_col, 
     const amplitude_t& det_ratio);
   amplitude_t apply_upspin_hop(const int& i, const int& j,
-    const int& bc_phase) const;
+    const int& bc_state, const std::complex<double>& bc_phase) const;
   amplitude_t apply_dnspin_hop(const int& i, const int& j,
-    const int& bc_phase) const;
+    const int& bc_state, const std::complex<double>& bc_phase) const;
   amplitude_t apply_sisj_plus(const int& i, const int& j) const;
 };
 

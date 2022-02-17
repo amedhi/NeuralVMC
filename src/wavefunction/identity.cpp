@@ -1,25 +1,25 @@
 /*---------------------------------------------------------------------------
 * @Author: Amal Medhi, amedhi@mbpro
 * @Date:   2019-02-07 12:31:24
-* @Last Modified by:   Amal Medhi, amedhi@mbpro
-* @Last Modified time: 2019-08-06 11:01:56
+* @Last Modified by:   Amal Medhi
+* @Last Modified time: 2022-02-13 12:36:37
 *----------------------------------------------------------------------------*/
 #include "./identity.h"
 
 namespace var {
 
-Identity::Identity(const input::Parameters& inputs, 
+Identity::Identity(const MF_Order::order_t& order, const input::Parameters& inputs, 
     const lattice::LatticeGraph& graph) 
-  : GroundState(true)
+  : GroundState(order, MF_Order::pairing_t::null)
 {
-  name_ = "Identity";
-  order_name_ = "Identity";
   init(inputs, graph);
 }
 
 int Identity::init(const input::Parameters& inputs, 
   const lattice::LatticeGraph& graph)
 {
+  name_ = "Identity";
+  order_name_ = "Identity";
   // sites & bonds
   num_sites_ = graph.num_sites();
   num_bonds_ = graph.num_bonds();

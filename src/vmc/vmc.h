@@ -15,7 +15,6 @@
 #include "../model/model.h"
 #include "./observables.h"
 #include "./sysconfig.h"
-//#include "../optimizer/optimizer.h"
 
 namespace vmc {
 
@@ -26,24 +25,28 @@ class VMC //: public optimizer::Problem
 public:
   VMC(const input::Parameters& inputs); 
   virtual ~VMC() {}
-  int init(const input::Parameters& inputs, const run_mode& mode=run_mode::normal, 
+  int start(const input::Parameters& inputs, const run_mode& mode=run_mode::normal, 
     const bool& silent=false);
-  int do_warmup(const int& num_steps=-1);
-  int do_steps(const int& num_steps=1);
-  int run_simulation(const int& sample_size=-1);
+  void seed_rng(const int& seed=1);
+  int run_simulation(const int& sample_size=-1, 
+    const std::vector<int>& bc_list={-1});
   int run_simulation(const Eigen::VectorXd& varp);
-  void save_parameters(void) { config.save_parameters(); }
-  bool not_done(void) const;
-  double energy_function(const Eigen::VectorXd& varp, Eigen::VectorXd& grad);
-  double operator()(const Eigen::VectorXd& varp, Eigen::VectorXd& grad) 
-    { return energy_function(varp, grad); }
-  //double sr_function(const Eigen::VectorXd& vparms, Eigen::VectorXd& grad, 
-  //  Eigen::MatrixXd& sr_matrix, const int& sample_size=-1);
-  int sr_function(const Eigen::VectorXd& varp, double& en_mean, 
-    double& en_stddev, Eigen::VectorXd& grad, Eigen::MatrixXd& sr_matrix, 
+  int reset_observables(void);
+  int do_warmup_run(void); 
+  int do_measure_run(const int& num_samples); 
+  int energy_function(const Eigen::VectorXd& varp, double& en_mean, double& en_stddev,
+    Eigen::VectorXd& grad);
+  int operator()(const Eigen::VectorXd& varp, double& en_mean, double& en_stddev,
+     Eigen::VectorXd& grad) { return energy_function(varp,en_mean,en_stddev,grad); }
+  int build_config(const Eigen::VectorXd& varp, const bool& with_psi_grad); 
+  int sr_function(const Eigen::VectorXd& vparms, double& en_mean, double& en_stddev,
+    Eigen::VectorXd& grad, Eigen::MatrixXd& sr_matrix, 
     const int& sample_size=-1, const int& rng_seed=-1);
   //void get_vparm_values(var::parm_vector& varparms) 
   //  { varparms = config.vparm_values(); }
+  void save_parameters(const var::parm_vector& parms) 
+    { config.save_parameters(parms); }
+  const int& num_measure_steps(void) const { return num_measure_steps_; } 
   const int& num_varp(void) const { return config.num_varparms(); } 
   const var::parm_vector& varp_values(void) { return config.vparm_values(); }
   const var::parm_vector& varp_lbound(void) const { return config.vparm_lbound(); }
@@ -53,18 +56,27 @@ public:
   const double& hole_doping(void) const { return config.hole_doping(); }
   const std::vector<std::string>& xvar_names(void) const { return xvar_names_; }
   const std::vector<double>& xvar_values(void) const { return xvar_values_; }
-  const std::string prefix_dir(void) const { return prefix_; }
+  const ObservableSet& observable(void) const { return observables; }
+  void finalize_results(void) { observables.finalize(); } 
   void print_results(void); 
-  std::ostream& print_info(std::ostream& os) const { return model.print_info(os); }
+  const std::string prefix_dir(void) const { return prefix_; }
+  std::ostream& print_info(std::ostream& os) const { return os << info_str_.str(); }
   static void copyright_msg(std::ostream& os);
 
+  void MPI_send_results(const mpi::mpi_communicator& mpi_comm, const mpi::proc& proc, 
+    const int& msg_tag) { observables.MPI_send_results(mpi_comm, proc, msg_tag); }
+  void MPI_recv_results(const mpi::mpi_communicator& mpi_comm, const mpi::proc& proc, 
+    const int& msg_tag) { observables.MPI_recv_results(mpi_comm, proc, msg_tag); }
 private:
   run_mode run_mode_{run_mode::normal};
   lattice::LatticeGraph graph;
   model::Hamiltonian model;
   SysConfig config;
+  int rng_seed_;
   int num_sites_;
   int num_varparms_;
+  // default BC_TWIST list
+  std::vector<int> bc_default_{0};
 
   // observables
   ObservableSet observables;
@@ -72,16 +84,14 @@ private:
   std::vector<std::string> xvar_names_;
   std::vector<double> xvar_values_;
 
+
   // mc parameters
   enum move_t {uphop, dnhop, exch, end};
-  int samples_required_{0}; 
-  int samples_collected_{0}; 
-  //int num_measure_steps_{0}; 
+  int num_measure_steps_{0}; 
   int num_warmup_steps_{0};
   int min_interval_{0};
   int max_interval_{0};
   int check_interval_{0};
-  int skip_count_{0};
   bool silent_mode_{false};
 
   mutable std::ostringstream info_str_;

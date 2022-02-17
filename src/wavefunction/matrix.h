@@ -21,9 +21,9 @@ namespace eig {
 
 using Vector3i = Eigen::Vector3i;
 using Vector3d = Eigen::Vector3d;
+using IntVector = Eigen::VectorXi;
 using Diagonal3d = Eigen::DiagonalMatrix<double,3>;
 using RealVector = Eigen::VectorXd;
-using IntVector = Eigen::VectorXi;
 using RealMatrix = Eigen::MatrixXd;
 using ComplexVector = Eigen::VectorXcd;
 using ComplexMatrix = Eigen::MatrixXcd;

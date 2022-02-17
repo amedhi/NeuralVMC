@@ -57,16 +57,16 @@ public:
   void build_bondterm(const model::HamiltonianTerm& sterm, const lattice::LatticeGraph& graph);
   void build_siteterm(const model::HamiltonianTerm& sterm, const lattice::LatticeGraph& graph);
   void eval_coupling_constant(const model::ModelParams& cvals, const model::ModelParams& pvals);
-  const unsigned& num_out_bonds(void) const { return num_out_bonds_; } 
-  const Vector3d& bond_vector(const unsigned& i) const { return bond_vectors_[i]; }
-  const ComplexMatrix& coeff_matrix(const unsigned& i=0) const { return coeff_matrices_[i]; }
+  const int& num_out_bonds(void) const { return num_out_bonds_; } 
+  const Vector3d& bond_vector(const int& i) const { return bond_vectors_[i]; }
+  const ComplexMatrix& coeff_matrix(const int& i=0) const { return coeff_matrices_[i]; }
   //const double& coupling(const unsigned& site_type) const; 
   const model::op::quantum_op& qn_operator(void) const { return op_; }
 private:
   using strMatrix = std::vector<std::vector<std::string> >;
   model::op::quantum_op op_;
-  unsigned num_out_bonds_;
-  unsigned dim_;
+  int num_out_bonds_;
+  int dim_;
   std::vector<ComplexMatrix> coeff_matrices_;
   std::vector<strMatrix> expr_matrices_;
   std::vector<Vector3d> bond_vectors_;
@@ -91,7 +91,7 @@ private:
   std::vector<UnitcellTerm> usite_terms_;
   std::vector<UnitcellTerm> ubond_terms_;
   // matrices in kspace representation
-  unsigned dim_;
+  int dim_;
   ComplexMatrix quadratic_block_up_;
   ComplexMatrix quadratic_block_dn_;
   ComplexMatrix pairing_block_;

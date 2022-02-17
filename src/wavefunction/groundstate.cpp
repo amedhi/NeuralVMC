@@ -6,6 +6,7 @@
 * Copyright (C) Amal Medhi, amedhi@iisertvm.ac.in
 *----------------------------------------------------------------------------*/
 #include <stdexcept>
+#include <boost/algorithm/string.hpp>
 #include "./groundstate.h"
 
 namespace var {
@@ -19,6 +20,12 @@ void GroundState::update(const var::parm_vector& pvector, const unsigned& start_
 {
   throw std::runtime_error("GroundState::update_parameters: function must be overriden");
 }
+
+void GroundState::update(const lattice::LatticeGraph& graph)
+{
+  throw std::runtime_error("GroundState::update: function must be overriden");
+}
+
 
 void GroundState::get_wf_amplitudes(Matrix& psi)
 {
@@ -37,21 +44,45 @@ std::string GroundState::info_str(void) const
 
 void GroundState::set_particle_num(const input::Parameters& inputs)
 {
-  hole_doping_ = inputs.set_value("hole_doping", 0.0);
-  if (std::abs(last_hole_doping_-hole_doping_)<1.0E-15) {
+  hole_doping_inp_ = inputs.set_value("hole_doping", 0.0);
+  if (std::abs(last_hole_doping_-hole_doping_inp_)<1.0E-15) {
     // no change in hole doping, particle number remails same
     return;
   }
-  last_hole_doping_ = hole_doping_;
-  band_filling_ = 1.0-hole_doping_;
+  last_hole_doping_ = hole_doping_inp_;
+  band_filling_ = 1.0-hole_doping_inp_;
+
+  std::string lname = inputs.set_value("lattice", "SQUARE");
+  boost::to_upper(lname);
+  if (lname=="NICKELATE" || lname=="NICKELATE_2D" || lname=="NICKELATE_2L") {
+    int num_unitcells = num_sites_/2;
+    num_upspins_ = static_cast<int>(std::round(0.5*band_filling_*num_unitcells));
+    num_dnspins_ = num_upspins_;
+    num_spins_ = num_upspins_ + num_dnspins_;
+    band_filling_ = static_cast<double>(num_spins_)/num_unitcells;
+    hole_doping_ = 1.0 - band_filling_;
+    //std::cout << "num_spins = " << num_spins_ << "\n"; 
+    //std::cout << "hole_doping_ = " << hole_doping_ << "\n"; getchar();
+    return;
+  }
+
+
+  band_filling_ = 1.0-hole_doping_inp_;
   int num_sites = static_cast<int>(num_sites_);
-  if (pairing_type_) {
+  if (nonmagnetic_) {
     int n = static_cast<int>(std::round(0.5*band_filling_*num_sites));
     if (n<0 || n>num_sites) throw std::range_error("Wavefunction:: hole doping out-of-range");
     num_upspins_ = static_cast<unsigned>(n);
     num_dnspins_ = num_upspins_;
     num_spins_ = num_upspins_ + num_dnspins_;
     band_filling_ = static_cast<double>(2*n)/num_sites;
+    /*
+    std::cout << "num_sites = " << num_sites_ << "\n";
+    std::cout << "num_upspins = " << num_upspins_ << "\n";
+    std::cout << "num_dnspins = " << num_dnspins_ << "\n";
+    std::cout << "band_filling = " << band_filling_ << "\n";
+    getchar();
+    */
   }
   else{
     int n = static_cast<int>(std::round(band_filling_*num_sites));
@@ -62,12 +93,14 @@ void GroundState::set_particle_num(const input::Parameters& inputs)
     band_filling_ = static_cast<double>(n)/num_sites;
   }
   hole_doping_ = 1.0 - band_filling_;
+  //std::cout << "num_upspins_ = " << num_upspins_ << "\n";
+  //std::cout << "num_dnspins_ = " << num_dnspins_ << "\n";
 }
 
 double GroundState::get_noninteracting_mu(void)
 {
   std::vector<double> ek;
-  for (unsigned k=0; k<num_kpoints_; ++k) {
+  for (int k=0; k<num_kpoints_; ++k) {
     Vector3d kvec = blochbasis_.kvector(k);
     mf_model_.construct_kspace_block(kvec);
     es_k_up.compute(mf_model_.quadratic_spinup_block(), Eigen::EigenvaluesOnly);
@@ -77,15 +110,16 @@ double GroundState::get_noninteracting_mu(void)
   std::sort(ek.begin(),ek.end());
   //for (const auto& e : ek) std::cout << e << "\n";
   //double e = 0.0;
-  //for (unsigned i=0; i<num_upspins_; ++i) e += ek[i];
+  //for (int i=0; i<num_upspins_; ++i) e += ek[i];
   //std::cout << "energy = " << 2*e/num_sites_ << "\n";
   //std::cout << "upspins = " << num_upspins_ << "\n";
+  double mu;
   if (num_upspins_ < num_sites_) {
-    //std::cout << 0.5*(ek[num_upspins_-1]+ek[num_upspins_]) << "\n";
-    return 0.5*(ek[num_upspins_-1]+ek[num_upspins_]);
+    mu = 0.5*(ek[num_upspins_-1]+ek[num_upspins_]);
   }
-  else
-    return ek[num_upspins_-1];
+  else mu = ek[num_upspins_-1];
+  //std::cout << "mu_0 = " << mu << "\n";
+  return mu;
 }
 
 void GroundState::set_ft_matrix(const lattice::LatticeGraph& graph)

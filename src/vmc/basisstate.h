@@ -55,12 +55,14 @@ public:
   bool op_cdagc_up(const int& fr_site, const int& to_site) const;
   bool op_cdagc_dn(const int& fr_site, const int& to_site) const;
   int op_exchange_ud(const int& fr_site, const int& to_site) const;
+  //const int state_sign(void) const { return ssign_; }
   const int op_sign(void) const { return op_sign_; }
   const int delta_nd(void) const { return dblocc_increament_; }
   friend std::ostream& operator<<(std::ostream& os, const FockBasis& bs);
 private:
   mutable RandomGenerator rng_;
   mutable eig::ivector state_;
+  //mutable int ssign_; // sign of the state
   eig::ivector spin_id_;  // store which UP-spin for a given state index
   int num_sites_{0};
   int num_states_{0};

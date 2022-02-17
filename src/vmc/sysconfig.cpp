@@ -23,7 +23,7 @@ SysConfig::SysConfig(const input::Parameters& inputs,
   , num_sites_(graph.num_sites())
 {
 #ifdef HAVE_DETERMINANTAL_PART
-  if (wf_.type() == var::wf_type::IDENTITY) have_mf_part_ = false;
+  if (wf_.name() == "IDENTITY") have_mf_part_ = false;
   else have_mf_part_ = true;
 #else
   have_mf_part_ = false;
@@ -139,6 +139,14 @@ int SysConfig::build(const lattice::LatticeGraph& graph, const var::parm_vector&
   return 0;
 }
 
+int SysConfig::save_parameters(const var::parm_vector& pvector)
+{
+  int start_pos = 0;
+  nqs_.update_parameters(pvector, start_pos);
+  nqs_.save_parameters();
+  return 0;
+}
+
 int SysConfig::init_config(void)
 {
   num_upspins_ = wf_.num_upspins();
@@ -227,6 +235,25 @@ int SysConfig::update_state(void)
   for (int n=0; n<num_dnhop_moves_; ++n) do_dnspin_hop();
   for (int n=0; n<num_exchange_moves_; ++n) do_spin_exchange();
 
+  /*
+  //if (true) {
+  if (false) {
+    auto psi = psi_mat_.determinant();
+    std::cout<<std::scientific<<std::uppercase<<std::setprecision(6)<<std::right;
+    std::cout<<std::setw(15)<<nqs_psi_<<std::setw(15)<<psi.real()*nqs_sign_
+       <<std::setw(15)<<psi.imag()*nqs_sign_<< " ratio = "<<double(nqs_sign_)*psi/nqs_psi_<<"\n";
+  }
+  */
+  //Matrix psi_ord(num_upspins_,num_dnspins_);
+  //std::vector<int> upsites = fock_basis_.upspin_sites();
+  //std::vector<int> dnsites = fock_basis_.dnspin_sites();
+  //std::sort(upsites.begin(),upsites.end());
+  //std::sort(dnsites.begin(),dnsites.end());
+  //wf_.get_amplitudes(psi_ord,upsites,dnsites);
+  //auto psi2 = psi_ord.determinant();
+  //std::cout << "sign = " << nqs_sign_ << " --- " << std::real(psi/psi2) << "\n";
+
+
   // CHECK
   /* 
   auto psi = psi_mat_.determinant();
@@ -267,6 +294,7 @@ int SysConfig::do_upspin_hop(void)
       to_site = fock_basis_.which_site();
       wf_.get_amplitudes(psi_row_,to_site,fock_basis_.dnspin_sites());
       det_ratio = psi_row_.cwiseProduct(psi_inv_.col(upspin)).sum();
+      //----To just compare: SWITCH OFF next 2 lines----
       if (std::abs(det_ratio) < 1.0E-12) det_ratio = 0.0;
       psi_ratio *= det_ratio;
     }
@@ -316,6 +344,7 @@ int SysConfig::do_dnspin_hop(void)
       to_site = fock_basis_.which_site();
       wf_.get_amplitudes(psi_col_,fock_basis_.upspin_sites(),to_site);
       det_ratio = psi_col_.cwiseProduct(psi_inv_.row(dnspin)).sum();
+      //----To just compare: SWITCH OFF next 2 lines----
       if (std::abs(det_ratio) < 1.0E-12) det_ratio = 0.0;
       psi_ratio *= det_ratio;
     }
@@ -389,6 +418,7 @@ int SysConfig::do_spin_exchange(void)
         fock_basis_.undo_last_move();
         return 0; // for safety
       }
+      //----To just compare: SWITCH OFF next 1 line----
       psi_ratio = psi_ratio*det_ratio1*det_ratio2;
     }
 #endif
@@ -449,13 +479,14 @@ int SysConfig::inv_update_dnspin(const int& dnspin, const RowVector& psi_col,
 }
 
 amplitude_t SysConfig::apply(const model::op::quantum_op& qn_op, 
-  const int& site_i, const int& site_j, const int& bc_phase) const
+  const int& site_i, const int& site_j, const int& bc_state, 
+  const std::complex<double>& bc_phase) const
 {
   amplitude_t term(0); 
   switch (qn_op.id()) {
     case model::op_id::cdagc_sigma:
-      term = apply_upspin_hop(site_i,site_j,bc_phase);
-      term+= apply_dnspin_hop(site_i,site_j,bc_phase);
+      term = apply_upspin_hop(site_i,site_j,bc_state,bc_phase);
+      term+= apply_dnspin_hop(site_i,site_j,bc_state,bc_phase);
       break;
     case model::op_id::sisj_plus:
       term = apply_sisj_plus(site_i,site_j); 
@@ -484,16 +515,26 @@ int SysConfig::apply_niup_nidn(const int& site_i) const
 }
 
 amplitude_t SysConfig::apply_upspin_hop(const int& i, const int& j,
-  const int& bc_phase) const
+  const int& bc_state, const std::complex<double>& bc_phase) const
 {
   if (i == j) return ampl_part(fock_basis_.op_ni_up(i));
   if (fock_basis_.op_cdagc_up(i,j)) {
     int sign = fock_basis_.op_sign();
     amplitude_t psi = nqs_.get_new_output(fock_basis_.state());
     amplitude_t psi_ratio = psi/nqs_psi_;
+    //std::cout << psi << "\n";
     //sign *= nqs_sign_;
     psi_ratio *= sign;
-    //if (sign < 0) {std::cout << "sign = " << sign << "\n"; getchar();}
+
+    /*
+    if (bc_state < 0) {
+      std::cout << "sign = " << sign << "\n"; 
+      std::cout << "bc_phase = "<<std::real(bc_phase)<<"\n";
+      std::cout << "state = "<<fock_basis_<<"\n";
+      getchar();
+    }*/
+
+    //----To just compare: SWITCH OFF ifdef block----
 #ifdef HAVE_DETERMINANTAL_PART
     double proj_ratio = pj_.gw_ratio(fock_basis_.delta_nd());
     if (have_mf_part_) {
@@ -501,19 +542,26 @@ amplitude_t SysConfig::apply_upspin_hop(const int& i, const int& j,
       int to_site = fock_basis_.which_site();
       wf_.get_amplitudes(psi_row_,to_site,fock_basis_.dnspin_sites());
       amplitude_t det_ratio = psi_row_.cwiseProduct(psi_inv_.col(upspin)).sum();
-      psi_ratio *= amplitude_t(proj_ratio*bc_phase*sign)*det_ratio;
+      psi_ratio *= proj_ratio*det_ratio;
     }
 #endif
     fock_basis_.undo_last_move(); 
     /* Necessary to 'undo', as next measurement could be 
       'site diagonal' where no 'undo' is done */
-    return psi_ratio;
+    if (bc_state == -1) {
+      // it's a boundary bond
+      //return psi_ratio*ampl_part(bc_phase);
+      return psi_ratio*std::real(bc_phase);
+    } 
+    else {
+      return psi_ratio;
+    }
   }
   else return amplitude_t(0.0);
 }
 
 amplitude_t SysConfig::apply_dnspin_hop(const int& i, const int& j,
-  const int& bc_phase) const
+  const int& bc_state, const std::complex<double>& bc_phase) const
 {
   if (i == j) return ampl_part(fock_basis_.op_ni_dn(i));
   if (fock_basis_.op_cdagc_dn(i,j)) {
@@ -522,6 +570,7 @@ amplitude_t SysConfig::apply_dnspin_hop(const int& i, const int& j,
     amplitude_t psi_ratio = psi/nqs_psi_;
     //sign *= nqs_sign_;
     psi_ratio *= sign;
+    //----To just compare: SWITCH OFF ifdef block----
 #ifdef HAVE_DETERMINANTAL_PART
     double proj_ratio = pj_.gw_ratio(fock_basis_.delta_nd());
     if (have_mf_part_) {
@@ -529,13 +578,21 @@ amplitude_t SysConfig::apply_dnspin_hop(const int& i, const int& j,
       int to_site = fock_basis_.which_site();
       wf_.get_amplitudes(psi_col_,fock_basis_.upspin_sites(),to_site);
       amplitude_t det_ratio = psi_col_.cwiseProduct(psi_inv_.row(dnspin)).sum();
-      psi_ratio *= amplitude_t(proj_ratio*bc_phase*sign)*det_ratio;
+      //psi_ratio *= amplitude_t(proj_ratio*bc_phase)*det_ratio;
+      psi_ratio *= proj_ratio*det_ratio;
     }
 #endif
     fock_basis_.undo_last_move(); 
     /* Necessary to 'undo', as next measurement could be 
       'site diagonal' where no 'undo' is done */
-    return psi_ratio;
+    if (bc_state == -1) {
+      // it's a boundary bond
+      //return psi_ratio*ampl_part(bc_phase);
+      return psi_ratio*std::real(bc_phase);
+    } 
+    else {
+      return psi_ratio;
+    }
   }
   else return amplitude_t(0.0);
 }
@@ -701,9 +758,12 @@ void SysConfig::print_stats(std::ostream& os) const
   long accepted_hops = num_accepted_moves_[move_t::uphop] 
                      + num_accepted_moves_[move_t::dnhop];
   long accepted_exch = num_accepted_moves_[move_t::exch];
-  double accept_ratio = 100.0*double(accepted_hops+accepted_exch)/(proposed_hops+proposed_exch);
-  double hop_ratio = double(100.0*accepted_hops)/(proposed_hops);
-  double exch_ratio = double(100.0*accepted_exch)/(proposed_exch);
+  double accept_ratio = (proposed_hops+proposed_exch) > 0
+    ? 100.0*double(accepted_hops+accepted_exch)/(proposed_hops+proposed_exch) : 0.0;
+  double hop_ratio = proposed_hops > 0 
+    ? double(100.0*accepted_hops)/(proposed_hops) : 0.0;
+  double exch_ratio = proposed_exch > 0
+    ? double(100.0*accepted_exch)/(proposed_exch) : 0.0;
   os << "--------------------------------------\n";
   os << " total mcsteps = " << num_updates_ <<"\n";
   os << " total accepted moves = " << (accepted_hops+accepted_exch)<<"\n";

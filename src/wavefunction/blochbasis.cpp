@@ -108,10 +108,17 @@ void BlochBasis::make_kpoints(const lattice::Lattice& lattice)
   }
 
   // antiperiodic boundary condition
-  Vector3d antipb_shift(0.0, 0.0, 0.0);
-  if (lattice.bc1_periodicity()==bc::antiperiodic) antipb_shift(0) = 0.5/lattice.size1();
-  if (lattice.bc2_periodicity()==bc::antiperiodic) antipb_shift(1) = 0.5/lattice.size2();
-  if (lattice.bc3_periodicity()==bc::antiperiodic) antipb_shift(2) = 0.5/lattice.size3();
+  //Vector3d antipb_shift(0.0, 0.0, 0.0);
+  //if (lattice.bc1_periodicity()==bc::antiperiodic) antipb_shift(0) = 0.5/lattice.size1();
+  //if (lattice.bc2_periodicity()==bc::antiperiodic) antipb_shift(1) = 0.5/lattice.size2();
+  //if (lattice.bc3_periodicity()==bc::antiperiodic) antipb_shift(2) = 0.5/lattice.size3();
+
+  // twisted bc shift
+  Vector3d antipb_shift(0.0,0.0,0.0);
+  antipb_shift(0) = lattice.bc1_twist()/(two_pi()*lattice.size1());
+  antipb_shift(1) = lattice.bc2_twist()/(two_pi()*lattice.size2());
+  antipb_shift(2) = lattice.bc3_twist()/(two_pi()*lattice.size3());
+  //std::cout << antipb_shift << "\n"; getchar();
 
   // k-points & translation vectors
   double x1, x2, x3;
@@ -124,8 +131,8 @@ void BlochBasis::make_kpoints(const lattice::Lattice& lattice)
     x2 = static_cast<double>(m(1)+n(1))/lattice.size2() + antipb_shift(1);
     x3 = static_cast<double>(m(2)+n(2))/lattice.size3() + antipb_shift(2);
     this->push_back(x1*b1 + x2*b2 + x3*b3);
-    //kpoints[i] = x1 * b1 + x2 * b2 + x3 * b3;
-    //std::cout << i << ": " << kpoints[i](0) << " " << kpoints[i](1) << " " << kpoints[i](2) << "\n";
+    //auto kvec = x1 * b1 + x2 * b2 + x3 * b3;
+    //std::cout << i << ": " << kvec.transpose() << "\n";
     //translation_vectors.push_back(n);
     n = lattice.get_next_bravindex(n);
   }

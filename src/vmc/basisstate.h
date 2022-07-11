@@ -54,6 +54,8 @@ public:
   int op_ni_updn(const int& site) const;
   bool op_cdagc_up(const int& fr_site, const int& to_site) const;
   bool op_cdagc_dn(const int& fr_site, const int& to_site) const;
+  bool op_cdagc2_up(const int& site_i, const int& site_j) const;
+  bool op_cdagc2_dn(const int& site_i, const int& site_j) const;
   int op_exchange_ud(const int& fr_site, const int& to_site) const;
   //const int state_sign(void) const { return ssign_; }
   const int op_sign(void) const { return op_sign_; }

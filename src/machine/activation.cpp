@@ -1,8 +1,8 @@
 /*---------------------------------------------------------------------------
 * @Author: amedhi
 * @Date:   2019-01-10 14:22:50
-* @Last Modified by:   Amal Medhi, amedhi@mbpro
-* @Last Modified time: 2020-03-10 21:51:53
+* @Last Modified by:   Amal Medhi
+* @Last Modified time: 2022-07-11 15:46:57
 *----------------------------------------------------------------------------*/
 #include "activation.h"
 
@@ -122,6 +122,29 @@ Vector Sigmoid::derivative(const Vector& input) const
   return input.unaryExpr([](const double& x) 
 	{ double y = 1.0/(1.0+std::exp(-x)); return y*(1.0-y); });
 }
+
+double ShiftedSigmoid::function(const double& x) const 
+{
+  return 1.0/(1.0+std::exp(-x))-0.5;
+}
+
+Vector ShiftedSigmoid::function(const Vector& input) const
+{
+  return input.unaryExpr([](const double& x) {return 1.0/(1.0+std::exp(-x))-0.5;});
+}
+
+double ShiftedSigmoid::derivative(const double& x) const 
+{
+  double y = 1.0/(1.0+std::exp(-x));
+  return y*(1.0-y);
+}
+
+Vector ShiftedSigmoid::derivative(const Vector& input) const
+{
+  return input.unaryExpr([](const double& x) 
+	{ double y = 1.0/(1.0+std::exp(-x)); return y*(1.0-y); });
+}
+
 
 //---------------- log[cosh(x)]-----------------------
 double LCOSH::function(const double& x) const 

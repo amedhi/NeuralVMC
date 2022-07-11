@@ -139,7 +139,9 @@ int Simulator::run(const input::Parameters& inputs,
     // Optimizing run
     if (optimization_mode_) {
       if (mpi_comm.is_master()) {
-        if (!inputs.have_option_quiet()) std::cout << " starting optimizing run\n";
+        if (!inputs.have_option_quiet()) {
+	  std::cout << " starting optimizing run\n";
+        }
       }
       int num_vparms = vmc.num_varp();
       Eigen::VectorXd grad(num_vparms);

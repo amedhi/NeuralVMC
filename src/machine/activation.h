@@ -77,6 +77,17 @@ public:
   Vector derivative(const Vector& input) const override;
 };
 
+class ShiftedSigmoid : public Activation
+{
+public:
+  ShiftedSigmoid() {}
+  ~ShiftedSigmoid() {}
+  double function(const double& x) const override;
+  Vector function(const Vector& input) const override;
+  double derivative(const double& x) const override;
+  Vector derivative(const Vector& input) const override;
+};
+
 class LCOSH : public Activation
 {
 public:

@@ -2,7 +2,7 @@
 * @Author: Amal Medhi, amedhi@mbpro
 * @Date:   2019-02-07 12:31:24
 * @Last Modified by:   Amal Medhi
-* @Last Modified time: 2022-02-13 12:36:37
+* @Last Modified time: 2022-03-21 23:17:40
 *----------------------------------------------------------------------------*/
 #include "./identity.h"
 
@@ -23,6 +23,14 @@ int Identity::init(const input::Parameters& inputs,
   // sites & bonds
   num_sites_ = graph.num_sites();
   num_bonds_ = graph.num_bonds();
+
+  // bloch basis
+  blochbasis_.construct(graph);
+  num_kpoints_ = blochbasis_.num_kpoints();
+  kblock_dim_ = blochbasis_.subspace_dimension();
+  // FT matrix for transformation from 'site basis' to k-basis
+  set_ft_matrix(graph);
+
   // particle number
   set_particle_num(inputs);
   varparms_.clear();

@@ -101,9 +101,9 @@ MUPARSER_LIB = $(PROJECT_ROOT)/src/expression/muparserx/libmuparserx.a
 #-------------------------------------------------------------
 # Target
 ifeq ($(MPI), HAVE_BOOST_MPI)
-  TAGT=nvmc_mpi.x
+  TAGT=nnvmc_mpi.x
 else 
-  TAGT=nvmc.x
+  TAGT=nnvmc.x
 endif
 
 # Put all auto generated stuff to this build dir.

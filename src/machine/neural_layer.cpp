@@ -2,7 +2,7 @@
 * @Author: Amal Medhi
 * @Date:   2018-12-29 12:01:09
 * @Last Modified by:   Amal Medhi
-* @Last Modified time: 2022-02-10 17:08:49
+* @Last Modified time: 2022-07-11 15:39:11
 *----------------------------------------------------------------------------*/
 #include <locale>
 #include <boost/tokenizer.hpp>
@@ -28,6 +28,9 @@ NeuralLayer::NeuralLayer(const int& units, const std::string& activation,
   }
   else if (fname=="SIGMOID") {
     activation_.reset(new Sigmoid());
+  }
+  else if (fname=="SHIFTED_SIGMOID") {
+    activation_.reset(new ShiftedSigmoid());
   }
   else if (fname=="TANH") {
     activation_.reset(new TANH());

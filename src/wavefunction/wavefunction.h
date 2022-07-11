@@ -61,6 +61,7 @@ public:
   void get_amplitudes(amplitude_t& elem, const int& irow, const int& jcol) const;
   void get_gradients(Matrix& psi_grad, const int& n, 
     const std::vector<int>& row, const std::vector<int>& col) const;
+  const basis::BlochBasis& blochbasis(void) const { return groundstate_->blochbasis(); }
 private:
   std::unique_ptr<GroundState> groundstate_;
   //wf_descriptor wf_;

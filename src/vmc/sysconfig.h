@@ -29,6 +29,7 @@ public:
   SysConfig(const input::Parameters& parms, const lattice::LatticeGraph& graph, 
     const model::Hamiltonian& model);
   ~SysConfig() {}
+  int init_files(const std::string& prefix, const input::Parameters& inputs);
   std::string info_str(void) const; 
   int build(const lattice::LatticeGraph& graph, const input::Parameters& inputs, 
     const bool& with_gradient=false);
@@ -55,7 +56,7 @@ public:
     const int& bphase_j) const;
   int apply(const model::op::quantum_op& qn_op, const int& site_i) const;
   int apply_niup_nidn(const int& site_i) const;
-  void get_grad_logpsi(RealVector& grad_logpsi) const;
+  void get_grad_logpsi(Vector& grad_logpsi) const;
   const int& num_updates(void) const { return num_updates_; }
   const var::Wavefunction& wavefunc(void) const { return wf_; }
   void print_stats(std::ostream& os=std::cout) const;
@@ -120,9 +121,13 @@ private:
     const amplitude_t& det_ratio);
   int inv_update_dnspin(const int& dnspin, const RowVector& psi_col, 
     const amplitude_t& det_ratio);
-  amplitude_t apply_upspin_hop(const int& i, const int& j,
+  amplitude_t apply_cdagc_up(const int& i_fr, const int& j_to,
     const int& bc_state, const std::complex<double>& bc_phase) const;
-  amplitude_t apply_dnspin_hop(const int& i, const int& j,
+  amplitude_t apply_cdagc_dn(const int& i_fr, const int& j_to,
+    const int& bc_state, const std::complex<double>& bc_phase) const;
+  amplitude_t apply_cdagc2_up(const int& i, const int& j,
+    const int& bc_state, const std::complex<double>& bc_phase) const;
+  amplitude_t apply_cdagc2_dn(const int& i, const int& j,
     const int& bc_state, const std::complex<double>& bc_phase) const;
   amplitude_t apply_sisj_plus(const int& i, const int& j) const;
 };

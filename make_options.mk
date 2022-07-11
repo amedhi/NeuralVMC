@@ -11,8 +11,10 @@ VMC_CXX=clang++ -std=c++11 # Clang compiler
 #VMC_CXX=g++ -std=c++11 # GNU GCC compiler
 
 ifeq ($(MPI), HAVE_BOOST_MPI)
-VMC_CXX=/opt/openmpi-2.0.2/bin/mpicxx -std=c++11
-VMC_CPPFLAGS=-D$(MPI)
+  VMC_CXX=/opt/openmpi/bin/mpicxx -std=c++11
+  VMC_CPPFLAGS=-D$(MPI)
+else
+  VMC_CPPFLAGS=
 endif
 
 #-------------------------------------------------------------

@@ -2,7 +2,7 @@
 * @Author: Amal Medhi, amedhi@mbpro
 * @Date:   2019-02-20 12:21:42
 * @Last Modified by:   Amal Medhi
-* @Last Modified time: 2022-02-13 12:47:01
+* @Last Modified time: 2022-06-25 12:26:44
 * Copyright (C) Amal Medhi, amedhi@iisertvm.ac.in
 *----------------------------------------------------------------------------*/
 #include <numeric>
@@ -220,9 +220,11 @@ void Fermisea::construct_groundstate(void)
     std::iota(idx.begin(),idx.end(),0);
     std::sort(idx.begin(),idx.end(),[&ek](const int& i1, const int& i2) 
       {return ek[i1]<ek[i2];});
-    /*for (int i=0; i<ek.size(); ++i) {
-      //std::cout << i << "  " << idx[i] << "  " << ek[idx[i]] << "\n";
-      std::cout << i+1 << " " << blochbasis_.kvector(idx[i]).transpose()  << "\n";
+
+    /*
+    for (int i=0; i<ek.size(); ++i) {
+      std::cout << i << "  " << idx[i] << "  " << ek[idx[i]] << "\n";
+      //std::cout << i+1 << " " << blochbasis_.kvector(idx[i]).transpose()  << "\n";
     }
     getchar();
     */

@@ -15,7 +15,7 @@ namespace model {
 enum class spin { UP, DN, UD, SIGMA, SINGLET };
 
 enum class op_id {
-  ni_sigma, ni, cdagc_up, cdagc_dn, cdagc_sigma, sisj, sisj_plus, 
+  ni_sigma, ni, cdagc_up, cdagc_dn, cdagc_sigma, cdagc2_sigma, sisj, sisj_plus, 
   niup_nidn, cdagup_cdagdn, null
 };
 
@@ -107,10 +107,16 @@ public:
 };
 
 // implies both UP or DN
+class cdagc_sigma : public quantum_op
+{
+public:
+  cdagc_sigma() : quantum_op("spin_hop", op_id::cdagc_sigma, spin::SIGMA, op_type::quadratic) {}
+};
+
 class spin_hop : public quantum_op
 {
 public:
-  spin_hop() : quantum_op("spin_hop", op_id::cdagc_sigma, spin::SIGMA, op_type::quadratic) {}
+  spin_hop() : quantum_op("spin_hop", op_id::cdagc2_sigma, spin::SIGMA, op_type::quadratic) {}
 };
 
 class upspin_hop : public quantum_op

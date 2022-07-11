@@ -3,7 +3,7 @@
 * @Author: Amal Medhi, amedhi@mbpro
 * @Date:   2019-08-13 12:00:53
 * @Last Modified by:   Amal Medhi
-* @Last Modified time: 2022-02-17 11:07:49
+* @Last Modified time: 2022-07-11 16:54:54
 *----------------------------------------------------------------------------*/
 #include <locale>
 #include "nqs_wf.h"
@@ -41,6 +41,25 @@ int NQS_Wavefunction::init(const int& num_sites, const input::Parameters& inputs
   	nnet_->compile();
     num_params_ = nnet_->num_params();
   }
+
+/*
+  else if (name_ == "FFNN_CMPL") {
+    nnet_.reset(new ann::FFNet());
+    nnet_->add_layer(num_units,"sigmoid",num_units);
+    nnet_->add_layer(1,"shifted_sigmoid",num_units);
+    nnet_->compile();
+    num_params_ = nnet_->num_params();
+
+    // imaginary part
+    sign_nnet_.reset(new ann::FFNet());
+    sign_nnet_->add_layer(num_units,"sigmoid",num_units);
+    sign_nnet_->add_layer(1,"shifted_sigmoid",num_units);
+    sign_nnet_->compile();
+
+    have_sign_nnet_ = true;
+    num_params_ = nnet_->num_params() + sign_nnet_->num_params();
+  }
+*/
 
   else if (name_ == "FFNN_SIGN2") {
     nnet_.reset(new ann::FFNet());

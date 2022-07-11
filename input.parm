@@ -6,19 +6,16 @@
 # Job Specification 
 #---------------------------------------------
 job = "VMC Simulation" 
-optimizing_run = "YES" # "YES" 
+optimizing_run = "YES"
 mode = "NEW" # ("NEW"/"APPEND")
 print_level = -2 #-2
 prefix = "./hub_chain"
 #---------------------------------------------
 # Lattice:
 #---------------------------------------------
-lattice = "CHAIN" # "SQUARE" 
-#lattice = "SQUARE" 
-lsize1 = 10
-#lsize2 = 8
+lattice = "CHAIN" 
+lsize1 = 8
 bc1 = "periodic"
-#bc2 = "periodic"
 
 #---------------------------------------------
 # Model:
@@ -32,8 +29,8 @@ U = 0.0
 #---------------------------------------------
 wavefunction = "IDENTITY"
 #wavefunction = "FERMISEA"
-nqs_wf = "FFNN"
-#nqs_wf = "FFNN_SIGN"
+#nqs_wf = "FFNN"
+nqs_wf = "FFNN_SIGN"
 #nqs_wf = "FFNN_CMPL"
 #nqs_wf = "SymFFNN"
 gutzwiller_proj = "NO"
@@ -51,13 +48,14 @@ parms_save_path="./hub_chain"
 Energy = "YES"
 EnergyGradient = "NO"
 Magnetization = "NO"
+MomentumOccupancy = "NO"
 
 #---------------------------------------------
 # Monte Carlo parameters
 #---------------------------------------------
 rng_seed = 0  # (=0 No seed, >0 time_seed)
-measure_steps = 2000
-warmup_steps = 2000
+measure_steps = 5000
+warmup_steps = 5000
 min_interval = 3
 max_interval = 20
 

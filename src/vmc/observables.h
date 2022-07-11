@@ -30,7 +30,8 @@ public:
   //  void (&print_copyright)(std::ostream& os), const lattice::LatticeGraph& graph, 
   //  const model::Hamiltonian& model, const SysConfig& config);
   void init(const input::Parameters& inputs, const lattice::LatticeGraph& graph, 
-    const model::Hamiltonian& model, const SysConfig& config, const std::string& prefix);
+    const model::Hamiltonian& model, const SysConfig& config, 
+    const std::string& prefix);
   void as_functions_of(const std::vector<std::string>& xvars=std::vector<std::string>());
   void as_functions_of(const std::string& xvar);
   void switch_off(void);
@@ -44,9 +45,13 @@ public:
   inline EnergyGradient& energy_grad(void) { return energy_grad_; }
   inline SC_Correlation& sc_corr(void) { return sc_corr_; }
   inline SR_Matrix& sr_matrix(void) { return sr_matrix_; }
+  const SiteOccupancy& site_occupancy(void) { return site_occupancy_; }
+  const MomentumOccupancy& k_occupancy(void) { return k_occupancy_; }
   const Energy& energy(void) const { return energy_; }
   const EnergyGradient& energy_grad(void) const { return energy_grad_; }
   const SR_Matrix& sr_matrix(void) const { return sr_matrix_; }
+  const SiteOccupancy& site_occupancy(void) const { return site_occupancy_; }
+  const MomentumOccupancy& k_occupancy(void) const { return k_occupancy_; }
 
   void finalize(void);
   void print_heading(void);
@@ -67,6 +72,7 @@ private:
   SC_Correlation sc_corr_;
   SR_Matrix sr_matrix_;
   SiteOccupancy site_occupancy_;
+  MomentumOccupancy k_occupancy_;
 };
 
 

@@ -109,6 +109,7 @@ int StochasticReconf::print_info(const VMC& vmc)
     vmc.print_info(logfile_);
     logfile_ << "#" << std::string(72, '-') << std::endl;
     logfile_ << "Stochastic Reconfiguration" << std::endl;
+    logfile_  << "num_params = " << num_parms_ << std::endl;
     logfile_ << "num_opt_samples = " << num_opt_samples_ << std::endl;
     logfile_ << "max_iter = " << max_iter_ << std::endl;
     logfile_ << "random_start = " << random_start_ << std::endl;
@@ -123,6 +124,7 @@ int StochasticReconf::print_info(const VMC& vmc)
   if (print_progress_) {
     std::cout << "#" << std::string(72, '-') << std::endl;
     std::cout << "Stochastic Reconfiguration" << std::endl;
+    std::cout << "num_params = " << num_parms_ << std::endl;
     std::cout << "num_opt_samples = " << num_opt_samples_ << std::endl;
     std::cout << "max_iter = " << max_iter_ << std::endl;
     std::cout << "random_start = " << random_start_ << std::endl;

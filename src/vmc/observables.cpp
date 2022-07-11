@@ -14,6 +14,7 @@ ObservableSet::ObservableSet()
   , sc_corr_("SC_Correlation")
   , sr_matrix_("SR_Matrix")
   , site_occupancy_("SiteOccupancy")
+  , k_occupancy_("MomentumOccupancy")
 {
 }
 
@@ -42,6 +43,7 @@ void ObservableSet::init(const input::Parameters& inputs,
   sc_corr_.set_ofstream(prefix);
   sr_matrix_.set_ofstream(prefix);
   site_occupancy_.set_ofstream(prefix);
+  k_occupancy_.set_ofstream(prefix);
 
   // switch on required observables
   energy_.check_on(inputs, replace_mode_);
@@ -50,6 +52,7 @@ void ObservableSet::init(const input::Parameters& inputs,
   sc_corr_.check_on(inputs,replace_mode_);
   sr_matrix_.check_on(inputs,replace_mode_);
   site_occupancy_.check_on(inputs,replace_mode_);
+  k_occupancy_.check_on(inputs,replace_mode_);
 
   // set up observables
   if (energy_) energy_.setup(graph,model);
@@ -57,6 +60,7 @@ void ObservableSet::init(const input::Parameters& inputs,
   if (sc_corr_) sc_corr_.setup(graph);
   if (sr_matrix_) sr_matrix_.setup(graph,config);
   if (site_occupancy_) site_occupancy_.setup(graph,config);
+  if (k_occupancy_) k_occupancy_.setup(graph,config);
 }
 
 void ObservableSet::reset(void)
@@ -66,6 +70,7 @@ void ObservableSet::reset(void)
   if (sc_corr_) sc_corr_.reset();
   if (sr_matrix_) sr_matrix_.reset();
   if (site_occupancy_) site_occupancy_.reset();
+  if (k_occupancy_) k_occupancy_.reset();
 }
 
 void ObservableSet::reset_grand_data(void)
@@ -75,6 +80,7 @@ void ObservableSet::reset_grand_data(void)
   if (sc_corr_) sc_corr_.reset_grand_data();
   if (sr_matrix_) sr_matrix_.reset_grand_data();
   if (site_occupancy_) site_occupancy_.reset_grand_data();
+  if (k_occupancy_) k_occupancy_.reset_grand_data();
 }
 
 void ObservableSet::save_results(void)
@@ -84,6 +90,7 @@ void ObservableSet::save_results(void)
   if (sc_corr_) sc_corr_.save_result();
   if (sr_matrix_) sr_matrix_.save_result();
   if (site_occupancy_) site_occupancy_.save_result();
+  if (k_occupancy_) k_occupancy_.save_result();
 }
 
 void ObservableSet::avg_grand_data(void)
@@ -93,8 +100,8 @@ void ObservableSet::avg_grand_data(void)
   if (sc_corr_) sc_corr_.avg_grand_data();
   if (sr_matrix_) sr_matrix_.avg_grand_data();
   if (site_occupancy_) site_occupancy_.avg_grand_data();
+  if (k_occupancy_) k_occupancy_.avg_grand_data();
 }
-
 
 int ObservableSet::do_measurement(const lattice::LatticeGraph& graph, 
     const model::Hamiltonian& model, const SysConfig& config)
@@ -112,6 +119,7 @@ int ObservableSet::do_measurement(const lattice::LatticeGraph& graph,
     sr_matrix_.measure(energy_grad_.grad_logpsi());
   }
   if (site_occupancy_) site_occupancy_.measure(graph, config);
+  if (k_occupancy_) k_occupancy_.measure(graph, config);
   return 0;
 }
 
@@ -119,6 +127,9 @@ void ObservableSet::finalize(void)
 {
   if (energy_grad_) {
     energy_grad_.finalize();
+  }
+  if (k_occupancy_) {
+    k_occupancy_.finalize();
   }
 }
 
@@ -140,6 +151,7 @@ void ObservableSet::switch_off(void) {
   sc_corr_.switch_off();
   sr_matrix_.switch_off();
   site_occupancy_.switch_off();
+  k_occupancy_.switch_off();
 }
 
 void ObservableSet::print_heading(void)
@@ -149,6 +161,7 @@ void ObservableSet::print_heading(void)
   sc_corr_.print_heading(headstream_.rdbuf()->str(),xvars_);
   sr_matrix_.print_heading(headstream_.rdbuf()->str(),xvars_);
   site_occupancy_.print_heading(headstream_.rdbuf()->str(),xvars_);
+  k_occupancy_.print_heading(headstream_.rdbuf()->str(),xvars_);
 }
 
 void ObservableSet::print_results(const std::vector<double>& xvals) 
@@ -170,6 +183,10 @@ void ObservableSet::print_results(const std::vector<double>& xvals)
   if (site_occupancy_) {
     site_occupancy_.print_heading(headstream_.rdbuf()->str(),xvars_);
     site_occupancy_.print_result(xvals);
+  }
+  if (k_occupancy_) {
+    k_occupancy_.print_heading(headstream_.rdbuf()->str(),xvars_);
+    k_occupancy_.print_result(xvals);
   }
 }
 
@@ -194,6 +211,10 @@ void ObservableSet::print_results(const double& xval)
     site_occupancy_.print_heading(headstream_.rdbuf()->str(),xvars_);
     site_occupancy_.print_result(xvals);
   }
+  if (k_occupancy_) {
+    k_occupancy_.print_heading(headstream_.rdbuf()->str(),xvars_);
+    k_occupancy_.print_result(xvals);
+  }
 }
 
 void ObservableSet::MPI_send_results(const mpi::mpi_communicator& mpi_comm, 
@@ -204,6 +225,7 @@ void ObservableSet::MPI_send_results(const mpi::mpi_communicator& mpi_comm,
   if (sc_corr_) sc_corr_.MPI_send_data(mpi_comm, proc, msg_tag);
   if (sr_matrix_) sr_matrix_.MPI_send_data(mpi_comm, proc, msg_tag);
   if (site_occupancy_) site_occupancy_.MPI_send_data(mpi_comm, proc, msg_tag);
+  if (k_occupancy_) k_occupancy_.MPI_send_data(mpi_comm, proc, msg_tag);
 }
 
 void ObservableSet::MPI_recv_results(const mpi::mpi_communicator& mpi_comm, 
@@ -214,6 +236,7 @@ void ObservableSet::MPI_recv_results(const mpi::mpi_communicator& mpi_comm,
   if (sc_corr_) sc_corr_.MPI_add_data(mpi_comm, proc, msg_tag);
   if (sr_matrix_) sr_matrix_.MPI_add_data(mpi_comm, proc, msg_tag);
   if (site_occupancy_) site_occupancy_.MPI_add_data(mpi_comm, proc, msg_tag);
+  if (k_occupancy_) k_occupancy_.MPI_add_data(mpi_comm, proc, msg_tag);
 }
 
 } // end namespace vmc

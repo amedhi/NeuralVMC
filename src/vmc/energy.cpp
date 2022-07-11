@@ -126,8 +126,8 @@ void EnergyGradient::measure(const SysConfig& config, const double& config_energ
   config.get_grad_logpsi(grad_logpsi_);
   unsigned n = 0;
   for (unsigned i=0; i<num_varp_; ++i) {
-    config_value_[n] = config_energy*grad_logpsi_[i];
-    config_value_[n+1] = grad_logpsi_[i];
+    config_value_[n] = config_energy*std::real(grad_logpsi_[i]);
+    config_value_[n+1] = std::real(grad_logpsi_[i]);
     n += 2;
   }
   grad_terms_ << config_value_;
@@ -198,18 +198,19 @@ void SR_Matrix::setup(const lattice::LatticeGraph& graph, const SysConfig& confi
   setup_done_ = true;
 }
 
-void SR_Matrix::measure(const RealVector& grad_logpsi)
+void SR_Matrix::measure(const Vector& grad_logpsi)
 {
   assert(grad_logpsi.size()==num_varp_);
   // operator 'del(ln(psi))' terms
-  for (unsigned i=0; i<num_varp_; ++i) config_value_[i] = grad_logpsi[i];
+  for (unsigned i=0; i<num_varp_; ++i) config_value_[i] = std::real(grad_logpsi[i]);
   // flatten the upper triangular part to a vector
   unsigned k = num_varp_;
   for (unsigned i=0; i<num_varp_; ++i) {
-    double x = grad_logpsi[i];
+    auto x = grad_logpsi[i];
     for (unsigned j=i; j<num_varp_; ++j) {
-      double y = grad_logpsi[j];
-      config_value_[k] = x * y;
+      auto y = grad_logpsi[j];
+      //config_value_[k] = std::real(x * y);
+      config_value_[k] = std::real(x) * std::real(y);
       ++k;
     }
   }

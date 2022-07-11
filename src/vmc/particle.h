@@ -30,6 +30,28 @@ private:
   mcdata::data_t config_value_;
 };
 
+
+class MomentumOccupancy : public mcdata::MC_Observable
+{
+public:
+  using MC_Observable::MC_Observable;
+  void setup(const lattice::LatticeGraph& graph, const SysConfig& config);
+  void measure(const lattice::LatticeGraph& graph, const SysConfig& config);
+  const mcdata::data_t& config_value(void) const { return config_value_; }
+  void print_heading(const std::string& header, 
+    const std::vector<std::string>& xvars) override;
+  void print_result(const std::vector<double>& xvals) override; 
+private:
+  bool setup_done_{false};
+  int num_sites_{0};
+  int num_basis_sites_{0};
+  int num_kpoints_{0};
+  ComplexMatrix exp_ikr_;
+  std::vector<Vector3d> kvals_;
+  std::vector<RealMatrix> nk_;
+  mcdata::data_t config_value_;
+};
+
 } // end namespave vmc
 
 

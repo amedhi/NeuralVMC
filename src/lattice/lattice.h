@@ -24,12 +24,15 @@
 namespace lattice {
 
 // Global Constants
-const unsigned MAX_SITE_TYPES = 20;
-const unsigned MAX_BOND_TYPES = 40;
+const unsigned MAX_SITE_TYPES = 100;
+const unsigned MAX_BOND_TYPES = 200;
 
 /*---------------lattice types-----------------*/
 enum class lattice_id {
-  UNDEFINED, SQUARE, SQUARE_NNN, SQUARE_IONIC, CHAIN, HONEYCOMB};
+  UNDEFINED, SQUARE, SQUARE_NNN, SQUARE_2SITE, SQUARE_4SITE, CHAIN, CHAIN_2SITE, 
+  HONEYCOMB, SW_GRAPHENE, SIMPLECUBIC, NICKELATE_2B, NICKELATE_2D, NICKELATE_2L, 
+  NICKELATE_4SITE, SQUARE_CDW4, SQUARE_STRIPE
+};
 
 /*---------------Lattice site class-----------------*/
 using Vector3i = Eigen::Vector3i;
@@ -50,10 +53,14 @@ public:
   static void reset_count(void) { num_site=0; }
   void reset_type(const unsigned& t) { type_=t; }
   void reset_uid(const unsigned& uid) { uid_=uid; }
+  void reset_atomid(const unsigned& aid) { atomid_=aid; }
   void reset_bravindex(const Vector3i& idx) { bravindex_=idx; }
   void reset_coord(const Vector3d& v) { coord_=v; }
   void reset_cell_coord(const Vector3d& v) { cell_coord_=v; }
-  void translate_by(const int& id_offset, const Vector3i& bravindex_offset, const Vector3d& coord_offset); 
+  void translate_by(const int& id_offset, const int& atomid_offset, const Vector3i& bravindex_offset, const Vector3d& coord_offset); 
+  void clear_bonds(void) { out_bonds_.clear(); in_bonds_.clear(); }
+  void add_out_bond(const unsigned& bond_id) { out_bonds_.push_back(bond_id); }
+  void add_in_bond(const unsigned& bond_id) { in_bonds_.push_back(bond_id); }
 
   // getter functions
   const int& id(void) const {return id_;}
@@ -63,17 +70,21 @@ public:
   const Vector3i& bravindex(void) const { return bravindex_; }
   const Vector3d& coord(void) const {return coord_;}
   const Vector3d& cell_coord(void) const {return cell_coord_;}
+  const std::vector<unsigned>& outbond_ids(void) const { return out_bonds_; }
+  const std::vector<unsigned>& inbond_ids(void) const { return out_bonds_; }
   // friends
   friend std::ostream& operator<<(std::ostream& os, const Site& site);
 private:
   static unsigned num_site;
-  int id_ {0};
-  unsigned uid_ {0}; // local id within a unitcell
-  unsigned type_ {0};
-  unsigned atomid_ {0};
-  Vector3i bravindex_ {Vector3i(0, 0, 0)};
-  Vector3d coord_ {Vector3d(0.0, 0.0, 0.0)};
-  Vector3d cell_coord_ {Vector3d(0.0, 0.0, 0.0)};
+  int id_{0};
+  unsigned uid_{0}; // local id within a unitcell
+  unsigned type_{0};
+  unsigned atomid_{0};
+  Vector3i bravindex_{Vector3i(0, 0, 0)};
+  Vector3d coord_{Vector3d(0.0, 0.0, 0.0)};
+  Vector3d cell_coord_{Vector3d(0.0, 0.0, 0.0)};
+  std::vector<unsigned> out_bonds_;
+  std::vector<unsigned> in_bonds_;
 };
 
 /*---------------Lattice bond class-----------------*/
@@ -91,6 +102,8 @@ public:
   static void reset_count(void) { num_bond=0; }
   void reset_id(const unsigned& id) { id_=id; }
   void reset_type(const unsigned& t) { type_=t; }
+  void reset_sign(const int& s) { sign_=s; }
+  void reset_phase(const std::complex<double>& ph) { phase_=ph; }
   //void reset_src_offset(const Vector3i& idx) { src_offset_=idx; }
   //void reset_tgt_offset(const Vector3i& idx) { tgt_offset_=idx; }
   void reset_bravindex(const Vector3i& idx) { bravindex_=idx; }
@@ -107,14 +120,16 @@ public:
   // getter functions
   const int& id(void) const { return id_; }
   const unsigned& type(void) const {return type_;}
+  const unsigned& ngb(void) const {return ngb_;}
   unsigned src_id(void) const { return first.id(); }
   unsigned tgt_id(void) const { return second.id(); }
   const Site& src(void) const { return first; }
   const Site& tgt(void) const { return second; }
   const unsigned& vector_id(void) const { return vector_id_; }
   const Vector3d& vector(void) const { return vector_; }
-  int sign(void) const { return sign_; }
   const BC_state& bc_state(void) const { return bc_state_; }
+  const int& sign(void) const { return sign_; }
+  const std::complex<double>& phase(void) const { return phase_; }
   Vector3i bravindex(void) const { return bravindex_; }
   //Vector3i src_offset(void) const { return src_offset_; }
   //Vector3i tgt_offset(void) const { return tgt_offset_; }
@@ -129,9 +144,10 @@ private:
   Vector3d vector_{Vector3d(0,0,0)}; // coordinate of 'tgt cell' wrt 'src cell'
   //unsigned src_ {0}; 
   //unsigned tgt_ {0}; 
-  int sign_ {1}; // = -1 if across an antiperiodic boundary
+  int sign_{1}; // = -1 if across an antiperiodic boundary
   BC_state bc_state_; // bc_state_[dim]=1 for normal bond, 
                     // bc_state_[dim]=-1 for bond crossing 'dim' boundary
+  std::complex<double> phase_; // bc phase
   Vector3i bravindex_ {Vector3i(0, 0, 0)};
   //Vector3i src_offset_ {Vector3i(0, 0, 0)};
   //Vector3i tgt_offset_ {Vector3i(0, 0, 0)};
@@ -147,30 +163,32 @@ public:
   // setter functions
   int add_site(const unsigned& type, const unsigned& atomid, const Vector3d& site_coord); 
   int add_site(const unsigned& type, const Vector3d& site_coord); 
-  int add_site(const Site& s) { sites.push_back(s); return sites.back().id(); }
+  int add_site(const Site& s) { sites_.push_back(s); return sites_.back().id(); }
   int add_site(const Site& s, const Vector3i& bravindex, const Vector3d& cell_coord);
-  int add_bond(const Bond& b) { bonds.push_back(b); return bonds.back().id(); }
+  int add_bond(const Bond& b) { bonds_.push_back(b); return bonds_.back().id(); }
   int add_bond(const unsigned& type, const unsigned& ngb, const unsigned& src_id, const Vector3i& src_offset,
     const unsigned& tgt_id, const Vector3i& tgt_offset); 
+  int add_bond(const unsigned& type, const unsigned& src_id, 
+    const unsigned& tgt_id, const Vector3i& tgt_offset, const int& ngb=1);
   void set_basis(const Vector3d& av1, const Vector3d& av2, const Vector3d& av3);
   void reset_a1(const Vector3d& av) { a1=av; }
   void reset_a2(const Vector3d& av) { a2=av; }
   void reset_a3(const Vector3d& av) { a3=av; }
   void clear(void); 
-  void clear_sites(void) { sites.clear(); }
-  void clear_bonds(void) { bonds.clear(); }
+  void clear_sites(void) { sites_.clear(); }
+  void clear_bonds(void) { bonds_.clear(); }
   void finalize(void);
   // getter functions
-  unsigned num_sites(void) const { return sites.size(); }
-  unsigned num_bonds(void) const { return bonds.size(); }
+  unsigned num_sites(void) const { return sites_.size(); }
+  unsigned num_bonds(void) const { return bonds_.size(); }
   const Vector3d& vector_a1(void) const { return a1; }
   const Vector3d& vector_a2(void) const { return a2; }
   const Vector3d& vector_a3(void) const { return a3; }
   const Vector3i& bravindex(void) const { return bravindex_; }
   const Vector3d& coord(void) const {return coord_;}
-  const Site& site(const unsigned& i) const { return sites[i]; }
-  const Bond& bond(const unsigned& i) const { return bonds[i]; }
-  Bond& bond(const unsigned& i) { return bonds[i]; }
+  const Site& site(const unsigned& i) const { return sites_[i]; }
+  const Bond& bond(const unsigned& i) const { return bonds_[i]; }
+  Bond& bond(const unsigned& i) { return bonds_[i]; }
   unsigned num_site_types(void) const { return sitetypes_map_.size(); }
   unsigned num_bond_types(void) const { return bondtypes_map_.size(); }
   std::map<unsigned,unsigned> sitetypes_map(void) const { return sitetypes_map_; }
@@ -184,13 +202,20 @@ private:
   unsigned max_site_type_val {0};
   unsigned max_bond_type_val {0};
   unsigned max_neighb_val {0};
+  /*------------------------------------------------------- 
+   * A 'site' means an 'orbital'. In single-orbital systems, 
+   * an 'atom' is same as a 'site'. In multi-orbital systems,
+   * the number of 'atom' is obviously not same as the 
+   * number of sites in the unitcell.
+   *-------------------------------------------------------*/
+  unsigned num_atoms_{0};
   Vector3d a1 {Vector3d(0.0, 0.0, 0.0)};
   Vector3d a2 {Vector3d(0.0, 0.0, 0.0)};
   Vector3d a3 {Vector3d(0.0, 0.0, 0.0)};
   Vector3i bravindex_ {Vector3i(0, 0, 0)};
   Vector3d coord_ {Vector3d(0.0, 0.0, 0.0)};
-  std::vector<Site> sites;
-  std::vector<Bond> bonds;
+  std::vector<Site> sites_;
+  std::vector<Bond> bonds_;
   std::map<unsigned,unsigned> sitetypes_map_; // user set value to contiguous value 
   std::map<unsigned,unsigned> bondtypes_map_; // user set value to contiguous value 
 };
@@ -198,9 +223,11 @@ private:
 /*---------------spatial dimension type-----------------*/
 enum class boundary_type {open, periodic, antiperiodic};
 
+
 class Lattice : public Unitcell
 {
 public:
+  using Atom = std::vector<unsigned>; 
   // ctors
   Lattice() {}
   Lattice(const input::Parameters& parms) { construct(parms); }
@@ -214,7 +241,10 @@ public:
     const unsigned& tgt_id, const Vector3i& tgt_offset); 
   int add_bond(const unsigned& type, const unsigned& src_id, const Vector3i& src_offset,
     const unsigned& tgt_id, const Vector3i& tgt_offset); 
+  int add_bond(const unsigned& type, const unsigned& src_id, 
+    const unsigned& tgt_id, const Vector3i& tgt_offset, const int& ngb=1);
   int add_bond(const Bond& b); 
+  /*
   void set_boundary_twist(const int& twist_id) 
   {
     for (unsigned dim=dim1; dim<=dim3; ++dim) {
@@ -223,6 +253,8 @@ public:
     }
     //std::cout << "\n";
   }
+  */
+  int reset_boundary_twist(const int& twist_id);
 
   // getter functions
   std::string name(void) const { return lname; }
@@ -232,9 +264,19 @@ public:
   const unsigned& dimension(void) const { return spatial_dim; }
   const unsigned& num_sites(void) const { return num_total_sites_; }
   const unsigned& num_unitcells(void) const { return num_total_cells_; }
+  const unsigned& num_bonds(void) const { return num_bonds_; }
+  const unsigned& num_atoms(void) const { return num_atoms_; }
   Vector3d basis_vector_a1(void) const { return Unitcell::vector_a1(); }
   Vector3d basis_vector_a2(void) const { return Unitcell::vector_a2(); }
   Vector3d basis_vector_a3(void) const { return Unitcell::vector_a3(); }
+  int size(const int& idir) const {
+    switch (idir) {
+      case 0: return static_cast<int>(extent[dim1].size); break;
+      case 1: return static_cast<int>(extent[dim2].size); break;
+      case 3: return static_cast<int>(extent[dim3].size); break;
+      default: throw std::range_error("error: Lattice::size: out-of-range argument");
+    }
+  }
   int size1(void) const { return static_cast<int>(extent[dim1].size); }
   int size2(void) const { return static_cast<int>(extent[dim2].size); }
   int size3(void) const { return static_cast<int>(extent[dim3].size); }
@@ -250,6 +292,12 @@ public:
   boundary_type bc1_periodicity(void) const { return extent[dim1].periodicity; }
   boundary_type bc2_periodicity(void) const { return extent[dim2].periodicity; }
   boundary_type bc3_periodicity(void) const { return extent[dim3].periodicity; }
+  const Site& site(const int& i) const { return sites_[i]; }
+  const Bond& bond(const int& i) const { return bonds_[i]; }
+  const Atom& atom(const int& i) const { return atoms_[i]; }
+  const std::vector<Site>& sites(void) const { return sites_; }
+  const std::vector<Bond>& bonds(void) const { return bonds_; }
+  const std::vector<Atom>& atoms(void) const { return atoms_; }
 
   // other methods 
   //Vector3i boundary_wrap(const Vector3i& cell_idx) const;
@@ -260,6 +308,7 @@ public:
   int mapped_site_id(const unsigned& local_id, const Vector3i& bravindex) const;
   unsigned translation_mapped_site(const unsigned& uid, const Vector3i& bravindex,
     const Vector3i& translation_vec) const;
+  const Site& translated_site(const Site& site, const Vector3i& translation_vec) const;
   //bool connect_bond(Bond& bond, const std::vector<Site>& sites) const;
   bool connect_bond2(Bond& bond, const std::vector<Site>& sites) const;
   const Site& basis_site(const unsigned& i) const { return Unitcell::site(i); }
@@ -287,13 +336,24 @@ private:
                         };
   
   // number of unit cells in total and in one layer (for symmetrized lattice)
-  unsigned num_total_cells_ {1};
-  unsigned num_layer_cells_ {1};
-  unsigned num_total_sites_ {0};
-  unsigned num_basis_sites_ {0};
+  unsigned num_total_cells_{1};
+  unsigned num_layer_cells_{1};
+  unsigned num_total_sites_{0};
+  unsigned num_basis_sites_{0};
+  unsigned num_bonds_{0};
+  unsigned num_atoms_{0};
 
   int num_total_twists_{1};
   RealMatrix twist_angles_;
+
+  // sites & bonds
+  std::vector<Site> sites_;
+  std::vector<Bond> bonds_;
+  std::vector<Atom> atoms_;
+
+  // set of type values
+  //std::set<unsigned> sitetype_set_;
+  //std::set<unsigned> bondtype_set_;
 
   // for lattices with impurities
   std::vector<Site> impurity_sites_;
@@ -303,7 +363,7 @@ private:
   int define_lattice(void); 
   int finalize_lattice(void); 
   int symmetrize_lattice(void);
-  //int construct_graph(void); 
+  int construct_graph(void); 
   boundary_type boundary_condition(std::string& bc) const;
   Eigen::Matrix3d rotation_matrix(const Eigen::Vector3d& r, const Eigen::Vector3d& r_prime);
 };

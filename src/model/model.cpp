@@ -98,6 +98,12 @@ unsigned Hamiltonian::add_bondterm(const std::string& name, const CouplingConsta
   return bond_terms_.size();
 }
 
+unsigned Hamiltonian::set_projection_op(const ProjectionOp& pjn)
+{
+  projection_ = pjn;
+  return 1;
+}
+
 unsigned Hamiltonian::add_disorder_term(const std::string& name, const op::quantum_op& op)
 {
   // site disorder term
@@ -181,6 +187,12 @@ int Hamiltonian::finalize(const lattice::Lattice& L)
   auto it = parms_.find(pname);
   if (it != parms_.end()) it->second = pval;
 }*/
+
+bool Hamiltonian::exist_parameter(const std::string& pname) const
+{
+  if (parms_.find(pname)!=parms_.end()) return true;
+  else return false;
+}
 
 void Hamiltonian::update_parameter(const std::string& pname, const double& val)
 {

@@ -6,7 +6,7 @@
 # Job Specification 
 #---------------------------------------------
 job = "VMC Simulation" 
-optimizing_run = "YES"
+optimizing_run = "NO"
 mode = "NEW" # ("NEW"/"APPEND")
 print_level = -2 #-2
 prefix = "./hub_chain"
@@ -14,7 +14,7 @@ prefix = "./hub_chain"
 # Lattice:
 #---------------------------------------------
 lattice = "CHAIN" 
-lsize1 = 8
+lsize1 = 10
 bc1 = "periodic"
 
 #---------------------------------------------
@@ -22,15 +22,15 @@ bc1 = "periodic"
 #---------------------------------------------
 model = "HUBBARD"
 t = 1.0
-U = 0.0
+U = 4.0
 
 #---------------------------------------------
 # Variational wavefunction
 #---------------------------------------------
 wavefunction = "IDENTITY"
 #wavefunction = "FERMISEA"
-#nqs_wf = "FFNN"
-nqs_wf = "FFNN_SIGN"
+nqs_wf = "FFNN"
+#nqs_wf = "FFNN_SIGN"
 #nqs_wf = "FFNN_CMPL"
 #nqs_wf = "SymFFNN"
 gutzwiller_proj = "NO"
@@ -39,7 +39,7 @@ hole_doping = 0.0
 #gfactor = 0.3037
 #mu = -0.4263
 as_func_of = "hole_doping"
-load_parms_from_file = "NO"
+load_parms_from_file = "YES"
 parms_load_path="./hub_chain"
 parms_save_path="./hub_chain"
 #---------------------------------------------

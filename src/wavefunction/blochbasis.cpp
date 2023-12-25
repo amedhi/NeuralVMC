@@ -9,12 +9,12 @@
 
 namespace basis {
 
-BlochBasis::BlochBasis(const lattice::LatticeGraph& graph) 
+BlochBasis::BlochBasis(const lattice::Lattice& lattice) 
 {
-  construct(graph);
+  construct(lattice);
 }
 
-int BlochBasis::construct(const lattice::LatticeGraph& graph)
+int BlochBasis::construct(const lattice::Lattice& lattice)
 {
   /*
   if (disorded_system) {
@@ -39,14 +39,14 @@ int BlochBasis::construct(const lattice::LatticeGraph& graph)
     return 0;
   }
   */
-  make_kpoints(graph.lattice());
-  make_subspace_basis(graph);
+  make_kpoints(lattice);
+  make_subspace_basis(lattice);
   return 0;
 }
 
 void BlochBasis::make_kpoints(const lattice::Lattice& lattice)
 {
-  Vector3d a1, a2, a3;
+  Vector3d a1, a2, a3, n1, n2, n3;
   double v;
   using bc = lattice::boundary_type;
 
@@ -57,6 +57,11 @@ void BlochBasis::make_kpoints(const lattice::Lattice& lattice)
   b1 = Vector3d(0.0,0.0,0.0);
   b2 = Vector3d(0.0,0.0,0.0);
   b3 = Vector3d(0.0,0.0,0.0);
+  /*
+  std::cout << "a1= " << a1.transpose() << "\n";
+  std::cout << "a2= " << a2.transpose() << "\n";
+  std::cout << "a3= " << a3.transpose() << "\n";
+  */
 
   unsigned symmetry_type = 0;
   if (lattice.bc1() == bc::periodic) {
@@ -70,10 +75,10 @@ void BlochBasis::make_kpoints(const lattice::Lattice& lattice)
         b2 = two_pi() * a2 / a2.dot(a2); 
         break;
       case 1:
-        a3 = a1.cross(a2);
-        v = a1.dot(a2.cross(a3));
-        b1 = two_pi() * a2.cross(a3) / v;
-        b2 = two_pi() * a3.cross(a1) / v;
+        n3 = a1.cross(a2);
+        v = a1.dot(a2.cross(n3));
+        b1 = two_pi() * a2.cross(n3) / v;
+        b2 = two_pi() * n3.cross(a1) / v;
         break;
       default: break;
     }
@@ -86,16 +91,16 @@ void BlochBasis::make_kpoints(const lattice::Lattice& lattice)
         b3 = two_pi() * a3 / a3.dot(a3); 
         break;
       case 1:
-        a2 = a3.cross(a1);
-        v = a1.dot(a2.cross(a3));
-        b1 = two_pi() * a2.cross(a3) / v;
-        b3 = two_pi() * a1.cross(a2) / v;
+        n2 = a3.cross(a1);
+        v = a1.dot(n2.cross(a3));
+        b1 = two_pi() * n2.cross(a3) / v;
+        b3 = two_pi() * a1.cross(n2) / v;
         break;
       case 2:
-        a1 = a2.cross(a3);
-        v = a1.dot(a2.cross(a3));
-        b2 = two_pi() * a3.cross(a1) / v;
-        b3 = two_pi() * a1.cross(a2) / v;
+        n1 = a2.cross(a3);
+        v = n1.dot(a2.cross(a3));
+        b2 = two_pi() * a3.cross(n1) / v;
+        b3 = two_pi() * n1.cross(a2) / v;
         break;
       case 3:
         v = a1.dot(a2.cross(a3));
@@ -106,6 +111,11 @@ void BlochBasis::make_kpoints(const lattice::Lattice& lattice)
       default: break;
     }
   }
+  /*
+  std::cout << "b1= " << b1.transpose() << "\n";
+  std::cout << "b2= " << b2.transpose() << "\n";
+  std::cout << "b3= " << b3.transpose() << "\n";
+  */
 
   // antiperiodic boundary condition
   //Vector3d antipb_shift(0.0, 0.0, 0.0);
@@ -118,7 +128,7 @@ void BlochBasis::make_kpoints(const lattice::Lattice& lattice)
   antipb_shift(0) = lattice.bc1_twist()/(two_pi()*lattice.size1());
   antipb_shift(1) = lattice.bc2_twist()/(two_pi()*lattice.size2());
   antipb_shift(2) = lattice.bc3_twist()/(two_pi()*lattice.size3());
-  //std::cout << antipb_shift << "\n"; getchar();
+  //std::cout << "k-shift = " << antipb_shift.transpose() << "\n";
 
   // k-points & translation vectors
   double x1, x2, x3;
@@ -131,32 +141,35 @@ void BlochBasis::make_kpoints(const lattice::Lattice& lattice)
     x2 = static_cast<double>(m(1)+n(1))/lattice.size2() + antipb_shift(1);
     x3 = static_cast<double>(m(2)+n(2))/lattice.size3() + antipb_shift(2);
     this->push_back(x1*b1 + x2*b2 + x3*b3);
-    //auto kvec = x1 * b1 + x2 * b2 + x3 * b3;
-    //std::cout << i << ": " << kvec.transpose() << "\n";
+    /*
+    auto kvec = x1 * b1 + x2 * b2 + x3 * b3;
+    std::cout << i << ": " << kvec.transpose() << "\n";
+    getchar();
+    */
     //translation_vectors.push_back(n);
     n = lattice.get_next_bravindex(n);
   }
 }
 
-void BlochBasis::make_subspace_basis(const lattice::LatticeGraph& graph)
+void BlochBasis::make_subspace_basis(const lattice::Lattice& lattice)
 {
-  subspace_dimension_ = graph.lattice().num_basis_sites();
+  subspace_dimension_ = lattice.num_basis_sites();
   subspace_basis_.resize(subspace_dimension_);
   for (unsigned i=0; i<subspace_dimension_; ++i) {
-    basis_state s = graph.site(i);
-    unsigned uid = graph.site_uid(i);
-    if (s != graph.site(uid))
-      throw std::logic_error("BlochBasis::make_site_basis: unexpected graph property.");
+    basis_state s = lattice.site(i).id();
+    unsigned uid = lattice.site(i).uid();
+    if (s != lattice.site(uid).id())
+      throw std::logic_error("BlochBasis::make_site_basis: unexpected property.");
     subspace_basis_[i] = s; 
   }
   null_idx_ = subspace_basis_.size();
   // index of the 'representative state' of a site
-  representative_state_idx_.resize(graph.num_sites());
+  representative_state_idx_.resize(lattice.num_sites());
   //translation_vectors_.resize(graph.num_sites());
   for (auto& idx : representative_state_idx_) idx = null_idx_;
-  for (unsigned i=0; i<graph.num_sites(); ++i) {
-    basis_state s = graph.site(i);
-    unsigned uid = graph.site_uid(i);
+  for (unsigned i=0; i<lattice.num_sites(); ++i) {
+    basis_state s = lattice.site(i).id();
+    unsigned uid = lattice.site(i).uid();
     representative_state_idx_[s] = uid;
     //translation_vectors_[s] = graph.site_cellcord(i);
     //std::cout << translation_vectors_[s] << "\n"; getchar();

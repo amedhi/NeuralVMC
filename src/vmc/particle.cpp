@@ -2,27 +2,93 @@
 * @Author: Amal Medhi, amedhi@mbpro
 * @Date:   2019-09-26 13:53:41
 * @Last Modified by:   Amal Medhi
-* @Last Modified time: 2022-06-22 16:03:58
+* @Last Modified time: 2023-06-11 23:32:21
 * Copyright (C) Amal Medhi, amedhi@iisertvm.ac.in
 *----------------------------------------------------------------------------*/
 #include "./particle.h"
 
 namespace vmc {
 
-//-------------------Site Occupancy--------------------------------
-void SiteOccupancy::setup(const lattice::LatticeGraph& graph, 
-	const SysConfig& config)
+//-------------------Site Particle Density--------------------------------
+void ParticleDensity::setup(const lattice::Lattice& lattice, const SysConfig& config)
 {
   MC_Observable::switch_on();
   if (setup_done_) return;
-  num_sites_ = graph.num_sites();
-  num_basis_sites_ = graph.lattice().num_basis_sites();
+  num_sites_ = lattice.num_sites();
+  num_site_types_ = lattice.num_site_types();
   num_particles_ = config.num_particles();
-  std::vector<std::string> elem_names(num_basis_sites_);
-  for (int i=0; i<num_basis_sites_; ++i) {
-  	std::ostringstream ss;
-  	ss << "site-"<<i;
-  	elem_names[i] = ss.str();
+  std::vector<std::string> elem_names; 
+  elem_names.push_back("total");
+  for (int i=0; i<num_site_types_; ++i) {
+    std::ostringstream ss;
+    ss << "<n>["<<i<<"]";
+    elem_names.push_back(ss.str());
+  }
+  // Sz value
+  for (int i=0; i<num_site_types_; ++i) {
+    std::ostringstream ss;
+    ss << "<Sz>["<<i<<"]";
+    elem_names.push_back(ss.str());
+  }
+
+  this->resize(elem_names.size(), elem_names);
+  //this->set_have_total();
+  config_value_.resize(elem_names.size());
+  setup_done_ = true;
+}
+
+void ParticleDensity::measure(const lattice::Lattice& lattice, const SysConfig& config) 
+{
+  IntVector matrix_elem(num_site_types_);
+  IntVector num_subsites(num_site_types_);
+  matrix_elem.setZero();
+  num_subsites.setZero();
+  for (const auto& s : lattice.sites()) {
+    int site = s.id();
+    int type = s.type();
+    matrix_elem(type) += config.apply(model::op::ni_sigma(),site);
+    num_subsites(type) += 1;
+  }
+  IntVector Sz(num_site_types_);
+  Sz.setZero();
+  for (const auto& s : lattice.sites()) {
+    int site = s.id();
+    int type = s.type();
+    Sz(type) += config.apply(model::op::Sz(),site);
+  }
+
+  double total = 0.0;
+  for (int i=0; i<num_site_types_; ++i) {
+    config_value_[i+1] = static_cast<double>(matrix_elem[i])/num_subsites[i];
+    total += config_value_[i+1];
+  }
+  config_value_[0] = total;
+
+  // Sz avg
+  for (int i=0; i<num_site_types_; ++i) {
+    config_value_[num_site_types_+1+i] = static_cast<double>(Sz[i])/num_subsites[i];
+  }
+
+  // add to databin
+  *this << config_value_;
+}
+
+
+//-------------------Doublon & Holon Density--------------------------------
+void DoublonDensity::setup(const lattice::Lattice& lattice, const SysConfig& config)
+{
+  MC_Observable::switch_on();
+  if (setup_done_) return;
+  num_sites_ = lattice.num_sites();
+  num_site_types_ = lattice.num_site_types();
+  std::vector<std::string> elem_names(num_site_types_*2);
+  for (int i=0; i<num_site_types_; ++i) {
+    std::ostringstream ss;
+    ss << "<dblon>["<<i<<"]";
+    elem_names[2*i] = ss.str();
+    ss.clear(); ss.str("");
+    ss << "<holon>["<<i<<"]";
+    elem_names[2*i+1] = ss.str();
   }
   this->resize(elem_names.size(), elem_names);
   //this->set_have_total();
@@ -30,135 +96,102 @@ void SiteOccupancy::setup(const lattice::LatticeGraph& graph,
   setup_done_ = true;
 }
 
-void SiteOccupancy::measure(const lattice::LatticeGraph& graph, 
-	const SysConfig& config) 
+void DoublonDensity::measure(const lattice::Lattice& lattice, const SysConfig& config) 
 {
-  IntVector matrix_elem(num_basis_sites_);
-  IntVector num_subsites(num_basis_sites_);
-  matrix_elem.setZero();
+  IntVector dblon_count(num_site_types_);
+  IntVector holon_count(num_site_types_);
+  IntVector num_subsites(num_site_types_);
+  dblon_count.setZero();
+  holon_count.setZero();
   num_subsites.setZero();
-  for (auto s=graph.sites_begin(); s!=graph.sites_end(); ++s) {
-    int site = graph.site(s);
-    int basis = graph.site_uid(s);
-    matrix_elem(basis) += config.apply(model::op::ni_sigma(),site);
-    num_subsites(basis) += 1;
+  for (const auto& s : lattice.sites()) {
+    int site = s.id();
+    int type = s.type();
+    dblon_count[type] += config.apply_ni_dblon(site);
+    holon_count[type] += config.apply_ni_holon(site);
+    num_subsites[type] += 1;
   }
-  for (int i=0; i<num_basis_sites_; ++i) {
-  	//config_value_[i] = static_cast<double>(matrix_elem[i])/num_particles_;
-    config_value_[i] = static_cast<double>(matrix_elem[i])/num_subsites[i];
+  for (int i=0; i<num_site_types_; ++i) {
+    config_value_[2*i] = static_cast<double>(dblon_count[i])/num_subsites[i];
+    config_value_[2*i+1] = static_cast<double>(holon_count[i])/num_subsites[i];
   }
+
   // add to databin
   *this << config_value_;
 }
 
-//-------------------Momentum occupancy (n[k])--------------------------------
-void MomentumOccupancy::setup(const lattice::LatticeGraph& graph, 
-  const SysConfig& config)
+//-------------------Momentum Distribution--------------------------------
+void MomentumDist::setup(const lattice::Lattice& lattice, const SysConfig& config)
 {
   MC_Observable::switch_on();
   if (setup_done_) return;
-  num_sites_ = graph.num_sites();
-  num_basis_sites_ = graph.lattice().num_basis_sites();
+  num_sites_ = lattice.num_sites();
+  num_site_types_ = lattice.num_site_types();
+  // store kpoints
   num_kpoints_ = config.wavefunc().blochbasis().num_kpoints();
-  exp_ikr_.resize(num_kpoints_,num_sites_);
-  kvals_.resize(num_kpoints_);
-  nk_.resize(num_kpoints_);
-  for (auto& elem : nk_) elem.resize(num_basis_sites_,num_basis_sites_);
-
+  kpoints_.resize(num_kpoints_);
   for (int k=0; k<num_kpoints_; ++k) {
-    Vector3d kvec = config.wavefunc().blochbasis().kvector(k);
-    kvals_[k] = kvec;
-    for (auto s=graph.sites_begin(); s!=graph.sites_end(); ++s) {
-      int i = graph.site(s);
-      Vector3d R = graph.site_cellcord(s);
-      exp_ikr_(k,i) = std::exp(ii()*kvec.dot(R)); 
-    }
+    kpoints_[k] = config.wavefunc().blochbasis().kvector(k);
   }
-  std::vector<std::string> elem_names;
-  for (int i=0; i<num_basis_sites_; ++i) {
-    for (int j=0; j<num_basis_sites_; ++j) {
-      std::ostringstream ss;
-      ss << "nk-"<<i<<j;
-      elem_names.push_back(ss.str());
-    }
+  nk_data_.resize(num_kpoints_,num_site_types_);
+
+  std::vector<std::string> elem_names; 
+  //elem_names.push_back("total");
+  for (int i=0; i<num_site_types_; ++i) {
+    std::ostringstream ss;
+    ss << "<nk>["<<i<<"]";
+    elem_names.push_back(ss.str());
   }
-  this->resize(num_sites_,elem_names);
-  //this->set_have_total();
-  config_value_.resize(num_sites_);
+  this->resize(nk_data_.size(), elem_names);
+  //config_value_.resize(elem_names.size());
   setup_done_ = true;
 }
 
-
-void MomentumOccupancy::measure(const lattice::LatticeGraph& graph, 
-  const SysConfig& config) 
+void MomentumDist::measure(const lattice::Lattice& lattice, const SysConfig& config) 
 {
-  // \sum_s <c^\dag_{is} c_{js}>
-  ComplexMatrix N(num_sites_,num_sites_);
-  for (auto i=0; i<num_sites_; ++i) {
-    for (auto j=0; j<num_sites_; ++j) {
-      N(i,j) = config.apply(model::op::cdagc_sigma(),i,j,1,1.0);
-    }
-  }
-  // nk values
-  RealMatrix nk(num_basis_sites_,num_basis_sites_);
-  double norm = 1.0/(2*num_kpoints_);
-  int n = 0;
-  for (int k=0; k<num_kpoints_; ++k) {
-    nk.setZero();
-    for (auto s1=graph.sites_begin(); s1 != graph.sites_end(); ++s1) {
-      int i = graph.site(s1);
-      int a = graph.site_uid(s1);
-      for (auto s2=graph.sites_begin(); s2 != graph.sites_end(); ++s2) {
-        int j = graph.site(s2);
-        int b = graph.site_uid(s2);
-        nk(a,b) += std::real(exp_ikr_(k,i)*std::conj(exp_ikr_(k,j))*N(i,j));
-      }
-    }
-    // linearize 
-    for (auto a=0; a<num_basis_sites_; ++a) {
-      for (auto b=0; b<num_basis_sites_; ++b) {
-        config_value_[n++] = nk(a,b)*norm;
-      }
-    }
-  }
-  //std::cout << "sum = " <<  config_value_.sum() << "\n";
-  //getchar();
+  //config_value_.setZero();
+  nk_data_.setZero();
+  std::complex<double> ampl;
 
-  /*
-  for (auto& elem : nk_) elem.setZero();
-  for (auto s1=graph.sites_begin(); s1 != graph.sites_end(); ++s1) {
-    int i = graph.site(s1);
-    int ia = graph.site_uid(s1);
-    for (auto s2=graph.sites_begin(); s2 != graph.sites_end(); ++s2) {
-      int j = graph.site(s2);
-      int ja = graph.site_uid(s2);
-      amplitude_t ampl = config.apply(model::op::cdagc_sigma(),i,j,1,1.0);
-      for (int k=0; k<num_kpoints_; ++k) {
-        nk_[k](ia,ja) += std::real(exp_ikr_(k,i)*std::conj(exp_ikr_(k,j))*ampl);
-      }
+  // diagonal terms
+  for (const auto& s : lattice.sites()) {
+    int ni = config.apply(model::op::ni_sigma(),s.id());
+    for (unsigned k=0; k<num_kpoints_; ++k) {
+      nk_data_(k,s.type()) += 0.5*ni;
     }
   }
-  double norm = 1.0/(2*num_kpoints_);
-  int i = 0;
-  double sum = 0.0;
-  for (int k=0; k<num_kpoints_; ++k) {
-    for (int ia=0; ia<num_basis_sites_; ++ia) {
-      for (int ja=0; ja<num_basis_sites_; ++ja) {
-        config_value_[i] = nk_[k](ia,ja)*norm;
-        sum += config_value_[i];
-        //std::cout << "nk["<<k<<"] = "<<config_value_[i] << "\n";
-        i++;
-      }
-    }
-  }
-  std::cout << "sum = " <<  sum << "\n";
-  */
 
-  // add to databin
-  *this << config_value_;
+  // off-diagonal terms
+  for (const auto& s1 : lattice.sites()) {
+    int stype = s1.type();
+    Vector3d R1 = s1.coord();
+    for (const auto& s2 : lattice.sites()) {
+      if (s1.id() == s2.id()) continue;
+      if (s2.type() != stype) continue;
+      Vector3d R = R1 - s2.coord();
+      //std::cout << s1.id() << " - " << s2.id() << "\n";
+      //std::cout << s1.type() << " - " << s2.type() << "\n\n";
+      //getchar();
+
+      // ampl = 0.5*\sum_{\sigma} <c^\dag_{ia\sigma}c_{ja\sigma}> 
+      ampl = config.apply_cdagc_up(s1.id(),s2.id(),1,1.0);
+      ampl += config.apply_cdagc_dn(s1.id(),s2.id(),1,1.0);
+      ampl *= 0.5;
+      for (unsigned k=0; k<num_kpoints_; ++k) {
+        Vector3d kvec = kpoints_[k];
+        nk_data_(k,stype) += std::real(std::exp(ii()*kvec.dot(R)) * ampl);
+      }
+    }
+  }
+
+  // normalization
+  nk_data_ /= num_kpoints_;
+
+  // reshape add to databin
+  *this << Eigen::Map<mcdata::data_t>(nk_data_.data(), nk_data_.size());
 }
 
-void MomentumOccupancy::print_heading(const std::string& header,
+void MomentumDist::print_heading(const std::string& header,
   const std::vector<std::string>& xvars) 
 {
   if (!is_on()) return;
@@ -168,52 +201,56 @@ void MomentumOccupancy::print_heading(const std::string& header,
   fs_ << header;
   fs_ << "# Results: " << name() << "\n";
   fs_ << "#" << std::string(72, '-') << "\n";
-
   fs_ << "# ";
   fs_ << std::left;
-  for (const auto& p : xvars) fs_ << std::setw(14)<<p.substr(0,14);
-  fs_ << std::endl;
 
-  fs_ << "# ";
-  fs_ << std::setw(6)<<"ik";
-  for (const auto& name : elem_names_) 
-    fs_ << std::setw(14)<<name<<std::setw(11)<<"err";
+  fs_ << std::setw(15)<<"kx";
+  fs_ << std::setw(15)<<"ky";
+  fs_ << std::setw(15)<<"kz";
+
+  for (const auto& name : elem_names_) fs_ << std::setw(15)<<name<<std::setw(11)<<"err";
   fs_ << std::setw(9)<<"samples"<<std::setw(12)<<"converged"<<std::setw(6)<<"tau";
   fs_ << std::endl;
   fs_ << "#" << std::string(72, '-') << "\n";
-
+  fs_ << "#  ";
+  for (const auto& p : xvars) fs_ << std::setw(14)<<p.substr(0,14);
+  fs_ << std::endl;
+  fs_ << std::flush;
   heading_printed_ = true;
   close_file();
 }
 
-void MomentumOccupancy::print_result(const std::vector<double>& xvals) 
+void MomentumDist::print_result(const std::vector<double>& xvals) 
 {
   if (!is_on()) return;
   if (!is_open()) open_file();
   fs_ << std::right;
   fs_ << std::scientific << std::uppercase << std::setprecision(6);
-
-  fs_ << "# ";
+  fs_ << "#";
   for (const auto& p : xvals) fs_ << std::setw(14) << p;
-  fs_ << std::endl;
+  fs_ << "\n#" << std::string(72, '-') << "\n";
 
-  // nk in correct format
-  int n = 0;
   for (int k=0; k<num_kpoints_; ++k) {
-    fs_ << std::left;
-    fs_ << std::setw(6) << k; 
-    fs_ << std::right;
-    fs_ << std::setw(14) << kvals_[k](0);
-    fs_ << std::setw(14) << kvals_[k](1);
-    fs_ << std::setw(14) << kvals_[k](2);
-    for (int a=0; a<num_basis_sites_; ++a) {
-      for (int b=0; b<num_basis_sites_; ++b) {
-        fs_ << MC_Data::result_str(n++);
+    //for (const auto& p : xvals) fs_ << std::setw(14) << p;
+    fs_ << std::scientific << std::setw(15) << kpoints_[k](0);
+    fs_ << std::scientific << std::setw(15) << kpoints_[k](1);
+    fs_ << std::scientific << std::setw(15) << kpoints_[k](2);
+    int n = k;
+    for (int p=0; p<num_site_types_; ++p) {
+      //fs_ << MC_Data::result_str(n);
+      fs_ << std::scientific << std::setw(15) << std::abs(MC_Data::mean(n));
+      fs_ << std::fixed << std::setw(10) << MC_Data::stddev(n);
+      n += num_kpoints_;
+    }
+    fs_ << MC_Data::conv_str(k); 
+    fs_ << std::endl; 
+    if (k+1<num_kpoints_) {
+      if (std::abs(kpoints_[k](1)-kpoints_[k+1](1)) > 1.0E-6) {
         fs_ << std::endl;
       }
     }
   }
-  fs_ << std::endl;
+
   fs_ << std::flush;
   close_file();
 }

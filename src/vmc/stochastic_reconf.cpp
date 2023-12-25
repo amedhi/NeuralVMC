@@ -21,7 +21,7 @@ int StochasticReconf::init(const input::Parameters& inputs, const VMC& vmc)
 {
   // problem size
   num_parms_ = vmc.num_varp();
-  num_parms_print_ = std::min(num_parms_,8);
+  num_parms_print_ = std::min(num_parms_,10);
   vparms_.resize(num_parms_);
   vparms_start_.resize(num_parms_);
   search_dir_.resize(num_parms_);
@@ -45,7 +45,7 @@ int StochasticReconf::init(const input::Parameters& inputs, const VMC& vmc)
   lambda_cut_ = inputs.set_value("sr_lambda_cut", 1.0E-3, nowarn);
   flat_tail_len_ = inputs.set_value("sr_flat_tail_len", 10, nowarn);
   ftol_ = inputs.set_value("sr_ftol", 5.0E-5, nowarn);
-  grad_tol_ = inputs.set_value("sr_gradtol", 1.0E-4, nowarn);
+  grad_tol_ = inputs.set_value("sr_gradtol", 5.0E-3, nowarn);
   print_progress_ = inputs.set_value("sr_progress_stdout", false, nowarn);
   print_log_ = inputs.set_value("sr_progress_log", true, nowarn);
 
@@ -56,8 +56,7 @@ int StochasticReconf::init(const input::Parameters& inputs, const VMC& vmc)
   mk_thresold_ = inputs.set_value("sr_mkfluct_tol", 0.30, nowarn);
   refinement_cycle_ = inputs.set_value("sr_refinement_cycle", 40, nowarn);
 
-  //mk_statistic_.resize(num_parms_);
-  mk_statistic_.resize(1); // time-seris of energy only
+  mk_statistic_.resize(num_parms_);
   mk_statistic_.set_maxlen(mk_series_len_);
 
   // optimal parameter values
@@ -83,7 +82,7 @@ int StochasticReconf::init(const input::Parameters& inputs, const VMC& vmc)
   // observable file header
   std::stringstream heading;
   vmc.print_info(heading);
-  //optimal_parms_.print_heading(heading.rdbuf()->str(), vmc.xvar_names());
+  optimal_parms_.print_heading(heading.rdbuf()->str(), vmc.xvar_names());
   optimal_energy_.print_heading(heading.rdbuf()->str(), vmc.xvar_names());
   xvar_values_ = vmc.xvar_values();
 
@@ -109,7 +108,6 @@ int StochasticReconf::print_info(const VMC& vmc)
     vmc.print_info(logfile_);
     logfile_ << "#" << std::string(72, '-') << std::endl;
     logfile_ << "Stochastic Reconfiguration" << std::endl;
-    logfile_  << "num_params = " << num_parms_ << std::endl;
     logfile_ << "num_opt_samples = " << num_opt_samples_ << std::endl;
     logfile_ << "max_iter = " << max_iter_ << std::endl;
     logfile_ << "random_start = " << random_start_ << std::endl;
@@ -124,7 +122,6 @@ int StochasticReconf::print_info(const VMC& vmc)
   if (print_progress_) {
     std::cout << "#" << std::string(72, '-') << std::endl;
     std::cout << "Stochastic Reconfiguration" << std::endl;
-    std::cout << "num_params = " << num_parms_ << std::endl;
     std::cout << "num_opt_samples = " << num_opt_samples_ << std::endl;
     std::cout << "max_iter = " << max_iter_ << std::endl;
     std::cout << "random_start = " << random_start_ << std::endl;
@@ -155,7 +152,6 @@ int StochasticReconf::start(const VMC& vmc, const int& sample)
   mk_statistic_.reset();
   iter_energy_.clear();
   iter_energy_err_.clear();
-  iter_parms_.clear();
 
   // iteration files
   std::ostringstream suff;
@@ -211,39 +207,49 @@ int StochasticReconf::iterate(var::parm_vector& vparms, const double& energy,
     Eigen::MatrixXd& sr_matrix, exit_stat& status)
 {
   bool iter_last = false;
-
-  /*------- Stabilization of SR matrix --------------*/
-  //for (int i=0; i<num_parms_; ++i) sr_matrix(i,i) *= (1.0+stabilizer_);
-  // The above multiplicative stabilizer did not work 
-  for (int i=0; i<num_parms_; ++i) sr_matrix(i,i) += stabilizer_;
-
-  // find search dir 
-  search_dir_ = search_tstep_*sr_matrix.fullPivLu().solve(-grad);
-
+  // next search direaction
+  //std::cout << sr_matrix << "\n"; getchar();
   /*
+  for (int i=0; i<num_parms_; ++i) sr_matrix(i,i) *= (1.0+stabilizer_);
+  search_dir_ = search_tstep_*sr_matrix.fullPivLu().solve(-grad);
+  */
+
   // find search dir after cutting off redundant directions
   Eigen::MatrixXd sr_inv(num_parms_,num_parms_);
+  for (int i=0; i<num_parms_; ++i) sr_matrix(i,i) *= (1.0+stabilizer_);
   Eigen::JacobiSVD<Eigen::MatrixXd> svd(sr_matrix, Eigen::ComputeThinU | Eigen::ComputeThinV); 
-  double lmax = svd.singularValues()(0);
-  for (int i=0; i<num_parms_; ++i) {
-    for (int j=0; j<num_parms_; ++j) {
-      double sum = 0.0;
-      for (int m=0; m<num_parms_; ++m) {
-        double sval = svd.singularValues()(m);
-        if (sval/lmax < w_svd_cut_) break;
-        sum += svd.matrixV()(i,m)*svd.matrixU()(j,m)/sval;
-      }
-      sr_inv(i,j) = sum;
-    }
+  // condition number
+  double rcond = svd.singularValues()(svd.singularValues().size()-1)/svd.singularValues()(0);
+  //if (rcond < 1.0E-6) {
+  if (false) {
+    search_dir_ = -search_tstep_*grad;
   }
-  search_dir_ = -search_tstep_*sr_inv*grad;
-  */
+  else {
+    double lmax = svd.singularValues()(0);
+    for (int i=0; i<num_parms_; ++i) {
+      for (int j=0; j<num_parms_; ++j) {
+        double sum = 0.0;
+        for (int m=0; m<num_parms_; ++m) {
+          double sval = svd.singularValues()(m);
+          if (sval/lmax < w_svd_cut_) break;
+          sum += svd.matrixV()(i,m)*svd.matrixU()(j,m)/sval;
+        }
+        sr_inv(i,j) = sum;
+      }
+    }
+    search_dir_ = -search_tstep_*sr_inv*grad;
+  }
 
   // max_norm (of components not hitting boundary) 
   double gnorm = grad.squaredNorm();
   double proj_norm = proj_grad_norm(vparms,grad,lbound_,ubound_);
   gnorm = std::min(gnorm, proj_norm);
 
+  //std::cout << "rcond = " << rcond << "\n";
+  //std::cout << "SR_Matrix = \n" << sr_matrix << "\n\n";
+  //std::cout << "SR_Inv = \n" << sr_inv << "\n\n";
+  //std::cout << "grad = " << grad.transpose() << "\n";
+  //getchar();
 
   // file outs
   iter_++;
@@ -258,25 +264,21 @@ int StochasticReconf::iterate(var::parm_vector& vparms, const double& energy,
     print_progress(std::cout, vparms, energy, error_bar, grad, gnorm);
   }
   if (print_log_) {
-    print_progress(logfile_, vparms, energy, error_bar, grad, gnorm);
+    print_progress(logfile_,vparms, energy, error_bar, grad, gnorm);
   }
 
   // iteration step with box constraint 
   vparms.noalias() += search_dir_;
+  vparms = lbound_.cwiseMax(vparms.cwiseMin(ubound_));
 
   // MK test: add data to Mann-Kendall statistic
   if (gnorm/grad.size() < 0.50) {
-    //mk_statistic_ << vparms;
-    mk_statistic_ << energy;
-    if (mk_statistic_.is_full() && gnorm<10.0*grad_tol_) {
-      iter_energy_.push_back(energy);
-      iter_energy_err_.push_back(error_bar);
-      iter_parms_.push_back(vparms);
-      if (iter_energy_.size()>flat_tail_len_) {
-        iter_energy_.pop_front();
-        iter_energy_err_.pop_front();
-        iter_parms_.pop_front();
-      }
+    mk_statistic_ << vparms;
+    iter_energy_.push_back(energy);
+    iter_energy_err_.push_back(error_bar);
+    if (mk_statistic_.is_full()) {
+      iter_energy_.pop_front();
+      iter_energy_err_.pop_front();
     }
   }
   int trend_elem;
@@ -285,7 +287,7 @@ int StochasticReconf::iterate(var::parm_vector& vparms, const double& energy,
     std::ios state(NULL);
     state.copyfmt(std::cout);
     std::cout <<std::fixed<<std::setprecision(6)<<std::right;
-    std::cout <<" MK trend   = "<<std::setw(9)<<mk_trend;
+    std::cout <<" MK trend   = "<<std::setw(10)<<mk_trend;
     std::cout << " ("<<trend_elem<<")"<<"\n"; 
     std::cout.copyfmt(state);
   }
@@ -294,11 +296,10 @@ int StochasticReconf::iterate(var::parm_vector& vparms, const double& energy,
     logfile_ <<" MK trend   = "<<std::setw(10)<<mk_trend; 
     logfile_ << " ("<<trend_elem<<")"<<"\n"; 
   }
-
   // convergence criteria
-  if (mk_statistic_.is_full() && mk_trend<=mk_thresold_ && gnorm <= grad_tol_) {
+  if (mk_statistic_.is_full() && mk_trend<=mk_thresold_ && gnorm<=grad_tol_) {
     // converged, add data point to store
-    //mk_statistic_.get_series_avg(energy);
+    mk_statistic_.get_series_avg(vparms);
     converged_[sample_] = 1;
     status = exit_stat::converged;
     iter_last = true;
@@ -337,28 +338,20 @@ int StochasticReconf::iterate(var::parm_vector& vparms, const double& energy,
     }
   }
 
-  if (iter_last && iter_energy_.size()==0) {
-    iter_energy_.push_back(energy);
-    iter_energy_err_.push_back(error_bar);
-    iter_parms_.push_back(vparms);
-  }
-
   return iter_last;
 }
 
-int StochasticReconf::finalize(var::parm_vector& avg_parms)
+int StochasticReconf::finalize(void)
 {
   file_energy_.close();
   file_vparms_.close();
   for (int i=0; i<iter_energy_.size(); ++i) {
     optimal_energy_ << iter_energy_[i];
     energy_error_bar_ << iter_energy_err_[i];
-    optimal_parms_ << iter_parms_[i];
   }
-  //for (const auto& p : mk_statistic_.data_series()) {
-  //  optimal_parms_ << p;
-  //}
-
+  for (const auto& p : mk_statistic_.data_series()) {
+    optimal_parms_ << p;
+  }
   // print sample values
   // optimal energy
   optimal_energy_.open_file();
@@ -395,14 +388,13 @@ int StochasticReconf::finalize(var::parm_vector& avg_parms)
   optimal_energy_.close_file();
   //optimal_energy_.print_result(xvar_values_);
   // optimal variational parameters
-  //optimal_parms_.open_file();
-  //optimal_parms_.fs()<<"#";
-  //optimal_parms_.print_result(xvar_values_);
+  optimal_parms_.open_file();
+  optimal_parms_.fs()<<"#";
+  optimal_parms_.print_result(xvar_values_);
   // save the values
   optimal_parms_.save_result();
   // grand average for samples done so far
-  //optimal_parms_.print_grand_result(xvar_values_);
-  avg_parms = optimal_parms_.grand_data().mean_data();
+  optimal_parms_.print_grand_result(xvar_values_);
 
   // reset for next sample
   optimal_energy_.reset();
@@ -411,37 +403,29 @@ int StochasticReconf::finalize(var::parm_vector& avg_parms)
   return 0;
 }
 
-std::ostream& StochasticReconf::print_progress(std::ostream& os, 
-  const var::parm_vector& vparms, const double& energy,
-  const double& error_bar, const Eigen::VectorXd& grad, const double& gnorm) 
+int StochasticReconf::optimize(VMC& vmc)
 {
-  std::ios state(NULL);
-  state.copyfmt(os);
-  os << "#" << std::string(60, '-') << std::endl;
-  os << std::left;
-  os << " iteration  =  "<<std::setw(6)<<iter_<<"  ";
-  os << " (refinement - "<<refinement_level_<<")\n";
-  os <<std::scientific<<std::uppercase<<std::setprecision(6)<<std::right;
-  os << " energy     ="<<std::setw(14)<<energy << "   (+/-) ";
-  os <<std::fixed<<std::setw(10)<<error_bar<<"\n";
-  os <<std::scientific<<std::right;
-  os <<std::scientific<<std::uppercase<<std::setprecision(4)<<std::right;
-  os << " varp       =";
-  for (int i=0; i<num_parms_print_; ++i) os<<std::setw(12)<<vparms[i];
-  os << "\n";
-  os << " grad       =";
-  for (int i=0; i<num_parms_print_; ++i) os<<std::setw(12)<<grad[i];
-  os<< "\n";
-  os<< " search_dir =";
-  for (int i=0; i<num_parms_print_; ++i) os<<std::setw(12)<<search_dir_[i];
-  os<< "\n";
-  os<< " gnorm      ="<<std::setw(12)<< gnorm<<"\n";
-  os.copyfmt(state);
-  return os;
+  // starting value of variational parameters
+  vparms_start_ = vmc.varp_values();
+  double energy, error_bar;
+  int sim_samples = num_sim_samples_;
+  int rng_seed = 1;
+  RealVector grad_err(num_parms_);
+  for (int sample=1; sample<=num_opt_samples_; ++sample) {
+    start(vmc, sample);
+    vparms_ = vparms_start_;
+    bool done = false;
+    while (!done) {
+      exit_stat status;
+      vmc.sr_function(vparms_,energy,error_bar,grad_,grad_err,sr_matrix_);
+      done=iterate(vparms_,energy,error_bar,grad_,sr_matrix_,status);
+    }
+    finalize();
+  }
+  return true;
 }
 
-
-int StochasticReconf::optimize(VMC& vmc)
+int StochasticReconf::optimize_old(VMC& vmc)
 {
   /*
   //std::vector<double> en = {0.3736,2.4375,3.9384,3.3123,5.4947,5.4332,6.3932,9.0605,9.3642,9.5207};
@@ -460,7 +444,7 @@ int StochasticReconf::optimize(VMC& vmc)
   // starting value of variational parameters
   vparms_start_ = vmc.varp_values();
   bool all_samples_converged = true;
-  for (int sample=1; sample<=num_opt_samples_; ++sample) {
+  for (int sample=0; sample<num_opt_samples_; ++sample) {
     // iteration files
     std::ofstream life_fs(life_fname_);
     life_fs.close();
@@ -518,6 +502,7 @@ int StochasticReconf::optimize(VMC& vmc)
     else {
       vparms_ = vparms_start_;
     }
+
     // seed vmc rng
     int rng_seed = 1;
     //vmc.seed_rng(1);
@@ -531,6 +516,7 @@ int StochasticReconf::optimize(VMC& vmc)
     std::vector<double> iter_gnorm;
     std::deque<mcdata::data_t> iter_vparms;
     std::deque<mcdata::data_t> iter_grads;
+    RealVector grad_err(num_parms_);
     RealVector vparm_slope(num_parms_);
     RealVector grads_slope(num_parms_);
     //bool ln_search = true;
@@ -562,7 +548,7 @@ int StochasticReconf::optimize(VMC& vmc)
           logfile_ << " iteration  =  "<<std::setw(6)<<iter<<"(SA step)"<<"\n";
       }
 
-      vmc.sr_function(vparms_,energy,error_bar,grad_,sr_matrix_,sim_samples,rng_seed);
+      vmc.sr_function(vparms_,energy,error_bar,grad_,grad_err,sr_matrix_);
       // apply to stabilizer to sr matrix 
       // std::cout << sr_matrix_ << "\n"; getchar();
       //for (int i=0; i<num_parms_; ++i) sr_matrix_(i,i) += stabilizer_;
@@ -782,6 +768,36 @@ int StochasticReconf::optimize(VMC& vmc)
   return 0;
 }
 
+std::ostream& StochasticReconf::print_progress(std::ostream& os, 
+  const var::parm_vector& vparms, const double& energy,
+  const double& error_bar, const Eigen::VectorXd& grad, const double& gnorm) 
+{
+  std::ios state(NULL);
+  state.copyfmt(os);
+  os << "#" << std::string(60, '-') << std::endl;
+  os << std::left;
+  os << " iteration  =  "<<std::setw(6)<<iter_<<"  ";
+  os << " (refinement - "<<refinement_level_<<")\n";
+  os <<std::scientific<<std::uppercase<<std::setprecision(6)<<std::right;
+  os << " energy     ="<<std::setw(14)<<energy << "   (+/-) ";
+  os <<std::fixed<<std::setw(10)<<error_bar<<"\n";
+  os <<std::scientific<<std::right;
+  os <<std::scientific<<std::uppercase<<std::setprecision(4)<<std::right;
+  os << " varp       =";
+  for (int i=0; i<num_parms_print_; ++i) os<<std::setw(12)<<vparms[i];
+  os << "\n";
+  os << " grad       =";
+  for (int i=0; i<num_parms_print_; ++i) os<<std::setw(12)<<grad[i];
+  os<< "\n";
+  os<< " search_dir =";
+  for (int i=0; i<num_parms_print_; ++i) os<<std::setw(12)<<search_dir_[i];
+  os<< "\n";
+  os<< " gnorm      ="<<std::setw(12)<< gnorm<<"\n";
+  os.copyfmt(state);
+  return os;
+}
+
+
 RealVector StochasticReconf::lsqfit(const std::vector<double>& iter_energy, 
   const int& max_fitpoints) const
 {
@@ -868,6 +884,7 @@ bool StochasticReconf::line_search(VMC& vmc, Eigen::VectorXd& x,
   double& fx, double& fx_err, Eigen::VectorXd& grad, 
   const Eigen::VectorXd& dir, const double& max_step) 
 {
+  Eigen::VectorXd gerr(x.size());
   // save the function value at the current x
   const Eigen::VectorXd x_init = x;
   const double fx_init = fx;
@@ -888,7 +905,8 @@ bool StochasticReconf::line_search(VMC& vmc, Eigen::VectorXd& x,
     //std::cout << " step= " << step << "\n";
     x.noalias() = x_init + step * dir;
     // evaluate this candidate
-    vmc(x,fx,fx_err,grad);
+    //vmc(x,fx,fx_err,grad);
+    vmc(x,fx,fx_err,grad,gerr);
     //std::cout << " fx_next = " << fx << "\n";
     //std::cout << " gain = " << fx_init-fx << "\n\n";
     if (fx < fx_init + std::min(err_tol, step*decr_factor)) {

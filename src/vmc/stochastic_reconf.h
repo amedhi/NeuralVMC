@@ -28,13 +28,14 @@ public:
   int init(const input::Parameters& parms, const VMC& vmc);
   int print_info(const VMC& vmc);
   int optimize(VMC& vmc);
+  int optimize_old(VMC& vmc);
   const var::parm_vector& optimal_parms(void) const { return vparms_; }
   const int& num_opt_samples(void) const { return num_opt_samples_; }
   int start(const VMC& vmc, const int& sample);
   int iterate(var::parm_vector& vparms, const double& energy,
     const double& energy_err, const Eigen::VectorXd& grad, 
     Eigen::MatrixXd& sr_matrix, exit_stat& status);
-  int finalize(var::parm_vector& avg_parms);
+  int finalize(void);
 private:
   int num_parms_;
   int num_parms_print_;
@@ -56,7 +57,6 @@ private:
   // series energy values
   std::deque<double> iter_energy_;
   std::deque<double> iter_energy_err_;
-  std::deque<var::parm_vector> iter_parms_;
 
   int refinement_cycle_{50};
   int refinement_level_{0};
@@ -69,7 +69,7 @@ private:
   int sample_{0};
   int iter_{0};
   int max_iter_{200};
-  int flat_tail_len_{10};
+  int flat_tail_len_{20};
   int random_start_{true};
   bool ln_search_{false};
   bool SA_steps_{true};

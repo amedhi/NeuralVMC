@@ -13,24 +13,15 @@
 
 //#define REAL_WAVEFUNCTION
 
-namespace eig {
-  using ivector = Eigen::VectorXi;
-  using real_vec = Eigen::VectorXd;
-  using cmpl_vec = Eigen::VectorXcd;
-}
-
 using Vector3i = Eigen::Vector3i;
 using Vector3d = Eigen::Vector3d;
 using IntVector = Eigen::VectorXi;
 using Diagonal3d = Eigen::DiagonalMatrix<double,3>;
+using IntMatrix = Eigen::MatrixXi;
 using RealVector = Eigen::VectorXd;
 using RealMatrix = Eigen::MatrixXd;
 using ComplexVector = Eigen::VectorXcd;
 using ComplexMatrix = Eigen::MatrixXcd;
-using realArray1D = Eigen::ArrayXd; 
-using realArray2D = Eigen::Array<double,Eigen::Dynamic,Eigen::Dynamic>;
-using cmplArray1D = Eigen::ArrayXcd; 
-using cmplArray2D = Eigen::Array<std::complex<double>,Eigen::Dynamic,Eigen::Dynamic>;
 
 #ifdef REAL_WAVEFUNCTION
   using amplitude_t = double;
@@ -39,6 +30,7 @@ using cmplArray2D = Eigen::Array<std::complex<double>,Eigen::Dynamic,Eigen::Dyna
   using Vector = Eigen::VectorXd;
   using ColVector = Eigen::VectorXd;
   using RowVector = Eigen::RowVectorXd;
+  using MatrixPtr = double*;
 #else
   using amplitude_t = std::complex<double>;
   #define ampl_part(psi) psi 
@@ -46,6 +38,7 @@ using cmplArray2D = Eigen::Array<std::complex<double>,Eigen::Dynamic,Eigen::Dyna
   using Vector = Eigen::VectorXcd;
   using ColVector = Eigen::VectorXcd;
   using RowVector = Eigen::RowVectorXcd;
+  using MatrixPtr = std::complex<double>*;
 #endif
 
 #endif

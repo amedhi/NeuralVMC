@@ -2,34 +2,34 @@
 * @Author: Amal Medhi, amedhi@mbpro
 * @Date:   2019-02-07 12:31:24
 * @Last Modified by:   Amal Medhi
-* @Last Modified time: 2022-03-21 23:17:40
+* @Last Modified time: 2023-10-12 13:01:41
 *----------------------------------------------------------------------------*/
 #include "./identity.h"
 
 namespace var {
 
 Identity::Identity(const MF_Order::order_t& order, const input::Parameters& inputs, 
-    const lattice::LatticeGraph& graph) 
+    const lattice::Lattice& lattice) 
   : GroundState(order, MF_Order::pairing_t::null)
 {
-  init(inputs, graph);
+  init(inputs, lattice);
 }
 
 int Identity::init(const input::Parameters& inputs, 
-  const lattice::LatticeGraph& graph)
+  const lattice::Lattice& lattice)
 {
   name_ = "Identity";
   order_name_ = "Identity";
   // sites & bonds
-  num_sites_ = graph.num_sites();
-  num_bonds_ = graph.num_bonds();
+  num_sites_ = lattice.num_sites();
+  num_bonds_ = lattice.num_bonds();
 
   // bloch basis
-  blochbasis_.construct(graph);
+  blochbasis_.construct(lattice);
   num_kpoints_ = blochbasis_.num_kpoints();
   kblock_dim_ = blochbasis_.subspace_dimension();
   // FT matrix for transformation from 'site basis' to k-basis
-  set_ft_matrix(graph);
+  set_ft_matrix(lattice);
 
   // particle number
   set_particle_num(inputs);

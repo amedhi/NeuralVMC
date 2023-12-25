@@ -9,17 +9,20 @@
 #define QUANTUM_OP_H
 
 #include <string>
+#include <unordered_map>
 
 namespace model {
 
-enum class spin { UP, DN, UD, SIGMA, SINGLET };
+enum class spin {UP, DN, UD, SIGMA, SINGLET, MIXED};
 
 enum class op_id {
-  ni_sigma, ni, cdagc_up, cdagc_dn, cdagc_sigma, cdagc2_sigma, sisj, sisj_plus, 
-  niup_nidn, cdagup_cdagdn, null
+  ni_up, ni_dn, ni_sigma, ni, Sz, cdagc_up, cdagc_dn, cdagc_sigma, cdagc2_sigma, 
+  sisj, sisj_plus, niup_nidn, ni_nj, cdagup_cdagdn, null
 };
 
 enum class op_type { quadratic, pairing, quartic };
+
+enum class projection_t {DOUBLON, HOLON, NONE};
 
 namespace op {
 class quantum_op 
@@ -106,6 +109,13 @@ public:
   ni_sigma() : quantum_op("ni_sigma", op_id::ni_sigma, spin::SIGMA, op_type::quadratic) {}
 };
 
+class Sz : public quantum_op
+{
+public:
+  Sz() : quantum_op("Sz", op_id::Sz, spin::MIXED, op_type::quadratic) {}
+};
+
+
 // implies both UP or DN
 class cdagc_sigma : public quantum_op
 {
@@ -149,7 +159,44 @@ public:
   hubbard_int() : quantum_op("hubbard", op_id::niup_nidn, spin::UD, op_type::quartic) {}
 };
 
+class ni_nj : public quantum_op
+{
+public:
+  ni_nj() : quantum_op("ni_nj", op_id::ni_nj, spin::UD, op_type::quartic) {}
+};
+
+
 } // end namespace op
+
+class ProjectionOp : private std::unordered_map<unsigned, projection_t>
+{
+public:
+  using super_type = std::unordered_map<unsigned, projection_t>;
+  using iterator = super_type::iterator;
+  using const_iterator = super_type::const_iterator;
+  using value_type = super_type::value_type;
+  using pjn = projection_t;
+  ProjectionOp() {}
+  ProjectionOp(const projection_t& pj); 
+  ProjectionOp(const value_type& type0, const value_type& type1={0,pjn::NONE}, 
+    const value_type& type2={0,pjn::NONE}, const value_type& type3={0,pjn::NONE}, 
+    const value_type& type4={0,pjn::NONE}, const value_type& type5={0,pjn::NONE});
+  ~ProjectionOp() {}
+  void clear(void); 
+  ProjectionOp& operator=(const projection_t& pj); 
+  void set(const value_type& type0, const value_type& type1={0,pjn::NONE}, 
+    const value_type& type2={0,pjn::NONE}, const value_type& type3={0,pjn::NONE}, 
+    const value_type& type4={0,pjn::NONE}, const value_type& type5={0,pjn::NONE});
+  void finalize(const unsigned& num_site_types);
+  bool is_present(void) const { return is_present_; }
+  operator int(void) const { return is_present_; }
+  const projection_t& get(const unsigned& i) const;
+private:
+  bool is_present_{false};
+  bool global_type_{false};
+  bool finalized_{false};
+};
+
 } // end namespace model
 
 #endif

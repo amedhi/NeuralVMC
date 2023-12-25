@@ -21,20 +21,29 @@ void GroundState::update(const var::parm_vector& pvector, const unsigned& start_
   throw std::runtime_error("GroundState::update_parameters: function must be overriden");
 }
 
-void GroundState::update(const lattice::LatticeGraph& graph)
+void GroundState::update(const lattice::Lattice& lattice)
 {
   throw std::runtime_error("GroundState::update: function must be overriden");
 }
-
 
 void GroundState::get_wf_amplitudes(Matrix& psi)
 {
   throw std::runtime_error("GroundState::get_wf_amplitudes: function must be overriden");
 }
 
-void GroundState::get_wf_gradient(std::vector<Matrix>& psi_gradient)
+void GroundState::get_wf_amplitudes(Matrix& psiup, Matrix& psidn)
 {
-  throw std::runtime_error("GroundState::get_wf_gradients: function must be overriden");
+  throw std::runtime_error("GroundState::get_wf_amplitudes: function must be overriden");
+}
+
+void GroundState::get_wf_gradient(std::vector<Matrix>& psi_grad)
+{
+  throw std::runtime_error("GroundState::get_wf_gradient: function must be overriden");
+}
+
+void GroundState::get_wf_gradient(std::vector<Matrix>& psiup_grad, std::vector<Matrix>& psidn_grad) 
+{
+  throw std::runtime_error("GroundState::get_wf_gradient: function must be overriden");
 }
 
 std::string GroundState::info_str(void) const
@@ -71,7 +80,7 @@ void GroundState::set_particle_num(const input::Parameters& inputs)
   int num_sites = static_cast<int>(num_sites_);
   if (nonmagnetic_) {
     int n = static_cast<int>(std::round(0.5*band_filling_*num_sites));
-    if (n<0 || n>num_sites) throw std::range_error("Wavefunction:: hole doping out-of-range");
+    if (n<0 || n>num_sites) throw std::range_error("GroundState::set_particle_num:: hole doping out-of-range");
     num_upspins_ = static_cast<unsigned>(n);
     num_dnspins_ = num_upspins_;
     num_spins_ = num_upspins_ + num_dnspins_;
@@ -86,7 +95,7 @@ void GroundState::set_particle_num(const input::Parameters& inputs)
   }
   else{
     int n = static_cast<int>(std::round(band_filling_*num_sites));
-    if (n<0 || n>2*num_sites) throw std::range_error("Wavefunction:: hole doping out-of-range");
+    if (n<0 || n>2*num_sites) throw std::range_error("GroundState::set_particle_num:: hole doping out-of-range");
     num_spins_ = static_cast<unsigned>(n);
     num_dnspins_ = num_spins_/2;
     num_upspins_ = num_spins_ - num_dnspins_;
@@ -97,39 +106,50 @@ void GroundState::set_particle_num(const input::Parameters& inputs)
   //std::cout << "num_dnspins_ = " << num_dnspins_ << "\n";
 }
 
+void GroundState::reset_spin_num(const int& num_upspin, const int& num_dnspin)
+{
+  if ((num_upspin+num_dnspin) != num_spins_) {
+    throw std::range_error("GroundState::reset_spin_num:: spin counts does not match");
+  }
+  num_upspins_ = num_upspin;
+  num_dnspins_ = num_dnspin;
+  nonmagnetic_ = (num_upspins_ == num_dnspins_);
+}
+
 double GroundState::get_noninteracting_mu(void)
 {
   std::vector<double> ek;
   for (int k=0; k<num_kpoints_; ++k) {
     Vector3d kvec = blochbasis_.kvector(k);
     mf_model_.construct_kspace_block(kvec);
+    // spin-up states
     es_k_up.compute(mf_model_.quadratic_spinup_block(), Eigen::EigenvaluesOnly);
     ek.insert(ek.end(),es_k_up.eigenvalues().data(),
       es_k_up.eigenvalues().data()+kblock_dim_);
+    // spin-dn states
+    es_k_up.compute(mf_model_.quadratic_spindn_block(), Eigen::EigenvaluesOnly);
+    ek.insert(ek.end(),es_k_up.eigenvalues().data(),
+      es_k_up.eigenvalues().data()+kblock_dim_);
   }
+  // sort energy levels
   std::sort(ek.begin(),ek.end());
-  //for (const auto& e : ek) std::cout << e << "\n";
-  //double e = 0.0;
-  //for (int i=0; i<num_upspins_; ++i) e += ek[i];
-  //std::cout << "energy = " << 2*e/num_sites_ << "\n";
-  //std::cout << "upspins = " << num_upspins_ << "\n";
   double mu;
-  if (num_upspins_ < num_sites_) {
-    mu = 0.5*(ek[num_upspins_-1]+ek[num_upspins_]);
+  if (num_spins_ < ek.size()) {
+    mu = 0.5*(ek[num_spins_-1]+ek[num_spins_]);
   }
-  else mu = ek[num_upspins_-1];
+  else mu = ek[num_spins_-1];
   //std::cout << "mu_0 = " << mu << "\n";
   return mu;
 }
 
-void GroundState::set_ft_matrix(const lattice::LatticeGraph& graph)
+void GroundState::set_ft_matrix(const lattice::Lattice& lattice)
 {
   // matrix for transformation from site-basis to k-basis
   FTU_.resize(num_kpoints_,num_kpoints_);
   double one_by_sqrt_nk = 1.0/std::sqrt(static_cast<double>(num_kpoints_));
   unsigned i = 0;
   for (unsigned n=0; n<num_kpoints_; ++n) {
-    auto Ri = graph.site_cellcord(i);
+    auto Ri = lattice.site(i).cell_coord();
     //std::cout << Ri << "\n"; getchar();
     for (unsigned k=0; k<num_kpoints_; ++k) {
       Vector3d kvec = blochbasis_.kvector(k);

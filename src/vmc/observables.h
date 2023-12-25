@@ -11,12 +11,13 @@
 #include <stdexcept>
 #include "../scheduler/task.h"
 #include "../lattice/lattice.h"
-#include "../lattice/graph.h"
 #include "../model/model.h"
 #include "./sysconfig.h"
+#include "./bandstruct.h"
 #include "./energy.h"
-#include "./sccorr.h"
 #include "./particle.h"
+#include "./spincorr.h"
+#include "./sccorr.h"
 
 namespace vmc {
 
@@ -27,31 +28,34 @@ public:
   ~ObservableSet() {}
   std::stringstream& headstream(void) { return headstream_; }
   //void init(const input::Parameters& inputs, 
-  //  void (&print_copyright)(std::ostream& os), const lattice::LatticeGraph& graph, 
+  //  void (&print_copyright)(std::ostream& os), const lattice::Lattice& lattice, 
   //  const model::Hamiltonian& model, const SysConfig& config);
-  void init(const input::Parameters& inputs, const lattice::LatticeGraph& graph, 
-    const model::Hamiltonian& model, const SysConfig& config, 
-    const std::string& prefix);
+  void init(const input::Parameters& inputs, const lattice::Lattice& lattice, 
+    const model::Hamiltonian& model, const SysConfig& config, const std::string& prefix,
+    const int& sample_size);
   void as_functions_of(const std::vector<std::string>& xvars=std::vector<std::string>());
   void as_functions_of(const std::string& xvar);
   void switch_off(void);
   void reset(void); 
+  void reset_batch_limit(const int& sample_size);
   void reset_grand_data(void); 
   void save_results(void); 
   void avg_grand_data(void); 
-  int do_measurement(const lattice::LatticeGraph& graph, 
-    const model::Hamiltonian& model, const SysConfig& config);
+  int do_measurement(const lattice::Lattice& lattice, 
+    const model::Hamiltonian& model, const SysConfig& config, const SiteDisorder& site_disorder);
   inline Energy& energy(void) { return energy_; }
   inline EnergyGradient& energy_grad(void) { return energy_grad_; }
   inline SC_Correlation& sc_corr(void) { return sc_corr_; }
   inline SR_Matrix& sr_matrix(void) { return sr_matrix_; }
-  const SiteOccupancy& site_occupancy(void) { return site_occupancy_; }
-  const MomentumOccupancy& k_occupancy(void) { return k_occupancy_; }
   const Energy& energy(void) const { return energy_; }
   const EnergyGradient& energy_grad(void) const { return energy_grad_; }
+  const SpinCorrelation& spin_corr(void) const { return spin_corr_; }
+  const SC_Correlation& sc_corr(void) const { return sc_corr_; }
   const SR_Matrix& sr_matrix(void) const { return sr_matrix_; }
-  const SiteOccupancy& site_occupancy(void) const { return site_occupancy_; }
-  const MomentumOccupancy& k_occupancy(void) const { return k_occupancy_; }
+  const ParticleDensity& particle_density(void) const { return particle_density_; }
+  const DoublonDensity& doublon_density(void) const { return doublon_density_; }
+  const MomentumDist& momentum_dist(void) const { return momentum_dist_; }
+  const BandStruct& band_struct(void) const { return band_struct_; }
 
   void finalize(void);
   void print_heading(void);
@@ -69,10 +73,13 @@ private:
   unsigned num_xvars_{0};
   Energy energy_;
   EnergyGradient energy_grad_;
+  SpinCorrelation spin_corr_;
   SC_Correlation sc_corr_;
   SR_Matrix sr_matrix_;
-  SiteOccupancy site_occupancy_;
-  MomentumOccupancy k_occupancy_;
+  ParticleDensity particle_density_;
+  DoublonDensity doublon_density_;
+  MomentumDist momentum_dist_;
+  BandStruct band_struct_; 
 };
 
 

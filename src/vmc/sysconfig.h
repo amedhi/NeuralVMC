@@ -26,15 +26,16 @@ constexpr double gfactor_cutoff(void) { return 1.0E-8; }
 class SysConfig 
 {
 public:
-  SysConfig(const input::Parameters& parms, const lattice::LatticeGraph& graph, 
+  SysConfig(const input::Parameters& parms, const lattice::Lattice& lattice, 
     const model::Hamiltonian& model);
   ~SysConfig() {}
   int init_files(const std::string& prefix, const input::Parameters& inputs);
   std::string info_str(void) const; 
-  int build(const lattice::LatticeGraph& graph, const input::Parameters& inputs, 
+  int build(const lattice::Lattice& lattice, const input::Parameters& inputs, 
     const bool& with_gradient=false);
-  int build(const lattice::LatticeGraph& graph, const var::parm_vector& vparms, 
+  int build(const lattice::Lattice& lattice, const var::parm_vector& vparms, 
     const bool& need_psi_grad=false);
+  int rebuild(const lattice::Lattice& lattice);
   RandomGenerator& rng(void) const { return fock_basis_.rng(); }
   std::string signature_str(void) const { return wf_.signature_str(); } 
   const int& num_varparms(void) const { return num_varparms_; } 
@@ -49,13 +50,19 @@ public:
   int update_state(void);
   double accept_ratio(void);
   void reset_accept_ratio(void);
+  int apply_niup_nidn(const int& site_i) const;
+  int apply_ni_dblon(const int& site_i) const;
+  int apply_ni_holon(const int& site_i) const;
+  amplitude_t apply_cdagc_up(const int& i_fr, const int& j_to,
+    const int& bc_state, const std::complex<double>& bc_phase) const;
+  amplitude_t apply_cdagc_dn(const int& i_fr, const int& j_to,
+    const int& bc_state, const std::complex<double>& bc_phase) const;
+  int apply(const model::op::quantum_op& qn_op, const int& site_i) const;
   amplitude_t apply(const model::op::quantum_op& op, const int& site_i, 
     const int& site_j, const int& bc_state, const std::complex<double>& bc_phase) const;
-  amplitude_t apply_bondsinglet_hop(const int& idag, const int& ia_dag,
-    const int& bphase_i, const int& j, const int& ja, 
-    const int& bphase_j) const;
-  int apply(const model::op::quantum_op& qn_op, const int& site_i) const;
-  int apply_niup_nidn(const int& site_i) const;
+  amplitude_t apply_bondsinglet_hop(const int& fr_site_i, const int& fr_site_ia, 
+    const int& to_site_j, const int& to_site_jb) const;
+  amplitude_t apply_sitepair_hop(const int& fr_site, const int& to_site) const;
   void get_grad_logpsi(Vector& grad_logpsi) const;
   const int& num_updates(void) const { return num_updates_; }
   const var::Wavefunction& wavefunc(void) const { return wf_; }
@@ -121,10 +128,6 @@ private:
     const amplitude_t& det_ratio);
   int inv_update_dnspin(const int& dnspin, const RowVector& psi_col, 
     const amplitude_t& det_ratio);
-  amplitude_t apply_cdagc_up(const int& i_fr, const int& j_to,
-    const int& bc_state, const std::complex<double>& bc_phase) const;
-  amplitude_t apply_cdagc_dn(const int& i_fr, const int& j_to,
-    const int& bc_state, const std::complex<double>& bc_phase) const;
   amplitude_t apply_cdagc2_up(const int& i, const int& j,
     const int& bc_state, const std::complex<double>& bc_phase) const;
   amplitude_t apply_cdagc2_dn(const int& i, const int& j,

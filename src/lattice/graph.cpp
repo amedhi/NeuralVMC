@@ -8,7 +8,7 @@
 *----------------------------------------------------------------------------*/
 #include "graph.h"
 
-constexpr std::complex<double> ii(void) { return std::complex<double>(0.0, 1.0); }
+//constexpr std::complex<double> ii(void) { return std::complex<double>(0.0, 1.0); }
 
 namespace lattice {
 //namespace graph {
@@ -119,14 +119,6 @@ void LatticeGraph::construct_graph(void)
     this->operator[](e).bc_state = b.bc_state();
     this->operator[](e).sign = sign;
     this->operator[](e).phase = phase;
-
-    /*
-    std::cout << "bond ="<< i << "\n"; 
-    std::cout<<b.bc_state()[0]<<b.bc_state()[1]<<b.bc_state()[2]<<"\n"; 
-    std::cout << sign << "\n"; 
-    std::cout << phase << "\n"; 
-    getchar();
-    */
 
     this->operator[](e).vector_id = b.vector_id();
     //this->operator[](e).vector = sites[b.tgt_id()].coord() - sites[b.src_id()].coord();

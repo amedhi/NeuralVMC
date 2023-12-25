@@ -17,7 +17,7 @@ SRCS+= expression/complex_expression.cpp
 SRCS+= utils/utils.cpp 
 SRCS+= lattice/lattice.cpp
 SRCS+= lattice/latticelibrary.cpp
-SRCS+= lattice/graph.cpp
+SRCS+= model/quantum_op.cpp
 SRCS+= model/hamiltonian_term.cpp
 SRCS+= model/model.cpp
 SRCS+= model/modellibrary.cpp
@@ -34,6 +34,7 @@ SRCS+= wavefunction/groundstate.cpp
 SRCS+= wavefunction/identity.cpp
 SRCS+= wavefunction/fermisea.cpp
 SRCS+= wavefunction/bcs_state.cpp
+SRCS+= wavefunction/disordered_sc.cpp
 SRCS+= wavefunction/wavefunction.cpp
 SRCS+= wavefunction/projector.cpp
 SRCS+= mcdata/mcdata.cpp
@@ -41,14 +42,18 @@ SRCS+= mcdata/mc_observable.cpp
 SRCS+= vmc/random.cpp
 SRCS+= vmc/basisstate.cpp
 SRCS+= vmc/sysconfig.cpp
+SRCS+= vmc/disorder.cpp
+SRCS+= vmc/bandstruct.cpp
 SRCS+= vmc/energy.cpp
 SRCS+= vmc/particle.cpp
+SRCS+= vmc/spincorr.cpp
 SRCS+= vmc/sccorr.cpp
 SRCS+= vmc/observables.cpp
-SRCS+= vmc/stochastic_reconf.cpp
-SRCS+= optimizer/optimizer.cpp
 #SRCS+= vmc/measurement.cpp
 SRCS+= vmc/vmc.cpp
+SRCS+= vmc/vmcrun.cpp
+SRCS+= vmc/opt/prob_linesearch.cpp
+SRCS+= vmc/optimizer.cpp
 SRCS+= vmc/simulator.cpp
 SRCS+= main.cpp
 VMC_SRCS = $(addprefix src/,$(SRCS))
@@ -60,7 +65,7 @@ HDRS=    scheduler/mpi_comm.h \
          scheduler/scheduler.h \
          expression/complex_expression.h \
          utils/utils.h \
-         lattice/constants.h lattice/lattice.h lattice/graph.h \
+         lattice/constants.h lattice/lattice.h \
 	 montecarlo/simulator.h \
          model/modelparams.h  model/quantum_op.h \
 	 model/hamiltonian_term.h \
@@ -79,17 +84,23 @@ HDRS=    scheduler/mpi_comm.h \
 	 wavefunction/identity.h \
 	 wavefunction/fermisea.h \
 	 wavefunction/bcs_state.h \
+	 wavefunction/disordered_sc.h \
 	 variational/wavefunction.h \
 	 wavefunction/projector.h \
 	 mcdata/mcdata.h  \
 	 mcdata/mc_observable.h  \
+	 vmc/bandstruct.h \
 	 vmc/energy.h \
 	 vmc/particle.h \
+	 vmc/spincorr.h \
 	 vmc/sccorr.h \
 	 vmc/observables.h \
 	 vmc/random.h  vmc/basisstate.h vmc/sysconfig.h \
-	 vmc/stochastic_reconf.h \
+	 vmc/disorder.h \
 	 vmc/vmc.h \
+	 vmc/vmcrun.h \
+	 vmc/opt/prob_lineseach.h \
+         vmc/optimizer.h \
 	 vmc/simulator.h \
 	 vmcpp.h \
 #         model/qn.h model/quantum_operator.h model/sitebasis.h model/modelparams.h \
@@ -101,9 +112,9 @@ MUPARSER_LIB = $(PROJECT_ROOT)/src/expression/muparserx/libmuparserx.a
 #-------------------------------------------------------------
 # Target
 ifeq ($(MPI), HAVE_BOOST_MPI)
-  TAGT=nnvmc_mpi.x
+  TAGT=nvmc_mpi.x
 else 
-  TAGT=nnvmc.x
+  TAGT=nvmc.x
 endif
 
 # Put all auto generated stuff to this build dir.
@@ -121,19 +132,19 @@ DEPS=$(patsubst %.o,%.d,$(OBJS))
 all: $(TAGT) #$(INCL_HDRS)
 
 $(TAGT): $(MUPARSER_LIB) $(OBJS) 
-	$(VMC_CXX) -o $(TAGT) $(OBJS) $(VMC_LDFLAGS) $(VMC_LIBS) $(MUPARSER_LIB)
+	$(CXX) -o $(TAGT) $(OBJS) $(LDFLAGS) $(LIBS) $(MUPARSER_LIB)
 
 
 %.o: %.cpp
-	$(VMC_CXX) -c $(VMC_CXXFLAGS) -o $@ $<
+	$(CXX) -c $(CXXFLAGS) -o $@ $<
 
 # Include all .d files
 -include $(DEPS)
 
 $(BUILD_DIR)/%.o: %.cpp
 	@mkdir -p $(@D)
-	@echo "$(VMC_CXX) -c $(VMC_CXXFLAGS) -o $(@F) $(<F)"
-	@$(VMC_CXX) -MMD -c $(VMC_CXXFLAGS) -o $@ $<
+	@echo "$(CXX) -c $(CXXFLAGS) -o $(@F) $(<F)"
+	@$(CXX) -MMD -c $(CXXFLAGS) -o $@ $<
 
 $(VMC_INCLDIR)/%.h: %.h 
 	@mkdir -p $(@D)

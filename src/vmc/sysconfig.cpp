@@ -15,12 +15,12 @@
 namespace vmc {
 
 SysConfig::SysConfig(const input::Parameters& inputs, 
-  const lattice::LatticeGraph& graph, const model::Hamiltonian& model)
-  : fock_basis_(graph.num_sites(), model.double_occupancy())
-  , pj_(inputs)
-  , wf_(graph, inputs)
-  , nqs_(graph.num_sites(), inputs)
-  , num_sites_(graph.num_sites())
+  const lattice::Lattice& lattice, const model::Hamiltonian& model)
+  : fock_basis_(lattice.num_sites(), model.double_occupancy())
+  , pj_(lattice,inputs)
+  , wf_(lattice, inputs, model)
+  , nqs_(lattice.num_sites(), inputs)
+  , num_sites_(lattice.num_sites())
 {
 #ifdef HAVE_DETERMINANTAL_PART
   if (wf_.name() == "IDENTITY") have_mf_part_ = false;
@@ -122,13 +122,13 @@ std::string SysConfig::info_str(void) const
   return info.str();
 }
 
-int SysConfig::build(const lattice::LatticeGraph& graph, const input::Parameters& inputs,
+int SysConfig::build(const lattice::Lattice& lattice, const input::Parameters& inputs,
     const bool& with_gradient)
 {
   if (num_sites_==0) return -1;
   pj_.update(inputs);
 #ifdef HAVE_DETERMINANTAL_PART
-  wf_.compute(graph, inputs, with_gradient);
+  wf_.compute(lattice, inputs, with_gradient);
 #endif
   //nqs_.init_parameters(fock_basis_.rng(), 0.005);
   if (load_parms_from_file_) {
@@ -138,7 +138,7 @@ int SysConfig::build(const lattice::LatticeGraph& graph, const input::Parameters
   return 0;
 }
 
-int SysConfig::build(const lattice::LatticeGraph& graph, const var::parm_vector& pvector,
+int SysConfig::build(const lattice::Lattice& lattice, const var::parm_vector& pvector,
   const bool& need_psi_grad)
 {
   if (num_sites_==0) return -1;
@@ -148,8 +148,22 @@ int SysConfig::build(const lattice::LatticeGraph& graph, const var::parm_vector&
   pj_.update(pvector,start_pos);
   start_pos += num_pj_parms_;
 #ifdef HAVE_DETERMINANTAL_PART
-  wf_.compute(graph, pvector, start_pos, need_psi_grad);
+  wf_.compute(lattice, pvector, start_pos, need_psi_grad);
 #endif
+  init_config();
+  return 0;
+}
+
+// rebuild for new lattice boundary twist
+int SysConfig::rebuild(const lattice::Lattice& lattice)
+{
+#ifdef HAVE_DETERMINANTAL_PART
+  wf_.recompute(lattice);
+#endif
+  //nqs_.init_parameters(fock_basis_.rng(), 0.005);
+  if (load_parms_from_file_) {
+    nqs_.load_parameters(load_path_);
+  }
   init_config();
   return 0;
 }
@@ -519,6 +533,39 @@ int SysConfig::inv_update_dnspin(const int& dnspin, const RowVector& psi_col,
   return 0;
 }
 
+int SysConfig::apply_niup_nidn(const int& site_i) const
+{
+  return fock_basis_.op_ni_updn(site_i);
+}
+
+int SysConfig::apply_ni_dblon(const int& site_i) const
+{
+  return fock_basis_.op_ni_dblon(site_i);
+}
+
+int SysConfig::apply_ni_holon(const int& site_i) const
+{
+  return fock_basis_.op_ni_holon(site_i);
+}
+
+int SysConfig::apply(const model::op::quantum_op& qn_op, const int& site_i) const
+{
+  switch (qn_op.id()) {
+    case model::op_id::ni_sigma:
+      return fock_basis_.op_ni_up(site_i)+fock_basis_.op_ni_dn(site_i);
+    case model::op_id::ni_up:
+      return fock_basis_.op_ni_up(site_i);
+    case model::op_id::ni_dn:
+      return fock_basis_.op_ni_dn(site_i);
+    case model::op_id::niup_nidn:
+      return fock_basis_.op_ni_updn(site_i);
+    case model::op_id::Sz:
+      return fock_basis_.op_Sz(site_i); 
+    default: 
+      throw std::range_error("SysConfig::apply: undefined site operator");
+  }
+}
+
 amplitude_t SysConfig::apply(const model::op::quantum_op& qn_op, 
   const int& site_i, const int& site_j, const int& bc_state, 
   const std::complex<double>& bc_phase) const
@@ -542,22 +589,6 @@ amplitude_t SysConfig::apply(const model::op::quantum_op& qn_op,
   return term;
 }
 
-int SysConfig::apply(const model::op::quantum_op& qn_op, const int& site_i) const
-{
-  switch (qn_op.id()) {
-    case model::op_id::ni_sigma:
-      return fock_basis_.op_ni_up(site_i)+fock_basis_.op_ni_dn(site_i);
-    case model::op_id::niup_nidn:
-      return fock_basis_.op_ni_updn(site_i);
-    default: 
-      throw std::range_error("SysConfig::apply: undefined site operator");
-  }
-}
-
-int SysConfig::apply_niup_nidn(const int& site_i) const
-{
-  return fock_basis_.op_ni_updn(site_i);
-}
 
 amplitude_t SysConfig::apply_cdagc_up(const int& i, const int& j,
   const int& bc_state, const std::complex<double>& bc_phase) const
@@ -826,18 +857,48 @@ amplitude_t SysConfig::apply_sisj_plus(const int& i, const int& j) const
   return 0.0;
 }
 
-amplitude_t SysConfig::apply_bondsinglet_hop(const int& i_dag, 
-  const int& ia_dag, const int& bphase_i, const int& j, 
-  const int& jb, const int& bphase_j) const
+amplitude_t SysConfig::apply_bondsinglet_hop(const int& fr_site_i, 
+  const int& fr_site_ia, const int& to_site_j, const int& to_site_jb) const
 {
-  // Evaluates the following operator:
-  //   F_{ab}(i,j) = (c^{\dag}_{i\up}c^{\dag}_{i+a\dn} -  c^{\dag}_{i\dn}c^{\dag}_{i+a,\up})/sqrt(2)
-  //          x (c_{j+b\dn}c_{j\up} - c_{j+b\up}c_{j\dn})/sqrt(2)
-  //          = 0.5 * [c^{\dag}_{i\up}c_{j\up} x c^{\dag}_{i+a\dn}c_{j+b\dn}
-  //                 + c^{\dag}_{i+a\up}c_{j\up} x c^{\dag}_{i\dn}c_{j+b\dn}
-  //                 + c^{\dag}_{i+a\up}c_{j+b\up} x c^{\dag}_{i\dn}c_{j\dn}
-  //                 + c^{\dag}_{i\up}c_{j+b\up} x c^{\dag}_{i+a\dn}c_{j\dn}]
+/*----------------------------------------------------------------------
+* Evaluates the following operator:
+* Denoting: 
+*          c^{dag}_{i\sigma} = d_{i\sigma}
+*          c_{i\sigma}       = c_{i\sigma}
+*          1/\sqrt{2}        = 1sqrt2 
+*          1/2               = half 
+*
+* F_{ab}(i,j) = 1sqrt2 x (d_{i\up}d_{i+a\dn} - d_{i\dn}d_{i+a\up}) x
+*               1sqrt2 x (c_{i\dn}c_{i+b\up} - c_{i\up}c_{i+b\dn}) 
+*
+* It can be written as sum of 4 terms:
+* 
+* F_{ab}(i,j) = 0.5 x [ (d_{i+a\dn}c_{j+b\dn) (d_{i\up}c_{j\up}) 
+*                     + (d_{i+a\dn}c_{j\dn})  (d_{i\up}c_{j+b\up})
+*                     + (d_{i\dn}c_{j+b\dn})  (d_{i+a\up}c_{j\up}) 
+*                     + (d_{i\dn}c_{j\dn})    (d_{i+a\up}c_{j+b\up}) ]
+*
+* Each term describes a 'UP'-spin hop followed by a 'DOWN'-spin hop
+*
+* Assumption: No hopping crosses boundary (no need to consider BC twists)
+*-----------------------------------------------------------------------*/
+  return 0.0;
+}
 
+amplitude_t SysConfig::apply_sitepair_hop(const int& fr_site, const int& to_site) const
+{
+/*----------------------------------------------------------------------
+* Evaluates the following operator.
+* Denote: 
+*          c^{dag}_{i\sigma} = d_{i\sigma}
+*          c_{i\sigma}       = c_{i\sigma}
+*
+* F_{ab}(i,j) = (d_{i\up}d_{i\dn}) (c_{j\dn}c_{j\up}
+*             = (d_{i\dn}c_{j\dn}) (d_{i\up}c_{j\up)
+*
+* The term describes a 'UP'-spin hop followed by a 'DOWN'-spin hop 
+* between same sites
+*-----------------------------------------------------------------------*/
   return 0.0;
 }
 

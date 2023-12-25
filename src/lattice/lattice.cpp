@@ -37,9 +37,10 @@ Site::Site(const unsigned& uid, const unsigned& type, const unsigned& atomid, co
   cell_coord_ = cell_coord;
 }
 
-void Site::translate_by(const int& id_offset, const Vector3i& bravindex_offset, const Vector3d& coord_offset)
+void Site::translate_by(const int& id_offset, const int& atomid_offset, const Vector3i& bravindex_offset, const Vector3d& coord_offset)
 {
   id_ += id_offset;
+  atomid_ += atomid_offset;
   bravindex_ += bravindex_offset; 
   coord_ += coord_offset; 
   cell_coord_ += coord_offset; 
@@ -126,8 +127,9 @@ void Bond::connect(const Site& src, const Vector3i& src_offset, const Site& tgt,
 {
   this->first = src;
   this->second = tgt;
-  this->first.reset_bravindex(src_offset);
-  this->second.reset_bravindex(tgt_offset);
+  // It seems, we need to SWITCH OFF the next 2 lines
+  //this->first.reset_bravindex(src_offset);
+  //this->second.reset_bravindex(tgt_offset);
   sign_ = sign;
 }
 
@@ -136,8 +138,9 @@ void Bond::connect(const Site& src, const Vector3i& src_offset, const Site& tgt,
 {
   this->first = src;
   this->second = tgt;
-  this->first.reset_bravindex(src_offset);
-  this->second.reset_bravindex(tgt_offset);
+  // It seems, we need to SWITCH OFF the next 2 lines
+  //this->first.reset_bravindex(src_offset);
+  //this->second.reset_bravindex(tgt_offset);
   bc_state_ = bstate;
 }
 
@@ -165,7 +168,7 @@ std::ostream& operator<<(std::ostream& os, const Bond& b)
 /*---------------Unitcell class-----------------*/
 void Unitcell::clear(void) 
 { 
-  max_site_type_val=0; max_bond_type_val=0; max_neighb_val=0; sites.clear(); bonds.clear(); 
+  max_site_type_val=0; max_bond_type_val=0; max_neighb_val=0; sites_.clear(); bonds_.clear(); 
   Site::reset_count(); 
   Bond::reset_count(); 
   a1 = Vector3d(0.0, 0.0, 0.0); 
@@ -182,43 +185,64 @@ void Unitcell::set_basis(const Vector3d& av1, const Vector3d& av2, const Vector3
 
 int Unitcell::add_site(const unsigned& type, const unsigned& atomid, const Vector3d& site_coord)
 {
-  if (atomid > sites.size()) {
-    throw std::range_error("error: Unitcell::add_site:: out-of-range value for argument-3");
+  if (atomid > sites_.size()) {
+    throw std::range_error("error: Unitcell::add_site:: out-of-range value for argument-2");
   }
-  unsigned uid = sites.size();
-  sites.push_back(Site(uid, type, atomid, bravindex(), site_coord, coord())); 
+  if (sites_.size()>0) {
+    int last_id = sites_.back().atomid();
+    int next_id = atomid;
+    if ((next_id<last_id) || std::abs(next_id-last_id)>1) {
+      throw std::range_error("error: Unitcell::add_site:: atomid value not in order");
+    }
+  }
+  unsigned uid = sites_.size();
+  sites_.push_back(Site(uid, type, atomid, bravindex(), site_coord, coord())); 
   if (max_site_type_val < type) max_site_type_val = type;
-  return sites.back().id(); 
+  return sites_.back().id(); 
 }
 
 int Unitcell::add_site(const unsigned& type, const Vector3d& site_coord)
 {
-  unsigned uid = sites.size();
-  unsigned atomid = sites.size();
-  sites.push_back(Site(uid, type, atomid, bravindex(), site_coord, coord())); 
+  unsigned uid = sites_.size();
+  unsigned atomid = sites_.size();
+  sites_.push_back(Site(uid, type, atomid, bravindex(), site_coord, coord())); 
   if (max_site_type_val < type) max_site_type_val = type;
-  return sites.back().id(); 
+  return sites_.back().id(); 
 }
 
 int Unitcell::add_site(const Site& s, const Vector3i& bravindex, const Vector3d& cell_coord)
 {
-  sites.push_back(s); 
-  sites.back().reset_bravindex(bravindex);
-  sites.back().reset_cell_coord(cell_coord);
-  return sites.back().id();
+  sites_.push_back(s); 
+  sites_.back().reset_bravindex(bravindex);
+  sites_.back().reset_cell_coord(cell_coord);
+  return sites_.back().id();
 }
 
 int Unitcell::add_bond(const unsigned& type, const unsigned& ngb, const unsigned& src_id, 
   const Vector3i& src_offset, const unsigned& tgt_id, const Vector3i& tgt_offset)
 {
-  if (src_id >= sites.size()) throw std::range_error("*error: add_bond:: 'src' site does not exist");
-  if (tgt_id >= sites.size()) throw std::range_error("*error: add_bond:: 'tgt' site does not exist");
+  if (src_id >= sites_.size()) throw std::range_error("*error: add_bond:: 'src' site does not exist");
+  if (tgt_id >= sites_.size()) throw std::range_error("*error: add_bond:: 'tgt' site does not exist");
   //bonds.push_back(Bond(type, ngb, bravindex(), src_id, src_offset, tgt_id, tgt_offset, 1));
-  bonds.push_back(Bond(type, ngb, sites[src_id], src_offset, sites[tgt_id], tgt_offset));
+  bonds_.push_back(Bond(type, ngb, sites_[src_id], src_offset, sites_[tgt_id], tgt_offset));
   if (max_bond_type_val < type) max_bond_type_val = type;
   if (max_neighb_val < ngb) max_neighb_val = ngb;
-  return bonds.back().id();
+  return bonds_.back().id();
 }
+
+int Unitcell::add_bond(const unsigned& type, const unsigned& src_id, 
+  const unsigned& tgt_id, const Vector3i& tgt_offset, const int& ngb)
+{
+  if (src_id >= sites_.size()) throw std::range_error("*error: add_bond:: 'src' site does not exist");
+  if (tgt_id >= sites_.size()) throw std::range_error("*error: add_bond:: 'tgt' site does not exist");
+  //bonds.push_back(Bond(type, ngb, bravindex(), src_id, src_offset, tgt_id, tgt_offset, 1));
+  Vector3i src_offset = Vector3i::Zero();
+  bonds_.push_back(Bond(type, ngb, sites_[src_id], src_offset, sites_[tgt_id], tgt_offset));
+  if (max_bond_type_val < type) max_bond_type_val = type;
+  if (max_neighb_val < ngb) max_neighb_val = ngb;
+  return bonds_.back().id();
+}
+
 
 /*int Unitcell::add_bond(const Bond& bond, const Vector3i& src_offset, const Vector3i& tgt_offset)
 {
@@ -231,12 +255,12 @@ int Unitcell::add_bond(const unsigned& type, const unsigned& ngb, const unsigned
 
 void Unitcell::finalize(void) 
 {
-  // Re-assign the sites & bond 'type' values making them contiguous
+  // Re-assign the sites 'type' values making them contiguous
   sitetypes_map_.clear();
   // store the sitetype map
   std::set<unsigned> types;
   // type values sorted in the set
-  for (const auto& s : sites) types.insert({s.type()});
+  for (const auto& s : sites_) types.insert({s.type()});
   // map to contiguous indices
   unsigned i = 0;
   for (const auto& t : types) {
@@ -244,21 +268,46 @@ void Unitcell::finalize(void)
     if (status.second) i++;
   }
   // now reassign the values
-  for (auto& s : sites) {
+  for (auto& s : sites_) {
     unsigned i = sitetypes_map_[s.type()];
     s.reset_type(i);
   }
 
+  /*------------------------------------------------------- 
+   * Number of atoms. A 'site' means an 'orbital'. 
+   * In single-orbital systems, * an 'atom' is same as a 'site'. 
+   * In multi-orbital systems,
+   * the number of 'atom' is obviously not same as the 
+   * number of sites in the unitcell.
+   *-------------------------------------------------------*/
+  // Re-assign the sites 'atomid' values making them contiguous
+  std::set<unsigned> atomids;
+  for (const auto& s : sites_) atomids.insert(s.atomid());
+  i = 0;
+  std::map<unsigned,unsigned> atomid_map; 
+  for (const auto& id : atomids) {
+    auto status = atomid_map.insert({id, i});
+    if (status.second) i++;
+  }
+  // reassign the 'atomid' values
+  for (auto& s : sites_) {
+    unsigned i = atomid_map[s.atomid()];
+    s.reset_atomid(i);
+  }
+  num_atoms_ = atomids.size();
+  //std::cout << "num_atoms = "<<num_atoms_<<"\n";
+
+
   // same for bonds
   bondtypes_map_.clear();
   types.clear();
-  for (const auto& b : bonds) types.insert({b.type()});
+  for (const auto& b : bonds_) types.insert({b.type()});
   i = 0;
   for (const auto& t : types) {
     auto status = bondtypes_map_.insert({t, i});
     if (status.second) i++;
   }
-  for (auto& b : bonds) {
+  for (auto& b : bonds_) {
     unsigned i = bondtypes_map_[b.type()];
     b.reset_type(i);
   }
@@ -287,9 +336,10 @@ void Unitcell::translate_by(const Vector3i& bravindex_offset, const int& cell_id
 {
   Vector3d coord_offset = bravindex_offset(0) * a1 + bravindex_offset(1) * a2 
                         + bravindex_offset(2) * a3;
-  int id_offset = cell_id_offset * sites.size();
-  for (unsigned i=0; i<sites.size(); ++i) sites[i].translate_by(id_offset, bravindex_offset, coord_offset);
-  for (unsigned i=0; i<bonds.size(); ++i) bonds[i].translate_by(bravindex_offset);
+  int id_offset = cell_id_offset * sites_.size();
+  int atomid_offset = cell_id_offset * num_atoms_;
+  for (auto& s : sites_) s.translate_by(id_offset, atomid_offset, bravindex_offset, coord_offset);
+  for (auto& b : bonds_) b.translate_by(bravindex_offset);
   bravindex_ += bravindex_offset;
   coord_ += coord_offset;
 }
@@ -302,9 +352,9 @@ void Unitcell::rotate_by(const Eigen::Matrix3d& matrix)
   a3 = matrix * a3;
   // rotate site coordinates
   Vector3d rv;
-  for (unsigned i=0; i<sites.size(); ++i) {
-    rv = matrix * sites[i].coord();
-    sites[i].reset_coord(rv);
+  for (unsigned i=0; i<sites_.size(); ++i) {
+    rv = matrix * sites_[i].coord();
+    sites_[i].reset_coord(rv);
   }
 }
 
@@ -334,6 +384,12 @@ int Lattice::add_bond(const unsigned& type, const unsigned& src_id, const Vector
     const unsigned& tgt_id, const Vector3i& tgt_offset)
 {
   return Unitcell::add_bond(type, 1, src_id, src_offset, tgt_id, tgt_offset);
+}
+
+int Lattice::add_bond(const unsigned& type, const unsigned& src_id, 
+    const unsigned& tgt_id, const Vector3i& tgt_offset, const int& ngb)
+{
+  return Unitcell::add_bond(type, src_id, tgt_id, tgt_offset, ngb);
 }
 
 int Lattice::add_bond(const Bond& b)
@@ -554,6 +610,12 @@ unsigned Lattice::translation_mapped_site(const unsigned& uid,
   else return uid;
 }
 
+const Site& Lattice::translated_site(const Site& site, const Vector3i& translation_vec) const
+{
+  unsigned id = translation_mapped_site(site.uid(), site.bravindex(), translation_vec); 
+  return sites_[id];
+}
+
 Eigen::Matrix3d Lattice::rotation_matrix(const Vector3d& r, const Vector3d& rp)
 {
   /* Calculates rotation matrix which would rotate vector 'r' 
@@ -562,9 +624,9 @@ Eigen::Matrix3d Lattice::rotation_matrix(const Vector3d& r, const Vector3d& rp)
   ! see H. Goldstein, Classical Mechanics, Eq. 4-92 through 4-96. 
   */
 
-  double e1 = sqrt(r.dot(r));
-  double e2 = sqrt(rp.dot(rp));
-  double phi = acos(r.dot(rp))/(e1*e2);
+  double e1 = std::sqrt(r.dot(r));
+  double e2 = std::sqrt(rp.dot(rp));
+  double phi = std::acos(r.dot(rp)/(e1*e2));
   if (std::abs(phi) < dp_tol) return Eigen::Matrix<double,3,3>::Identity();
 
   // unit vector perpendicular to 'rp' and 'r' along \vec{r'} x \vec{r}

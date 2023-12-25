@@ -22,7 +22,7 @@
 namespace model {
 
 enum class model_id {
-  UNDEFINED, HUBBARD, TJ, DISORDERED_TJ
+  UNDEFINED, HUBBARD, TJ, HUBBARD_IONIC, TJ_IONIC
 };
 
 class Hamiltonian 
@@ -49,6 +49,7 @@ public:
     { parms_[pname] = inputs.set_value(pname, defval, info); return parms_.size(); }
   unsigned add_parameter(const std::string& pname, const double& val) 
     { parms_[pname] = val; return parms_.size(); }
+  bool exist_parameter(const std::string& pname) const;
   void update_parameters(const input::Parameters& inputs);
   void update_parameter(const std::string& pname, const double& val); 
   virtual void update_terms(void);
@@ -59,12 +60,14 @@ public:
   unsigned add_siteterm(const std::string& name, const CouplingConstant& cc, const op::quantum_op& op);
   unsigned add_bondterm(const std::string& name, const CouplingConstant& cc, const op::quantum_op& op);
   unsigned add_disorder_term(const std::string& name, const op::quantum_op& op);
+  unsigned set_projection_op(const ProjectionOp& pjn);
   void set_no_dbloccupancy(void) { double_occupancy_=false; }
 
   //const BasisDescriptor& basis(void) const { return basis_; }
   //const SiteBasis& site_basis(const unsigned& site_type) const { return basis_.at(site_type); }
   //unsigned sitebasis_dimension(const unsigned& site_type) const
   //{ return basis_.dimension(site_type); }
+  const model_id& id(void) const { return mid; }
   const ModelParams& parameters(void) const { return parms_; }
   const ModelParams& constants(void) const { return constants_; }
   const bool& double_occupancy(void) const { return double_occupancy_; }
@@ -105,6 +108,8 @@ private:
   //BondTerm::BondSiteMap bond_sites_map_;  
   std::vector<HamiltonianTerm> bond_terms_;
   std::vector<HamiltonianTerm> site_terms_;
+  // projection operator
+  ProjectionOp projection_;
 
   bool double_occupancy_{true};
   bool have_siteterm_{false};

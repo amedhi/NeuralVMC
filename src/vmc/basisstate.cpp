@@ -417,6 +417,23 @@ int FockBasis::op_ni_updn(const int& site) const
   else return 0;
 }
 
+int FockBasis::op_ni_dblon(const int& site) const
+{
+  if (state_[site] && state_[num_sites_+site]) return 1;
+  else return 0;
+}
+
+int FockBasis::op_ni_holon(const int& site) const
+{
+  if (state_[site] || state_[num_sites_+site]) return 0;
+  else return 1;
+}
+
+int FockBasis::op_Sz(const int& site) const
+{
+  return state_[site]-state_[num_sites_+site];
+}
+
 bool FockBasis::op_cdagc_up(const int& fr_site, const int& to_site) const
 {
   if (proposed_move_!=move_t::null) undo_last_move();

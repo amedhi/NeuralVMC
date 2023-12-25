@@ -16,9 +16,9 @@ class Identity : public GroundState
 {
 public:
   Identity() : GroundState() {}
-  Identity(const MF_Order::order_t& order, const input::Parameters& inputs, const lattice::LatticeGraph& graph); 
+  Identity(const MF_Order::order_t& order, const input::Parameters& inputs, const lattice::Lattice& lattice); 
   ~Identity() {} 
-  int init(const input::Parameters& inputs, const lattice::LatticeGraph& graph);
+  int init(const input::Parameters& inputs, const lattice::Lattice& lattice);
   std::string info_str(void) const override; 
   void update(const input::Parameters& inputs) override;
   void update(const var::parm_vector& pvector, const unsigned& start_pos=0) override;

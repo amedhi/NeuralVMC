@@ -41,6 +41,7 @@ VMC::VMC(const input::Parameters& inputs)
   prefix_ = "./"+outdir+"/";
   boost::filesystem::path prefix_dir(prefix_);
   boost::filesystem::create_directory(prefix_dir);
+  config.init_files(prefix_,inputs);
 
   // x-variables (assuming max 1)
   xvar_names_.resize(1);

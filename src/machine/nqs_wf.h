@@ -11,8 +11,10 @@
 #include "../scheduler/task.h"
 #include <string>
 #include "../wavefunction/matrix.h"
+#include "../lattice/lattice.h"
 #include "abstract_net.h"
 #include "ffnet.h"
+#include "rbm.h"
 
 namespace nqs {
 constexpr std::complex<double> ii(void) { return std::complex<double>(0.0, 1.0); }
@@ -21,9 +23,9 @@ class NQS_Wavefunction
 {
 public:
   NQS_Wavefunction() {}
-  NQS_Wavefunction(const int& num_sites, const input::Parameters& inputs); 
+  NQS_Wavefunction(const lattice::Lattice& lattice, const input::Parameters& inputs); 
   ~NQS_Wavefunction() {} 
-  int init(const int& num_sites, const input::Parameters& inputs);
+  int init(const lattice::Lattice& lattice, const input::Parameters& inputs);
   const int& num_params(void) const;
   bool is_exponential_type(void) const { return exponential_type_; }
   void init_parameter_file(const std::string& prefix); 

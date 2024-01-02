@@ -3,23 +3,23 @@
 * @Author: Amal Medhi, amedhi@mbpro
 * @Date:   2019-08-13 12:00:53
 * @Last Modified by:   Amal Medhi
-* @Last Modified time: 2023-09-12 11:12:45
+* @Last Modified time: 2024-01-02 13:13:28
 *----------------------------------------------------------------------------*/
 #include <locale>
 #include "nqs_wf.h"
 
 namespace nqs {
 
-NQS_Wavefunction::NQS_Wavefunction(const int& num_sites, const input::Parameters& inputs)
+NQS_Wavefunction::NQS_Wavefunction(const lattice::Lattice& lattice, const input::Parameters& inputs)
 {
-  init(num_sites, inputs);
+  init(lattice, inputs);
 }
 
-int NQS_Wavefunction::init(const int& num_sites, const input::Parameters& inputs)
+int NQS_Wavefunction::init(const lattice::Lattice& lattice, const input::Parameters& inputs)
 {
   exponential_type_ = false;
   //exponential_type_ = false;
-  num_sites_ = num_sites;
+  num_sites_ = lattice.num_sites();
   int num_units = 2*num_sites_;
 
   std::locale loc;
@@ -108,6 +108,11 @@ int NQS_Wavefunction::init(const int& num_sites, const input::Parameters& inputs
     num_params_ = nnet_->num_params();
   }
 
+  else if (name_ == "RBM") {
+    nnet_.reset(new ann::RBM(lattice, inputs));
+    num_params_ = nnet_->num_params();
+  }
+
   else {
     throw std::range_error("NQS_Wavefunction::NQS_Wavefunction: unidefined neural net");
   }
@@ -134,6 +139,9 @@ void NQS_Wavefunction::init_parameter_file(const std::string& prefix)
   else if (name_ == "SYMFFNN") {
     nnet_->init_parameter_file(nqs_dir+"/ffnn");
   }
+  else if (name_ == "RBM") {
+    nnet_->init_parameter_file(nqs_dir+"/rbm");
+  }
 } 
 
 void NQS_Wavefunction::save_parameters(void) const
@@ -146,9 +154,14 @@ void NQS_Wavefunction::save_parameters(void) const
 
 void NQS_Wavefunction::load_parameters(const std::string& load_path) 
 {
-  nnet_->load_parameters(load_path+"/nqs"+"/ffnn");
-  if (name_ == "FFNN_SIGN") {
-    sign_nnet_->load_parameters(load_path+"/nqs"+"/ffnn_sign");
+  if (name_ == "RBM") {
+    nnet_->load_parameters(load_path+"/nqs"+"/rbm");
+  }
+  else {
+    nnet_->load_parameters(load_path+"/nqs"+"/ffnn");
+    if (name_ == "FFNN_SIGN") {
+      sign_nnet_->load_parameters(load_path+"/nqs"+"/ffnn_sign");
+    }
   }
 }
 

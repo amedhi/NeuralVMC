@@ -19,7 +19,7 @@ SysConfig::SysConfig(const input::Parameters& inputs,
   : fock_basis_(lattice.num_sites(), model.double_occupancy())
   , pj_(lattice,inputs)
   , wf_(lattice, inputs, model)
-  , nqs_(lattice.num_sites(), inputs)
+  , nqs_(lattice, inputs)
   , num_sites_(lattice.num_sites())
 {
 #ifdef HAVE_DETERMINANTAL_PART
@@ -130,7 +130,7 @@ int SysConfig::build(const lattice::Lattice& lattice, const input::Parameters& i
 #ifdef HAVE_DETERMINANTAL_PART
   wf_.compute(lattice, inputs, with_gradient);
 #endif
-  //nqs_.init_parameters(fock_basis_.rng(), 0.005);
+  nqs_.init_parameters(fock_basis_.rng(), 0.1);
   if (load_parms_from_file_) {
     nqs_.load_parameters(load_path_);
   }

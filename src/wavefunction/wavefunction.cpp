@@ -20,7 +20,10 @@ Wavefunction::Wavefunction(const lattice::Lattice& lattice,
   using order_t = MF_Order::order_t;
   using pairing_t = MF_Order::pairing_t;
   pairwf_ = true;
-  if (name_ == "FERMISEA") {
+  if (name_ == "IDENTITY") {
+    groundstate_.reset(new Identity(order_t::null,inputs,lattice));
+  }
+  else if (name_ == "FERMISEA") {
     groundstate_.reset(new Fermisea(order_t::null,inputs,lattice,model));
     pairwf_ = false;
   }

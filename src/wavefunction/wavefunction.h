@@ -20,6 +20,7 @@
 #include "../scheduler/task.h"
 #include "./mf_model.h"
 #include "./matrix.h"
+#include "./identity.h"
 #include "./fermisea.h"
 #include "./bcs_state.h"
 #include "./disordered_sc.h"

@@ -2,7 +2,7 @@
 * @Author: Amal Medhi
 * @Date:   2018-12-29 20:39:14
 * @Last Modified by:   Amal Medhi
-* @Last Modified time: 2024-01-02 13:08:55
+* @Last Modified time: 2024-01-02 19:46:46
 *----------------------------------------------------------------------------*/
 #include <boost/filesystem.hpp>
 #include <boost/tokenizer.hpp>
@@ -388,9 +388,18 @@ void RBM::get_parameters(Vector& pvec) const
 
 void RBM::get_parameter_names(std::vector<std::string>& pnames, const int& pos) const
 {
-  for (int i=1; i<num_layers_; ++i) {
-    int start_pos = pos+num_params_fwd_[i-1];
-    layers_[i]->get_parameter_names(pnames,start_pos);
+  // kernel parameters
+  int i, j;
+  int p = pos;
+  for (int n=0; n<num_kernel_params_; ++n) {
+    std::tie(i,j) = kernel_params_map_[n][0];
+    pnames[p] = "w("+std::to_string(i)+","+std::to_string(j)+")"; 
+    p++;
+  }
+  for (int n=0; n<num_hbias_params_; ++n) {
+    i = bias_params_map_[n][0];
+    pnames[p] = "h("+std::to_string(i)+")"; 
+    p++;
   }
 }
 
@@ -466,11 +475,11 @@ Vector RBM::get_new_output(const Vector& input) const
   /* Does NOT change the state of the network */
   RealVector xout = kernel_*input + hbias_;
   double val = 1.0;
-  for (int i=0; xout.size(); ++i) {
+  for (int i=0; i<num_hidden_units_; i++) {
     val *= std::cosh(xout[i]);
   }
   Vector new_output(1);
-  new_output(1) = val;
+  new_output[0] = val;
   return new_output;
 }
 
@@ -483,11 +492,11 @@ Vector RBM::get_new_output(const Vector& new_input, const std::vector<int> new_e
     }
   }
   double val = 1.0;
-  for (int i=0; xout.size(); ++i) {
+  for (int i=0; i<num_hidden_units_; i++) {
     val *= std::cosh(xout[i]);
   }
   Vector new_output(1);
-  new_output(1) = val;
+  new_output[0] = val;
   return new_output;
 }
 

@@ -51,6 +51,7 @@ private:
   double mk_thresold_{0.30};
 
   // series energy values
+  std::deque<var::parm_vector> iter_parms_;
   std::deque<double> iter_energy_;
   std::deque<double> iter_energy_err_;
   std::deque<double> iter_gnorm_;
@@ -113,9 +114,7 @@ private:
   std::ostream& print_progress(std::ostream& os, 
     const var::parm_vector& vparms, const double& energy,
     const double& error_bar, const RealVector& grad, const RealVector& search_dir,
-    const double& gnorm, const double& avg_gnorm, const double& en_trend,
-    const double& mk_trend, 
-    const int& trend_elem);
+    const double& gnorm, const double& avg_gnorm, const double& en_trend);
 };
 
 

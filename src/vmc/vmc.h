@@ -50,6 +50,7 @@ public:
   { return en_function(vparms,en_mean,en_stddev,grad,grad_stddev); }
   //void get_vparm_values(var::parm_vector& varparms) 
   //  { varparms = config.vparm_values(); }
+  void save_parameters(const var::parm_vector& parms) { config.save_parameters(parms); }
   const int& num_boundary_twists(void) const { return lattice.num_boundary_twists(); } 
   const int& num_measure_steps(void) const { return num_measure_steps_; } 
   const int& num_varp(void) const { return config.num_varparms(); } 

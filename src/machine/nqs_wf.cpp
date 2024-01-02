@@ -3,7 +3,7 @@
 * @Author: Amal Medhi, amedhi@mbpro
 * @Date:   2019-08-13 12:00:53
 * @Last Modified by:   Amal Medhi
-* @Last Modified time: 2024-01-02 13:13:28
+* @Last Modified time: 2024-01-02 21:23:53
 *----------------------------------------------------------------------------*/
 #include <locale>
 #include "nqs_wf.h"
@@ -242,6 +242,7 @@ const amplitude_t& NQS_Wavefunction::output(void) const
     }
     else {
       output_ = nnet_->output()(0);
+      //std::cout << output_ << "\n"; getchar();
     }
   }
   return output_;

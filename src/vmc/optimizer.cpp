@@ -165,6 +165,7 @@ int Optimizer::init_sample(const VMCRun& vmc, const int& sample)
   // Mann-Kendall statistic for converegence test
   mk_statistic_.reset();
   mk_statistic_en_.reset();
+  iter_parms_.clear();
   iter_energy_.clear();
   iter_energy_err_.clear();
   iter_gnorm_.clear();
@@ -293,12 +294,12 @@ int Optimizer::optimize(VMCRun& vmc)
         gnorm = std::min(gnorm, proj_norm);
 
         // MK test: add data to Mann-Kendall statistic
-        mk_statistic_ << vparms;
+        //mk_statistic_ << vparms;
         mk_statistic_en_ << en;
         iter_energy_.push_back(en);
         iter_energy_err_.push_back(en_err);
         iter_gnorm_.push_back(gnorm);
-        if (mk_statistic_.is_full()) {
+        if (mk_statistic_en_.is_full()) {
           iter_energy_.pop_front();
           iter_energy_err_.pop_front();
           iter_gnorm_.pop_front();
@@ -306,18 +307,18 @@ int Optimizer::optimize(VMCRun& vmc)
         // series average of gnorm
         double avg_gnorm = series_avg(iter_gnorm_);
         // MK trend
-        int trend_elem;
-        double mk_trend = mk_statistic_.elem_max_trend(trend_elem);
+        //int trend_elem;
+        //double mk_trend = mk_statistic_.elem_max_trend(trend_elem);
         double en_trend = mk_statistic_en_.max_trend();
 
         // print progress 
         if (print_progress_) {
           print_progress(std::cout,vparms,en,en_err,grad,search_dir,
-            gnorm,avg_gnorm,en_trend,mk_trend,trend_elem);
+            gnorm,avg_gnorm,en_trend);
         }
         if (print_log_) {
           print_progress(logfile_,vparms,en,en_err,grad,search_dir,
-            gnorm,avg_gnorm,en_trend,mk_trend,trend_elem);
+            gnorm,avg_gnorm,en_trend);
         }
         // file outs
         file_energy_<<std::setw(6)<<iter_count<<std::scientific<<std::setw(16)<<en; 
@@ -329,15 +330,7 @@ int Optimizer::optimize(VMCRun& vmc)
        /*--------------------------------------------------------------
         * Convergence criteria
         *--------------------------------------------------------------*/
-        if (mk_statistic_.is_full() && en_trend<=0.1 && avg_gnorm<=grad_tol_) {
-          mk_statistic_.get_series_avg(vparms);
-          status = exit_status::converged;
-          break;
-        }
-        else if (mk_statistic_.is_full() && mk_trend<=mk_thresold_ 
-          && avg_gnorm<=grad_tol_) {
-          // converged, add data point to store
-          mk_statistic_.get_series_avg(vparms);
+        if (mk_statistic_en_.is_full() && en_trend<=mk_thresold_ && avg_gnorm<=grad_tol_) {
           status = exit_status::converged;
           break;
         }
@@ -418,12 +411,12 @@ int Optimizer::optimize(VMCRun& vmc)
       gnorm = std::min(gnorm, proj_norm);
 
       // MK test: add data to Mann-Kendall statistic
-      mk_statistic_ << vparms;
+      //mk_statistic_ << vparms;
       mk_statistic_en_ << en;
       iter_energy_.push_back(en);
       iter_energy_err_.push_back(en_err);
       iter_gnorm_.push_back(gnorm);
-      if (mk_statistic_.is_full()) {
+      if (mk_statistic_en_.is_full()) {
         iter_energy_.pop_front();
         iter_energy_err_.pop_front();
         iter_gnorm_.pop_front();
@@ -431,18 +424,18 @@ int Optimizer::optimize(VMCRun& vmc)
       // series average of gnorm
       double avg_gnorm = series_avg(iter_gnorm_);
       // MK trend
-      int trend_elem;
-      double mk_trend = mk_statistic_.elem_max_trend(trend_elem);
+      //int trend_elem;
+      //double mk_trend = mk_statistic_.elem_max_trend(trend_elem);
       double en_trend = mk_statistic_en_.max_trend();
 
       // print progress 
       if (print_progress_) {
         print_progress(std::cout,vparms,en,en_err,grad,search_dir,
-          gnorm,avg_gnorm,en_trend,mk_trend,trend_elem);
+          gnorm,avg_gnorm,en_trend);
       }
       if (print_log_) {
         print_progress(logfile_,vparms,en,en_err,grad,search_dir,
-          gnorm,avg_gnorm,en_trend,mk_trend,trend_elem);
+          gnorm,avg_gnorm,en_trend);
       }
 
       // file outs
@@ -457,6 +450,7 @@ int Optimizer::optimize(VMCRun& vmc)
       * Convergence criteria
       *--------------------------------------------------------------*/
       if (conv_condition_reached) {
+        iter_parms_.push_back(vparms);
         if (print_progress_) {
           std::cout<<" final iter  =  "<<final_iter_count<<"/"<<mk_series_len_<<"\n";
         } 
@@ -465,31 +459,24 @@ int Optimizer::optimize(VMCRun& vmc)
         }
         final_iter_count++;
         if (final_iter_count >= mk_series_len_) {
-          mk_statistic_.get_series_avg(vparms);
+          //mk_statistic_.get_series_avg(vparms);
           status = exit_status::converged;
           break;
         }
       }
-
-      if (mk_statistic_.is_full() && en_trend<=0.1 && avg_gnorm<=grad_tol_) {
+      if (mk_statistic_en_.is_full() && en_trend<=mk_thresold_ && avg_gnorm<=grad_tol_) {
         conv_condition_reached = true;
-        //mk_statistic_.get_series_avg(vparms);
-        //status = exit_status::converged;
-        //break;
-      }
-      else if (mk_statistic_.is_full() && mk_trend<=mk_thresold_ 
-        && avg_gnorm<=grad_tol_) {
-        conv_condition_reached = true;
-        // converged, add data point to store
         //mk_statistic_.get_series_avg(vparms);
         //status = exit_status::converged;
         //break;
       }
       else if (sr_iter>=maxiter_ || iter_count>= maxiter_) {
+        iter_parms_.push_back(vparms);
         status = exit_status::maxiter;
         break;
       }
       else if (!boost::filesystem::exists(life_fname_)) {
+        iter_parms_.push_back(vparms);
         status = exit_status::terminated;
         break;
       }
@@ -562,12 +549,14 @@ int Optimizer::optimize(VMCRun& vmc)
       all_converged_ = false;
     }
     finalize_sample(status);
-
   }// end of samples
+
+  // save NQS parameters
+  vparms = optimal_parms_.grand_data().mean_data();
+  vmc.save_parameters(vparms);
 
   return 0;
 }
-
 
 int Optimizer::finalize_sample(const exit_status& status)
 {
@@ -577,8 +566,8 @@ int Optimizer::finalize_sample(const exit_status& status)
     optimal_energy_ << iter_energy_[i];
     energy_error_bar_ << iter_energy_err_[i];
   }
-  for (const auto& p : mk_statistic_.data_series()) {
-    optimal_parms_ << p;
+  for (int i=0; i<iter_parms_.size(); ++i) {
+    optimal_parms_ << iter_parms_[i];
   }
   // print sample values
   // optimal energy
@@ -650,8 +639,7 @@ std::ostream& Optimizer::print_progress(std::ostream& os,
 std::ostream& Optimizer::print_progress(std::ostream& os, 
   const var::parm_vector& vparms, const double& energy,
   const double& error_bar, const RealVector& grad, const RealVector& search_dir,
-  const double& gnorm, const double& avg_gnorm, const double& en_trend, 
-  const double& mk_trend, const int& trend_elem) 
+  const double& gnorm, const double& avg_gnorm, const double& en_trend)
 {
   std::ios state(NULL);
   state.copyfmt(os);
@@ -673,8 +661,9 @@ std::ostream& Optimizer::print_progress(std::ostream& os,
   os << " (avg ="<<std::setw(11)<<avg_gnorm<<")\n";
   os <<std::fixed<<std::setprecision(6)<<std::right;
   os <<" MK trend    = "<<std::setw(9)<<en_trend<<"  ";
-  os <<std::setw(9)<<mk_trend;
-  os << " ("<<trend_elem<<")"<<"\n"; 
+  //os <<std::setw(9)<<mk_trend;
+  //os << " ("<<trend_elem<<")"<<"\n"; 
+  os << "\n"; 
   os.copyfmt(state);
   return os;
 }

@@ -141,7 +141,7 @@ int ObservableSet::do_measurement(const lattice::Lattice& lattice,
   if (energy_grad_) {
     if (!energy_) 
       throw std::logic_error("ObservableSet::measure: dependency not met for 'energy'");
-    energy_grad_.measure(config, energy_.config_value().sum());
+    energy_grad_.measure(config, energy_.config_value());
   }
   if (spin_corr_) spin_corr_.measure(lattice,model,config);
   if (sc_corr_) sc_corr_.measure(lattice,model,config);

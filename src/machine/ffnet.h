@@ -46,7 +46,10 @@ public:
   const Vector& output(void) const override { return layers_.back()->output(); }
   Vector get_new_output(const Vector& input) const override;
   Vector get_new_output(const Vector& new_input, const std::vector<int> new_elems) const override; 
-  const Matrix& get_gradient(void) const override;
+  void get_gradient(Vector& grad, const int& pos) const override;
+  void get_log_gradient(Vector& grad, const int& pos) const override;
+  void get_gradient(Matrix& grad_mat) const override;
+  void get_log_gradient(Matrix& grad_mat) const override;
 protected:
   int num_layers_{0};
   int num_params_{0};
@@ -55,7 +58,7 @@ protected:
   std::vector<int> num_params_fwd_;
   //Vector output_;
   mutable Vector input_changes_;
-  mutable Matrix gradient_;
+  //mutable Matrix gradient_;
   // parameter file
   std::string prefix_{""};
 };

@@ -22,7 +22,7 @@ namespace ann {
 using random_engine =	std::mt19937_64;
 using dtype = double;
 using ivector = Eigen::VectorXi;
-using Vector = Eigen::VectorXd;
+//using Vector = Eigen::VectorXd;
 using RowVector = Eigen::RowVectorXd;
 using Matrix = Eigen::MatrixXd;
 using Array1D = Eigen::ArrayXd;

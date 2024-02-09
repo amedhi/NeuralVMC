@@ -3,7 +3,7 @@
 * @Author: Amal Medhi, amedhi@mbpro
 * @Date:   2019-08-13 12:00:53
 * @Last Modified by:   Amal Medhi
-* @Last Modified time: 2024-01-02 21:23:53
+* @Last Modified time: 2024-02-08 23:37:00
 *----------------------------------------------------------------------------*/
 #include <locale>
 #include "nqs_wf.h"
@@ -18,7 +18,6 @@ NQS_Wavefunction::NQS_Wavefunction(const lattice::Lattice& lattice, const input:
 int NQS_Wavefunction::init(const lattice::Lattice& lattice, const input::Parameters& inputs)
 {
   exponential_type_ = false;
-  //exponential_type_ = false;
   num_sites_ = lattice.num_sites();
   int num_units = 2*num_sites_;
 
@@ -27,6 +26,7 @@ int NQS_Wavefunction::init(const lattice::Lattice& lattice, const input::Paramet
   name_ = inputs.set_value("nqs_wf", "NONE");
   for (auto& x : name_) x = std::toupper(x,loc);
   if (name_ == "FFNN") {
+    nid_ = net_id::FFNN;
     nnet_.reset(new ann::FFNet());
   	//nnet_->add_layer(num_units,"Lcosh",num_units);
     //nnet_->add_layer(num_units,"tanh",num_units);
@@ -40,6 +40,7 @@ int NQS_Wavefunction::init(const lattice::Lattice& lattice, const input::Paramet
     //nnet_->add_layer(1,"relu");
   	nnet_->compile();
     num_params_ = nnet_->num_params();
+    num_output_units_ = nnet_->num_output_units(); 
   }
 
 /*
@@ -61,27 +62,9 @@ int NQS_Wavefunction::init(const lattice::Lattice& lattice, const input::Paramet
   }
 */
 
-  else if (name_ == "FFNN_SIGN2") {
-    nnet_.reset(new ann::FFNet());
-    nnet_->add_layer(num_units,"sigmoid",num_units);
-    nnet_->add_layer(1,"cospi");
-    nnet_->compile();
-    num_params_ = nnet_->num_params();
-
-    // sign part
-    sign_nnet_.reset(new ann::FFNet());
-    sign_nnet_->add_layer(num_units,"sigmoid",num_units);
-    sign_nnet_->add_layer(1,"sigmoid",num_units);
-    sign_nnet_->compile();
-    num_params_ = nnet_->num_params() + sign_nnet_->num_params();
-
-    have_sign_nnet_ = true;
-    //complex_type_ = true;
-    //exponential_type_ = false;
-  }
-  
  // /*
   else if (name_ == "FFNN_SIGN") {
+    nid_ = net_id::FFNN_SIGN;
     nnet_.reset(new ann::FFNet());
     //nnet_->add_layer(num_units,"Lcosh",num_units);
     //nnet_->add_layer(num_units,"tanh",num_units);
@@ -96,29 +79,23 @@ int NQS_Wavefunction::init(const lattice::Lattice& lattice, const input::Paramet
 
     have_sign_nnet_ = true;
     num_params_ = nnet_->num_params() + sign_nnet_->num_params();
+    num_output_units_ = nnet_->num_output_units(); // assuming 1 for sign_net
   }
   //*/
 
-  else if (name_ == "SYMFFNN") {
-    nnet_.reset(new ann::SymmFFNet());
-    nnet_->add_layer(num_units,"tanh",num_units);
-    //nnet_->add_layer(num_units,"Sigmoid",num_units);
-    nnet_->add_layer(1,"sigmoid");
-    nnet_->compile();
-    num_params_ = nnet_->num_params();
-  }
-
   else if (name_ == "RBM") {
+    nid_ = net_id::RBM;
     nnet_.reset(new ann::RBM(lattice, inputs));
     num_params_ = nnet_->num_params();
+    num_output_units_ = nnet_->num_output_units();
   }
 
   else {
     throw std::range_error("NQS_Wavefunction::NQS_Wavefunction: unidefined neural net");
   }
 
-  // parameter file
-  //std::string read_ = inputs.set_value("nqs_wf", "NONE");
+  // matrices
+  gradient_mat_.resize(num_params_,num_output_units_);
 
   return 0;
 }
@@ -126,42 +103,45 @@ int NQS_Wavefunction::init(const lattice::Lattice& lattice, const input::Paramet
 void NQS_Wavefunction::init_parameter_file(const std::string& prefix)
 {
   std::string nqs_dir = prefix+"/nqs";
-  if (name_ == "FFNN") {
-    nnet_->init_parameter_file(nqs_dir+"/ffnn");
-  }
-  else if (name_ == "FFNN_CMPL") {
-    nnet_->init_parameter_file(nqs_dir+"/ffnn");
-  }
-  else if (name_ == "FFNN_SIGN") {
-    nnet_->init_parameter_file(nqs_dir+"/ffnn");
-    sign_nnet_->init_parameter_file(nqs_dir+"/ffnn_sign");
-  }
-  else if (name_ == "SYMFFNN") {
-    nnet_->init_parameter_file(nqs_dir+"/ffnn");
-  }
-  else if (name_ == "RBM") {
-    nnet_->init_parameter_file(nqs_dir+"/rbm");
+  switch (nid_) {
+    case net_id::FFNN:
+      nnet_->init_parameter_file(nqs_dir+"/ffnn");
+      break;
+    case net_id::FFNN_SIGN:
+      nnet_->init_parameter_file(nqs_dir+"/ffnn");
+      sign_nnet_->init_parameter_file(nqs_dir+"/ffnn_sign");
+      break;
+    case net_id::RBM:
+      nnet_->init_parameter_file(nqs_dir+"/rbm");
+      break;
+    default: 
+      throw std::range_error("NQS_Wavefunction::init_parameter_file: unknown net_id");
   }
 } 
 
 void NQS_Wavefunction::save_parameters(void) const
 {
   nnet_->save_parameters();
-  if (name_ == "FFNN_SIGN") {
+  if (nid_ == net_id::FFNN_SIGN) {
     sign_nnet_->save_parameters();
   }
 }
 
 void NQS_Wavefunction::load_parameters(const std::string& load_path) 
 {
-  if (name_ == "RBM") {
-    nnet_->load_parameters(load_path+"/nqs"+"/rbm");
-  }
-  else {
-    nnet_->load_parameters(load_path+"/nqs"+"/ffnn");
-    if (name_ == "FFNN_SIGN") {
+  switch (nid_) {
+    case net_id::FFNN:
+      nnet_->load_parameters(load_path+"/nqs"+"/ffnn");
+      break;
+    case net_id::FFNN_SIGN:
+      nnet_->load_parameters(load_path+"/nqs"+"/ffnn");
       sign_nnet_->load_parameters(load_path+"/nqs"+"/ffnn_sign");
-    }
+      break;
+    case net_id::RBM:
+      nnet_->load_parameters(load_path+"/nqs"+"/rbm");
+      break;
+    default: 
+      throw std::range_error("NQS_Wavefunction::load_parameters: unknown net_id");
   }
 }
 
@@ -202,6 +182,11 @@ void NQS_Wavefunction::update_parameters(const ann::Vector& pvalues, const int& 
   nnet_->update_parameters(pvalues,pos);
   if (have_sign_nnet_) 
     sign_nnet_->update_parameters(pvalues,pos+nnet_->num_params());
+}
+
+void NQS_Wavefunction::update_parameter(const int& id, const double& value)
+{
+  nnet_->update_parameter(id,value);
 }
 
 void NQS_Wavefunction::update_state(const ann::ivector& fock_state)
@@ -317,69 +302,23 @@ amplitude_t NQS_Wavefunction::get_new_output(const ann::ivector& fock_state,
 
 void NQS_Wavefunction::get_gradient(Vector& grad, const int& pos) const
 {
-  if (complex_type_) {
-    Matrix g = nnet_->get_gradient();
-    grad = g.col(0) + ii()*g.col(1);
-    //grad = output_ * (g.col(0) + ii()*g.col(1));
-  }
-  else if (exponential_type_) {
-    if (have_sign_nnet_) {
-      grad.head(nnet_->num_params()) = output_ * nnet_->get_gradient().col(0).cast<amplitude_t>();
-      grad.tail(sign_nnet_->num_params()) = output_ * sign_nnet_->get_gradient().col(0).cast<amplitude_t>();
-    }
-    else {
-      grad = output_ * nnet_->get_gradient().col(0).cast<amplitude_t>();
-    }
-  }
-  else {
-    if (have_sign_nnet_) {
-      grad.head(nnet_->num_params()) = sign_nnet_->output()(0)*nnet_->get_gradient().col(0).cast<amplitude_t>();
-      grad.tail(sign_nnet_->num_params()) = nnet_->output()(0)*sign_nnet_->get_gradient().col(0).cast<amplitude_t>();
-
-      //grad.head(nnet_->num_params()) = nnet_->get_gradient().col(0).cast<amplitude_t>();
-      //grad.tail(sign_nnet_->num_params()) = ii()*sign_nnet_->get_gradient().col(0).cast<amplitude_t>();
-
-      //grad.head(nnet_->num_params()) = nnet_->get_gradient().col(0).cast<amplitude_t>() 
-      //    * std::exp(ii()*sign_nnet_->output()(0));
-      //grad.tail(sign_nnet_->num_params()) = output_*sign_nnet_->get_gradient().col(0).cast<amplitude_t>();
-    }
-    else {
-      grad = nnet_->get_gradient().col(0).cast<amplitude_t>();
-    }
+  switch (nid_) {
+    case net_id::RBM:
+      nnet_->get_gradient(grad, pos);
+      break;
+    default: 
+      throw std::range_error("NQS_Wavefunction::get_gradient: not implemented for this NET");
   }
 }
 
 void NQS_Wavefunction::get_log_gradient(Vector& grad, const int& pos) const
 {
-  if (complex_type_) {
-    Matrix g = nnet_->get_gradient();
-    grad = (g.col(0) + ii()*g.col(1))/output_;
-    //grad = (g.col(0) + ii()*g.col(1));
-  }
-  else if (exponential_type_) {
-    if (have_sign_nnet_) {
-      grad.head(nnet_->num_params()) = nnet_->get_gradient().col(0).cast<amplitude_t>();
-      grad.tail(sign_nnet_->num_params()) = ii()*sign_nnet_->get_gradient().col(0).cast<amplitude_t>();
-    }
-    else {
-      grad = nnet_->get_gradient().col(0).cast<amplitude_t>();
-    }
-  }
-  else {
-    amplitude_t inv = ampl_part(1.0)/output_;
-    if (have_sign_nnet_) {
-      grad.head(nnet_->num_params()) = inv*sign_nnet_->output()(0)*nnet_->get_gradient().col(0).cast<amplitude_t>();
-      grad.tail(sign_nnet_->num_params()) = inv*nnet_->output()(0)*sign_nnet_->get_gradient().col(0).cast<amplitude_t>();
-
-      //grad.head(nnet_->num_params()) = inv*nnet_->get_gradient().col(0).cast<amplitude_t>();
-      //grad.tail(sign_nnet_->num_params()) = ii()*inv*sign_nnet_->get_gradient().col(0).cast<amplitude_t>();
-
-      //grad.head(nnet_->num_params()) = nnet_->get_gradient().col(0).cast<amplitude_t>();
-      //grad.tail(sign_nnet_->num_params()) = ii()*sign_nnet_->get_gradient().col(0).cast<amplitude_t>();
-    }
-    else {
-      grad = inv*nnet_->get_gradient().col(0).cast<amplitude_t>();
-    }
+  switch (nid_) {
+    case net_id::RBM:
+      nnet_->get_log_gradient(grad, pos);
+      break;
+    default: 
+      throw std::range_error("NQS_Wavefunction::get_gradient: not implemented for this NET");
   }
 }
 

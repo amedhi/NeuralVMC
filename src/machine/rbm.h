@@ -49,7 +49,10 @@ public:
   const Vector& output(void) const override { return output_; }
   Vector get_new_output(const Vector& input) const override;
   Vector get_new_output(const Vector& new_input, const std::vector<int> new_elems) const override; 
-  const Matrix& get_gradient(void) const override;
+  void get_gradient(Vector& grad, const int& pos) const override;
+  void get_log_gradient(Vector& grad, const int& pos) const override;
+  void get_gradient(Matrix& grad_mat) const override;
+  void get_log_gradient(Matrix& grad_mat) const override;
 protected:
   int num_layers_{0};
   int num_output_units_{1}; // always 1, not same as 'num_hidden_units'
@@ -73,8 +76,9 @@ protected:
   RealMatrix kernel_;
   RealVector input_;
   RealVector lin_output_;
-  RealVector cosh_output_;
   RealVector output_;
+  RealVector tmp_output_;
+  mutable RealVector tanh_output_;
 
   // parameters
   RealVector pvector_; // all parameters
@@ -88,6 +92,7 @@ protected:
   //Vector output_;
   mutable Vector input_changes_;
   mutable Matrix gradient_;
+  mutable Matrix log_gradient_;
   // parameter file
   std::string prefix_{""};
 

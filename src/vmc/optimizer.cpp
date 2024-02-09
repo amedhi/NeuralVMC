@@ -246,6 +246,7 @@ int Optimizer::optimize(VMCRun& vmc)
   }
   else {
     vparms = vmc.varp_values();
+    //std::cout << vparms.transpose() << "\n"; getchar();
   }
 
   // for all samples
@@ -402,6 +403,8 @@ int Optimizer::optimize(VMCRun& vmc)
       if (print_log_) print_progress(logfile_, iter_count, "SR");
 
       // SR search direction
+      //std::cout << "Run VMC\n"; getchar();
+      //std::cout << "vparms="<< vparms.transpose() << "\n"; 
       vmc.run(vparms,en,en_err,grad,grad_err,sr_matrix,silent);
       stochastic_reconf(grad,sr_matrix,work_mat,search_dir);
 
@@ -499,7 +502,8 @@ int Optimizer::optimize(VMCRun& vmc)
       else {
         // Fixed sized step beyond this iteration
         vparms.noalias() += search_tstep_ * search_dir;
-        vparms = lbound_.cwiseMax(vparms.cwiseMin(ubound_));
+
+        //vparms = lbound_.cwiseMax(vparms.cwiseMin(ubound_));
         fixedstep_iter_++;
         if (print_progress_) {
           std::cout<<" line search =  constant step\n";

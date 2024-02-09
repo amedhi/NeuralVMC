@@ -23,7 +23,8 @@ public:
   void setup(const lattice::Lattice& lattice, const model::Hamiltonian& model, const bool& only_total=false);
   void measure(const lattice::Lattice& lattice, const model::Hamiltonian& model,
     const SysConfig& config, const SiteDisorder& site_disorder);
-  const mcdata::data_t& config_value(void) const { return config_value_; }
+  //const mcdata::data_t& config_value(void) const { return config_value_; }
+  const double& config_value(void) const;
 private:
   bool setup_done_{false};
   bool only_total_{false};

@@ -17,6 +17,9 @@
 #include "rbm.h"
 
 namespace nqs {
+
+enum class net_id {FFNN, FFNN_SIGN, FFNN_SIGN2, RBM};
+
 constexpr std::complex<double> ii(void) { return std::complex<double>(0.0, 1.0); }
 
 class NQS_Wavefunction 
@@ -37,6 +40,7 @@ public:
   void get_parm_vector(std::vector<double>& pvalues, const int& pos) const;
 //  void update(const var::parm_vector& pvector, const unsigned& start_pos=0); 
   void update_parameters(const ann::Vector& pvalues, const int& pos);
+  void update_parameter(const int& id, const double& value);
   void update_state(const ann::ivector& fock_state);
   void update_state(const ann::ivector& fock_state, const std::vector<int> new_elems);
   const amplitude_t& output(void) const; 
@@ -47,6 +51,7 @@ public:
   void get_gradient(Vector& grad, const int& pos) const;
   void get_log_gradient(Vector& grad, const int& pos) const;
 private:
+  net_id nid_{net_id::FFNN};
   std::unique_ptr<ann::AbstractNet> nnet_;
   std::unique_ptr<ann::AbstractNet> sign_nnet_;
   std::string name_;
@@ -54,8 +59,10 @@ private:
   bool complex_type_{false};
   int num_sites_{0};
   int num_params_{0};
+  int num_output_units_{0};
   bool have_sign_nnet_{false};
   mutable amplitude_t output_{0.0};
+  RealMatrix gradient_mat_;
 };
 
 

@@ -2,7 +2,7 @@
 * @Author: amedhi
 * @Date:   2019-01-10 14:22:50
 * @Last Modified by:   Amal Medhi
-* @Last Modified time: 2022-07-11 16:59:17
+* @Last Modified time: 2024-02-09 23:33:51
 *----------------------------------------------------------------------------*/
 #include "activation.h"
 
@@ -35,7 +35,7 @@ double RELU::function(const double& x) const
 	}
 }
 
-Vector RELU::function(const Vector& input) const
+RealVector RELU::function(const RealVector& input) const
 {
 	if (default_) {
 		return input.unaryExpr([](const double& x) { return std::max(x,0.0); });
@@ -63,7 +63,7 @@ double RELU::derivative(const double& x) const
 	}
 }
 
-Vector RELU::derivative(const Vector& input) const
+RealVector RELU::derivative(const RealVector& input) const
 {
 	if (default_) {
 		return input.unaryExpr([](const double& x) { return x>=0.0?1.0:0.0; });
@@ -84,7 +84,7 @@ double TANH::function(const double& x) const
   return std::tanh(x);
 }
 
-Vector TANH::function(const Vector& input) const
+RealVector TANH::function(const RealVector& input) const
 {
   return input.unaryExpr([](const double& x) {return std::tanh(x);});
 }
@@ -95,7 +95,7 @@ double TANH::derivative(const double& x) const
   return 1.0-y*y;
 }
 
-Vector TANH::derivative(const Vector& input) const
+RealVector TANH::derivative(const RealVector& input) const
 {
   return input.unaryExpr([](const double& x) 
 	{ double y = std::tanh(x); return 1.0-y*y; });
@@ -106,7 +106,7 @@ double Sigmoid::function(const double& x) const
   return 1.0/(1.0+std::exp(-x));
 }
 
-Vector Sigmoid::function(const Vector& input) const
+RealVector Sigmoid::function(const RealVector& input) const
 {
   return input.unaryExpr([](const double& x) {return 1.0/(1.0+std::exp(-x));});
 }
@@ -117,7 +117,7 @@ double Sigmoid::derivative(const double& x) const
   return y*(1.0-y);
 }
 
-Vector Sigmoid::derivative(const Vector& input) const
+RealVector Sigmoid::derivative(const RealVector& input) const
 {
   return input.unaryExpr([](const double& x) 
 	{ double y = 1.0/(1.0+std::exp(-x)); return y*(1.0-y); });
@@ -128,7 +128,7 @@ double ShiftedSigmoid::function(const double& x) const
   return 1.0/(1.0+std::exp(-x))-0.5;
 }
 
-Vector ShiftedSigmoid::function(const Vector& input) const
+RealVector ShiftedSigmoid::function(const RealVector& input) const
 {
   return input.unaryExpr([](const double& x) {return 1.0/(1.0+std::exp(-x))-0.5;});
 }
@@ -139,7 +139,7 @@ double ShiftedSigmoid::derivative(const double& x) const
   return y*(1.0-y);
 }
 
-Vector ShiftedSigmoid::derivative(const Vector& input) const
+RealVector ShiftedSigmoid::derivative(const RealVector& input) const
 {
   return input.unaryExpr([](const double& x) 
 	{ double y = 1.0/(1.0+std::exp(-x)); return y*(1.0-y); });
@@ -152,7 +152,7 @@ double LCOSH::function(const double& x) const
   return std::log(std::cosh(x));
 }
 
-Vector LCOSH::function(const Vector& input) const
+RealVector LCOSH::function(const RealVector& input) const
 {
   return input.unaryExpr([](const double& x) {return std::log(std::cosh(x));});
 }
@@ -162,7 +162,7 @@ double LCOSH::derivative(const double& x) const
   return std::tanh(x);
 }
 
-Vector LCOSH::derivative(const Vector& input) const
+RealVector LCOSH::derivative(const RealVector& input) const
 {
   return input.unaryExpr([](const double& x) 
 	{ return std::tanh(x); });
@@ -175,7 +175,7 @@ double COSPI::function(const double& x) const
   return std::cos(M_PI*x);
 }
 
-Vector COSPI::function(const Vector& input) const
+RealVector COSPI::function(const RealVector& input) const
 {
   //return input.unaryExpr([](const double& x) {return std::cos(pi()*x);});
   return input.unaryExpr([](const double& x) {return std::cos(M_PI*x);});
@@ -187,14 +187,13 @@ double COSPI::derivative(const double& x) const
   return -M_PI*std::sin(M_PI*x);
 }
 
-Vector COSPI::derivative(const Vector& input) const
+RealVector COSPI::derivative(const RealVector& input) const
 {
   //return input.unaryExpr([](const double& x) 
 	//{ return -pi()*std::sin(pi()*x); });
   return input.unaryExpr([](const double& x) 
 	{ return -M_PI*std::sin(M_PI*x); });
 }
-
 
 
 

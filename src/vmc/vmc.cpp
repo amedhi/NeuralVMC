@@ -173,6 +173,7 @@ int VMC::sr_function(const var::parm_vector& varp, double& en_mean,
   en_err = observables.energy().stddev(0);
   // gradient
   grad = observables.energy_grad().mean_data();
+  //std::cout << "grad = " << grad.transpose() << "\n"; getchar();
   grad_err = observables.energy_grad().stddev_data();
   // sr matrix
   observables.sr_matrix().get_matrix(sr_matrix);

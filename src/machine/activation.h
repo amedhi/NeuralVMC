@@ -9,10 +9,9 @@
 
 #include <iostream>
 #include <stdexcept>
-#include "dtype.h"
+#include "../matrix/matrix.h"
 
 namespace ann {
-
 constexpr double pi(void) { return 3.1415926535897932384626433832795028841971693993751058209; }
 
 class Activation
@@ -20,9 +19,9 @@ class Activation
 public:
   virtual ~Activation() {}
   virtual double function(const double& x) const = 0;
-  virtual Vector function(const Vector& input) const = 0;
+  virtual RealVector function(const RealVector& input) const = 0;
   virtual double derivative(const double& input) const = 0;
-  virtual Vector derivative(const Vector& input) const = 0;
+  virtual RealVector derivative(const RealVector& input) const = 0;
 private:
 };
 
@@ -32,9 +31,9 @@ public:
   None() {}
   ~None() {}
   double function(const double& x) const override { return x; }
-  Vector function(const Vector& input) const override { return input; }
+  RealVector function(const RealVector& input) const override { return input; }
   double derivative(const double& x) const override { return 1.0; }
-  Vector derivative(const Vector& input) const override { return Vector::Ones(input.size()); }
+  RealVector derivative(const RealVector& input) const override { return RealVector::Ones(input.size()); }
 private:
 };
 
@@ -45,9 +44,9 @@ public:
   	const double&maxval=-1.0); 
   ~RELU() {}
   double function(const double& x) const override;
-  Vector function(const Vector& input) const override;
+  RealVector function(const RealVector& input) const override;
   double derivative(const double& x) const override;
-  Vector derivative(const Vector& input) const override;
+  RealVector derivative(const RealVector& input) const override;
 private:
   bool default_{true};
   double alpha_{0.0};
@@ -61,9 +60,9 @@ public:
   TANH() {}
   ~TANH() {}
   double function(const double& x) const override;
-  Vector function(const Vector& input) const override;
+  RealVector function(const RealVector& input) const override;
   double derivative(const double& x) const override;
-  Vector derivative(const Vector& input) const override;
+  RealVector derivative(const RealVector& input) const override;
 };
 
 class Sigmoid : public Activation
@@ -72,9 +71,9 @@ public:
   Sigmoid() {}
   ~Sigmoid() {}
   double function(const double& x) const override;
-  Vector function(const Vector& input) const override;
+  RealVector function(const RealVector& input) const override;
   double derivative(const double& x) const override;
-  Vector derivative(const Vector& input) const override;
+  RealVector derivative(const RealVector& input) const override;
 };
 
 class ShiftedSigmoid : public Activation
@@ -83,9 +82,9 @@ public:
   ShiftedSigmoid() {}
   ~ShiftedSigmoid() {}
   double function(const double& x) const override;
-  Vector function(const Vector& input) const override;
+  RealVector function(const RealVector& input) const override;
   double derivative(const double& x) const override;
-  Vector derivative(const Vector& input) const override;
+  RealVector derivative(const RealVector& input) const override;
 };
 
 class LCOSH : public Activation
@@ -94,9 +93,9 @@ public:
   LCOSH() {}
   ~LCOSH() {}
   double function(const double& x) const override;
-  Vector function(const Vector& input) const override;
+  RealVector function(const RealVector& input) const override;
   double derivative(const double& x) const override;
-  Vector derivative(const Vector& input) const override;
+  RealVector derivative(const RealVector& input) const override;
 };
 
 class COSPI : public Activation
@@ -105,9 +104,9 @@ public:
   COSPI() {}
   ~COSPI() {}
   double function(const double& x) const override;
-  Vector function(const Vector& input) const override;
+  RealVector function(const RealVector& input) const override;
   double derivative(const double& x) const override;
-  Vector derivative(const Vector& input) const override;
+  RealVector derivative(const RealVector& input) const override;
 };
 
 

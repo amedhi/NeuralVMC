@@ -134,6 +134,13 @@ int SysConfig::build(const lattice::Lattice& lattice, const input::Parameters& i
   if (load_parms_from_file_) {
     nqs_.load_parameters(load_path_);
   }
+  //---------TEST-----------
+  int xn = inputs.set_value("xn", 0);
+  double xp = inputs.set_value("xp", 0.0);
+  nqs_.update_parameter(xn, xp);
+
+
+
   init_config();
   return 0;
 }
@@ -143,7 +150,9 @@ int SysConfig::build(const lattice::Lattice& lattice, const var::parm_vector& pv
 {
   if (num_sites_==0) return -1;
   int start_pos = 0;
+  //std::cout << "pvector = " << pvector.transpose() << "\n"; getchar();
   nqs_.update_parameters(pvector, start_pos);
+
   start_pos += num_net_parms_;
   pj_.update(pvector,start_pos);
   start_pos += num_pj_parms_;
@@ -601,7 +610,6 @@ amplitude_t SysConfig::apply_cdagc_up(const int& i, const int& j,
     amplitude_t psi_ratio = psi/nqs_psi_;
     //std::cout << psi << "\n";
     //sign *= nqs_sign_;
-    psi_ratio *= sign;
 #else
     amplitude_t psi_ratio = 1.0;
 #endif
@@ -651,7 +659,6 @@ amplitude_t SysConfig::apply_cdagc2_up(const int& i, const int& j,
     amplitude_t psi_ratio = psi/nqs_psi_;
     //std::cout << psi << "\n";
     //sign *= nqs_sign_;
-    psi_ratio *= sign;
 #else
     amplitude_t psi_ratio = 1.0;
 #endif
@@ -663,7 +670,6 @@ amplitude_t SysConfig::apply_cdagc2_up(const int& i, const int& j,
       std::cout << "state = "<<fock_basis_<<"\n";
       getchar();
     }*/
-
     //----To just compare: SWITCH OFF ifdef block----
 #ifdef HAVE_DETERMINANTAL_PART
     double proj_ratio = pj_.gw_ratio(fock_basis_.delta_nd());
@@ -700,7 +706,6 @@ amplitude_t SysConfig::apply_cdagc_dn(const int& i, const int& j,
 #ifdef MACHINE_ON
     amplitude_t psi_ratio = psi/nqs_psi_;
     //sign *= nqs_sign_;
-    psi_ratio *= sign;
 #else
     amplitude_t psi_ratio = 1.0;
 #endif
@@ -742,7 +747,6 @@ amplitude_t SysConfig::apply_cdagc2_dn(const int& i, const int& j,
 #ifdef MACHINE_ON
     amplitude_t psi_ratio = psi/nqs_psi_;
     //sign *= nqs_sign_;
-    psi_ratio *= sign;
 #else
     amplitude_t psi_ratio = 1.0;
 #endif
@@ -907,22 +911,10 @@ void SysConfig::get_grad_logpsi(Vector& grad_logpsi) const
   // grad_logpsi wrt nnet parameters
   Vector grad(num_net_parms_);
   //std::cout << "getting grad" << "\n"; getchar();
-  if (nqs_.is_exponential_type()) {
-    nqs_.get_log_gradient(grad,0);
-    for (int n=0; n<num_net_parms_; ++n) {
-      //grad_logpsi(n) = std::real(grad(n));
-      grad_logpsi(n) = grad(n);
-    }
-  }
-  else {
-    nqs_.get_gradient(grad,0);
-    for (int n=0; n<num_net_parms_; ++n) {
-      //grad_logpsi(n) = std::real(grad(n)/nqs_psi_);
-      grad_logpsi(n) = grad(n)/nqs_psi_;
-    }
-  }
+  nqs_.get_log_gradient(grad_logpsi, 0);
+
   /*
-  //std::cout << grad_logpsi.transpose() << "\n"; getchar();
+  std::cout << grad_logpsi.transpose() << "\n"; getchar();
   // grad_logpsi wrt pj parameters
   for (int n=0; n<num_pj_parms_; ++n) {
     if (pj_.varparms()[n].name()=="gfactor") {

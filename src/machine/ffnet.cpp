@@ -2,7 +2,7 @@
 * @Author: Amal Medhi
 * @Date:   2018-12-29 20:39:14
 * @Last Modified by:   Amal Medhi
-* @Last Modified time: 2021-06-10 18:38:27
+* @Last Modified time: 2024-02-08 23:36:29
 *----------------------------------------------------------------------------*/
 #include <boost/filesystem.hpp>
 #include <filesystem>
@@ -94,7 +94,7 @@ int FFNet::compile(void)
   else num_params_ = 0;
   //output_.resize(layers_.back().num_units());
   input_changes_.resize(layers_.front()->num_units());
-  gradient_.resize(num_params_,layers_.back()->num_units());
+  //gradient_.resize(num_params_,layers_.back()->num_units());
   return 0;
 }
 
@@ -232,10 +232,10 @@ Vector FFNet::get_new_output(const Vector& new_input, const std::vector<int> new
   return layers_.back()->new_output();
 }
 
-const Matrix& FFNet::get_gradient(void) const
+void FFNet::get_gradient(Matrix& gradient) const
 {
   // derivative by 'back propagation' method
-  layers_.back()->derivative(gradient_, num_params_);
+  layers_.back()->derivative(gradient, num_params_);
 
   /*
   // derivative by 'forward propagation' - highly Inefficient
@@ -257,9 +257,24 @@ const Matrix& FFNet::get_gradient(void) const
   }
   getchar();
   */
-
-  return gradient_;
 }
+
+
+void FFNet::get_log_gradient(Matrix& grad_mat) const
+{
+  throw std::range_error("FFNet::get_log_gradient: not implemented");
+}
+
+void FFNet::get_gradient(Vector& grad, const int& pos) const 
+{
+  throw std::range_error("FFNet::get_gradient: not implemented");
+}
+
+void FFNet::get_log_gradient(Vector& grad, const int& pos) const 
+{
+  throw std::range_error("FFNet::get_log_gradient: not implemented");
+}
+
 
 // -------------------Symmetrized FFNet-----------------------------
 int SymmFFNet::add_layer(const int& units, const std::string& activation, 

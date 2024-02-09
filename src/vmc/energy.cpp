@@ -154,6 +154,12 @@ void Energy::measure(const lattice::Lattice& lattice,
   //getchar();
 }
 
+const double& Energy::config_value(void) const 
+{
+  // TOTAL config energy
+  return config_value_(0);
+}
+
 /*
 void Energy::setup(const lattice::Lattice& lattice, 
   const model::Hamiltonian& model)

@@ -18,8 +18,8 @@
 #include <stdexcept>
 #include <Eigen/Eigenvalues>
 #include "../scheduler/task.h"
+#include "../matrix/matrix.h"
 #include "./mf_model.h"
-#include "./matrix.h"
 #include "./identity.h"
 #include "./fermisea.h"
 #include "./bcs_state.h"

@@ -16,7 +16,7 @@
 #include <set>
 #include <stdexcept>
 #include "../scheduler/task.h"
-#include "../wavefunction/matrix.h"
+#include "../matrix/matrix.h"
 #include <Eigen/Dense>
 #include <boost/graph/adjacency_list.hpp>
 #include "constants.h"

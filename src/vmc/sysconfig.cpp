@@ -30,55 +30,56 @@ SysConfig::SysConfig(const input::Parameters& inputs,
 #endif
 
   // variational parameters
-  //nqs_.init_parameters(fock_basis_.rng(), 0.005);
-  //num_net_parms_ = ffnet_.num_params();
-  num_net_parms_ = nqs_.num_params();
   num_pj_parms_ = pj_.varparms().size();
   num_wf_parms_ = wf_.varparms().size();
+  num_net_parms_ = nqs_.num_params();
   num_varparms_ = (num_net_parms_+num_pj_parms_+num_wf_parms_);
   vparm_names_.resize(num_varparms_);
   vparm_lbound_.resize(num_varparms_);
   vparm_ubound_.resize(num_varparms_);
   // names
-  //ffnet_.get_parm_names(vparm_names_,0);
-  nqs_.get_parm_names(vparm_names_,0);
-  pj_.get_vparm_names(vparm_names_,num_net_parms_);
-  wf_.get_vparm_names(vparm_names_,num_net_parms_+num_pj_parms_);
+  pj_.get_vparm_names(vparm_names_,0);
+  wf_.get_vparm_names(vparm_names_,num_pj_parms_);
+  nqs_.get_parm_names(vparm_names_,num_net_parms_+num_pj_parms_);
   // values are not static and may change
   // bounds
-  //ffnet_.get_parm_lbound(vparm_lbound_,0);
-  pj_.get_vparm_lbound(vparm_lbound_,num_net_parms_);
-  wf_.get_vparm_lbound(vparm_lbound_,num_net_parms_+num_pj_parms_);
-  //ffnet_.get_parm_ubound(vparm_ubound_,0);
-  pj_.get_vparm_ubound(vparm_ubound_,num_net_parms_);
-  wf_.get_vparm_ubound(vparm_ubound_,num_net_parms_+num_pj_parms_);
+  pj_.get_vparm_lbound(vparm_lbound_,0);
+  wf_.get_vparm_lbound(vparm_lbound_,num_pj_parms_);
+  pj_.get_vparm_ubound(vparm_ubound_,0);
+  wf_.get_vparm_ubound(vparm_ubound_,num_pj_parms_);
 }
 
 int SysConfig::init_files(const std::string& prefix, const input::Parameters& inputs)
 {
   // variational parameters prefix folder
   int nowarn;
-  /*
-  save_path_ = inputs.set_value("parms_save_path", "", nowarn);
-  boost::algorithm::trim(save_path_);
-  if (save_path_.size()==0) save_path_ = "./";
-  if (save_path_.back()!='/') save_path_ += "/";
-  save_path_ += "vparms";
-  nqs_.init_parameter_file(save_path_);
-  */
-  save_path_ = prefix+"/vparms";
-  nqs_.init_parameter_file(save_path_);
-
-  load_path_ = inputs.set_value("parms_load_path", "", nowarn);
+  std::string save_path = inputs.set_value("parms_save_path", "", nowarn);
   if (nowarn == 0) {
-    boost::algorithm::trim(load_path_);
-    if (load_path_.size()==0) load_path_ = "./";
-    if (load_path_.back()!='/') load_path_ += "/";
-    load_path_ += "vparms";
+    boost::algorithm::trim(save_path);
+    if (save_path.size()==0) save_path = "./";
+    if (save_path.back()!='/') save_path += "/";
+    save_path += "vparams/";
   }
   else {
-    load_path_ = prefix+"/vparms";
+    save_path = prefix+"nqs_params/";
   }
+
+  //save_path_ = prefix+"/nqs_params";
+  //nqs_.init_parameter_file(save_path_);
+
+  std::string load_path = inputs.set_value("parms_load_path", "", nowarn);
+  if (nowarn == 0) {
+    boost::algorithm::trim(load_path);
+    if (load_path.size()==0) load_path = "./";
+    if (load_path.back()!='/') load_path += "/";
+    load_path += "vparams/";
+  }
+  else {
+    load_path = prefix+"vparams/";
+  }
+  // init files
+  nqs_.init_parameter_file(save_path, load_path);
+
   // load from file option
   load_parms_from_file_ = inputs.set_value("load_parms_from_file",false);
 
@@ -89,22 +90,10 @@ const var::parm_vector& SysConfig::vparm_values(void)
 {
   // values as 'var::parm_vector'
   vparm_values_.resize(num_varparms_);
-  //ffnet_.get_parm_values(vparm_values_,0);
-  nqs_.get_parm_values(vparm_values_,0);
-  pj_.get_vparm_values(vparm_values_,num_net_parms_);
-  wf_.get_vparm_values(vparm_values_,num_net_parms_+num_pj_parms_);
+  pj_.get_vparm_values(vparm_values_,0);
+  wf_.get_vparm_values(vparm_values_,+num_pj_parms_);
+  nqs_.get_parm_values(vparm_values_,num_net_parms_+num_pj_parms_);
   return vparm_values_;
-}
-
-const std::vector<double>& SysConfig::vparm_vector(void) 
-{
-  // values as 'std::double'
-  vparm_vector_.resize(num_varparms_);
-  //ffnet_.get_parm_vector(vparm_vector_,0);
-  //nqs_.get_parm_vector(vparm_vector_,0);
-  pj_.get_vparm_vector(vparm_vector_,num_net_parms_);
-  wf_.get_vparm_vector(vparm_vector_,num_net_parms_+num_pj_parms_);
-  return vparm_vector_;
 }
 
 std::string SysConfig::info_str(void) const
@@ -132,14 +121,13 @@ int SysConfig::build(const lattice::Lattice& lattice, const input::Parameters& i
 #endif
   nqs_.init_parameters(fock_basis_.rng(), 0.1);
   if (load_parms_from_file_) {
-    nqs_.load_parameters(load_path_);
+    nqs_.load_parameters();
   }
+
   //---------TEST-----------
   int xn = inputs.set_value("xn", 0);
   double xp = inputs.set_value("xp", 0.0);
   nqs_.update_parameter(xn, xp);
-
-
 
   init_config();
   return 0;
@@ -150,15 +138,13 @@ int SysConfig::build(const lattice::Lattice& lattice, const var::parm_vector& pv
 {
   if (num_sites_==0) return -1;
   int start_pos = 0;
-  //std::cout << "pvector = " << pvector.transpose() << "\n"; getchar();
-  nqs_.update_parameters(pvector, start_pos);
-
-  start_pos += num_net_parms_;
+#ifdef HAVE_DETERMINANTAL_PART
   pj_.update(pvector,start_pos);
   start_pos += num_pj_parms_;
-#ifdef HAVE_DETERMINANTAL_PART
   wf_.compute(lattice, pvector, start_pos, need_psi_grad);
+  start_pos += num_wf_parms_;
 #endif
+  nqs_.update_parameters(pvector, start_pos);
   init_config();
   return 0;
 }
@@ -171,7 +157,7 @@ int SysConfig::rebuild(const lattice::Lattice& lattice)
 #endif
   //nqs_.init_parameters(fock_basis_.rng(), 0.005);
   if (load_parms_from_file_) {
-    nqs_.load_parameters(load_path_);
+    nqs_.load_parameters();
   }
   init_config();
   return 0;
@@ -179,7 +165,7 @@ int SysConfig::rebuild(const lattice::Lattice& lattice)
 
 int SysConfig::save_parameters(const var::parm_vector& pvector)
 {
-  int start_pos = 0;
+  int start_pos = num_pj_parms_+num_wf_parms_;
   nqs_.update_parameters(pvector, start_pos);
   nqs_.save_parameters();
   return 0;
@@ -604,7 +590,7 @@ amplitude_t SysConfig::apply_cdagc_up(const int& i, const int& j,
 {
   if (i == j) return ampl_part(fock_basis_.op_ni_up(i));
   if (fock_basis_.op_cdagc_up(i,j)) {
-    int sign = fock_basis_.op_sign();
+    //int sign = fock_basis_.op_sign();
     amplitude_t psi = nqs_.get_new_output(fock_basis_.state());
 #ifdef MACHINE_ON
     amplitude_t psi_ratio = psi/nqs_psi_;
@@ -653,7 +639,7 @@ amplitude_t SysConfig::apply_cdagc2_up(const int& i, const int& j,
 {
   if (i == j) return ampl_part(fock_basis_.op_ni_up(i));
   if (fock_basis_.op_cdagc2_up(i,j)) {
-    int sign = fock_basis_.op_sign();
+    //int sign = fock_basis_.op_sign();
     amplitude_t psi = nqs_.get_new_output(fock_basis_.state());
 #ifdef MACHINE_ON
     amplitude_t psi_ratio = psi/nqs_psi_;
@@ -701,7 +687,7 @@ amplitude_t SysConfig::apply_cdagc_dn(const int& i, const int& j,
 {
   if (i == j) return ampl_part(fock_basis_.op_ni_dn(i));
   if (fock_basis_.op_cdagc_dn(i,j)) {
-    int sign = fock_basis_.op_sign();
+    //int sign = fock_basis_.op_sign();
     amplitude_t psi = nqs_.get_new_output(fock_basis_.state());
 #ifdef MACHINE_ON
     amplitude_t psi_ratio = psi/nqs_psi_;
@@ -742,7 +728,7 @@ amplitude_t SysConfig::apply_cdagc2_dn(const int& i, const int& j,
 {
   if (i == j) return ampl_part(fock_basis_.op_ni_dn(i));
   if (fock_basis_.op_cdagc2_dn(i,j)) {
-    int sign = fock_basis_.op_sign();
+    //int sign = fock_basis_.op_sign();
     amplitude_t psi = nqs_.get_new_output(fock_basis_.state());
 #ifdef MACHINE_ON
     amplitude_t psi_ratio = psi/nqs_psi_;
@@ -908,32 +894,27 @@ amplitude_t SysConfig::apply_sitepair_hop(const int& fr_site, const int& to_site
 
 void SysConfig::get_grad_logpsi(Vector& grad_logpsi) const
 {
-  // grad_logpsi wrt nnet parameters
-  //Vector grad(num_net_parms_);
-  //std::cout << "getting grad" << "\n"; getchar();
-  nqs_.get_log_gradient(grad_logpsi, 0);
-
-  /*
-  std::cout << grad_logpsi.transpose() << "\n"; getchar();
-  // grad_logpsi wrt pj parameters
-  for (int n=0; n<num_pj_parms_; ++n) {
-    if (pj_.varparms()[n].name()=="gfactor") {
-      double g = pj_.varparms()[n].value();
-      grad_logpsi(num_net_parms_+n) = static_cast<double>(dblocc_count())/g;
-    }
-    else {
-      throw std::range_error("SysConfig::get_grad_logpsi: this pj parameter not implemented\n");
+  // grad_logpsi wrt PJ parameters
+  int start_pos = 0;
+  if (num_pj_parms_ > 0) {
+    RealVector grad(num_pj_parms_);
+    pj_.get_grad_logp(fock_basis_, grad);
+    for (int n=0; n<num_pj_parms_; ++n) {
+      grad_logpsi(n) = grad(n);
     }
   }
-  // grad_logpsi wrt wf parameters
-  //auto grad = ffnet_.get_gradient()/ffn_psi_;
-  int p = num_net_parms_+num_pj_parms_;
+  start_pos += num_pj_parms_;
+
+  // grad_logpsi wrt MF parameters
   for (int n=0; n<num_wf_parms_; ++n) {
     wf_.get_gradients(psi_grad_,n,fock_basis_.upspin_sites(),fock_basis_.dnspin_sites());
-    grad_logpsi(p+n) = std::real(psi_grad_.cwiseProduct(psi_inv_.transpose()).sum());
-    //grad_logpsi(p+n) = grad(n);
+    grad_logpsi(start_pos+n) = std::real(psi_grad_.cwiseProduct(psi_inv_.transpose()).sum());
+    //std::cout << n << " " << grad_logpsi(p+n) << "\n"; getchar();
   }
-  */
+  start_pos += num_wf_parms_;
+
+  // grad_logpsi wrt NQS parameters
+  nqs_.get_log_gradient(grad_logpsi, start_pos);
 }
 
 double SysConfig::accept_ratio(void)

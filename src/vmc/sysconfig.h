@@ -40,7 +40,6 @@ public:
   std::string signature_str(void) const { return wf_.signature_str(); } 
   const int& num_varparms(void) const { return num_varparms_; } 
   const var::parm_vector& vparm_values(void);
-  const std::vector<double>& vparm_vector(void); 
   const std::vector<std::string>& varp_names(void) const { return vparm_names_; }
   const var::parm_vector& vparm_lbound(void) const { return vparm_lbound_; } 
   const var::parm_vector& vparm_ubound(void) const { return vparm_ubound_; } 
@@ -101,8 +100,8 @@ private:
 
   // variational parameters prefix folder
   bool load_parms_from_file_{false};
-  std::string save_path_;
-  std::string load_path_;
+  //std::string save_path_;
+  //std::string load_path_;
 
   // mc parameters
   enum move_t {uphop, dnhop, exch, end};

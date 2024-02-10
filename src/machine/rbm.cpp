@@ -2,7 +2,7 @@
 * @Author: Amal Medhi
 * @Date:   2018-12-29 20:39:14
 * @Last Modified by:   Amal Medhi
-* @Last Modified time: 2024-02-10 11:29:39
+* @Last Modified time: 2024-02-10 18:41:23
 *----------------------------------------------------------------------------*/
 #include <boost/filesystem.hpp>
 #include <boost/tokenizer.hpp>
@@ -16,7 +16,6 @@ namespace ann {
 RBM::RBM() : AbstractNet(), num_layers_{0}, num_params_{0}
 {
   layers_.clear();
-  num_params_fwd_.clear(); 
 }
 
 RBM::RBM(const lattice::Lattice& lattice, const input::Parameters& inputs)
@@ -28,7 +27,6 @@ RBM::RBM(const lattice::Lattice& lattice, const input::Parameters& inputs)
 int RBM::construct(const lattice::Lattice& lattice, const input::Parameters& inputs)
 {
   layers_.clear();
-  num_params_fwd_.clear(); 
   /*
    * Network parameters = # of Kernel params + # of hidden layer bias params.
    *---------------------------------------------------------------
@@ -300,18 +298,20 @@ void RBM::init_parameters(random_engine& rng, const double& sigma)
   }*/
 }
 
-void RBM::init_parameter_file(const std::string& prefix)
+void RBM::init_parameter_file(const std::string& save_path, const std::string& load_path)
 {
-  prefix_ = prefix;
-  boost::filesystem::path prefix_dir(prefix_);
-  boost::filesystem::create_directories(prefix_dir);
+  save_path_ = save_path;
+  load_path_ = load_path;
+  fname_ = "rbm_L"+std::to_string(num_sites_)+".txt";
 }
 
 void RBM::save_parameters(void) const
 {
-  std::string fname = prefix_+"/rbm_L"+std::to_string(num_sites_)+".txt";
-  std::cout << "RBM:: saving parameters to file: '"<<fname<<"'\n";
-  std::ofstream fs(fname);
+  boost::filesystem::path prefix_dir(save_path_);
+  boost::filesystem::create_directories(prefix_dir);
+  std::string file = save_path_+fname_;
+  std::cout << "RBM:: Saving parameters to file: '"<<file<<"'\n";
+  std::ofstream fs(file);
   if (fs.is_open()) {
     fs << "#  RBM: visible_units = "<<num_visible_units_<<" , hidden_dim = "<<num_hidden_units_ <<"\n";
     fs << "#  Hbias        |   Kernel\n";
@@ -330,15 +330,15 @@ void RBM::save_parameters(void) const
   }
 }
 
-void RBM::load_parameters(const std::string& load_path)
+void RBM::load_parameters(void)
 {
   boost::char_separator<char> space(" ");
   boost::tokenizer<boost::char_separator<char> >::iterator it;
   std::string line;
   std::string::size_type pos;
-  std::string fname = prefix_+"/rbm_L"+std::to_string(num_sites_)+".txt";
-  std::cout << "RBM:: loading parameters from file: '"<<fname<<"'\n";
-  std::ifstream fin(fname);
+  std::string file = load_path_+fname_;
+  std::cout << "RBM:: loading parameters from file: '"<<file<<"'\n";
+  std::ifstream fin(file);
   if (fin.is_open()) {
     int row = 0;
     while (std::getline(fin,line)) {

@@ -13,12 +13,13 @@
 #include "../matrix/matrix.h"
 #include "../lattice/lattice.h"
 #include "abstract_net.h"
+#include "inet.h"
 #include "ffnet.h"
 #include "rbm.h"
 
 namespace nqs {
 
-enum class net_id {FFNN, FFNN_SIGN, FFNN_SIGN2, RBM};
+enum class net_id {INET, FFNN, FFNN_SIGN, FFNN_SIGN2, RBM};
 
 constexpr std::complex<double> ii(void) { return std::complex<double>(0.0, 1.0); }
 
@@ -31,10 +32,10 @@ public:
   int init(const lattice::Lattice& lattice, const input::Parameters& inputs);
   const int& num_params(void) const;
   bool is_exponential_type(void) const { return exponential_type_; }
-  void init_parameter_file(const std::string& prefix); 
+  void init_parameter_file(const std::string& save_path, const std::string& load_path); 
   void init_parameters(ann::random_engine& rng, const double& sigma);
   void save_parameters(void) const;
-  void load_parameters(const std::string& load_path);
+  void load_parameters(void);
   void get_parm_names(std::vector<std::string>& pnames, const int& pos=0) const;
   void get_parm_values(RealVector& pvalues, const int& pos=0) const;
 //  void update(const var::parm_vector& pvector, const unsigned& start_pos=0); 

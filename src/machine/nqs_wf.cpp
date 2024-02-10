@@ -3,7 +3,7 @@
 * @Author: Amal Medhi, amedhi@mbpro
 * @Date:   2019-08-13 12:00:53
 * @Last Modified by:   Amal Medhi
-* @Last Modified time: 2024-02-10 11:36:43
+* @Last Modified time: 2024-02-10 19:04:01
 *----------------------------------------------------------------------------*/
 #include <locale>
 #include "nqs_wf.h"
@@ -25,7 +25,14 @@ int NQS_Wavefunction::init(const lattice::Lattice& lattice, const input::Paramet
   have_sign_nnet_ = false;
   name_ = inputs.set_value("nqs_wf", "NONE");
   for (auto& x : name_) x = std::toupper(x,loc);
-  if (name_ == "FFNN") {
+  if (name_ == "IDENTITY") {
+    nid_ = net_id::INET;
+    nnet_.reset(new ann::INet());
+    num_params_ = nnet_->num_params();
+    num_output_units_ = nnet_->num_output_units(); 
+  }
+
+  else if (name_ == "FFNN") {
     nid_ = net_id::FFNN;
     nnet_.reset(new ann::FFNet());
   	//nnet_->add_layer(num_units,"Lcosh",num_units);
@@ -100,19 +107,22 @@ int NQS_Wavefunction::init(const lattice::Lattice& lattice, const input::Paramet
   return 0;
 }
 
-void NQS_Wavefunction::init_parameter_file(const std::string& prefix)
+void NQS_Wavefunction::init_parameter_file(const std::string& save_prefix, const std::string& load_prefix)
 {
-  std::string nqs_dir = prefix+"/nqs";
+  std::string save_path = save_prefix+"nqs/";
+  std::string load_path = load_prefix+"nqs/";
   switch (nid_) {
     case net_id::FFNN:
-      nnet_->init_parameter_file(nqs_dir+"/ffnn");
+      nnet_->init_parameter_file(save_path+"ffnn/", load_path+"ffnn/");
       break;
     case net_id::FFNN_SIGN:
-      nnet_->init_parameter_file(nqs_dir+"/ffnn");
-      sign_nnet_->init_parameter_file(nqs_dir+"/ffnn_sign");
+      nnet_->init_parameter_file(save_path+"ffnn/", load_path+"ffnn/");
+      sign_nnet_->init_parameter_file(save_path+"ffnn_sign/", load_path+"ffnn_sign/");
       break;
     case net_id::RBM:
-      nnet_->init_parameter_file(nqs_dir+"/rbm");
+      nnet_->init_parameter_file(save_path+"rbm/", load_path+"rbm/");
+      break;
+    case net_id::INET:
       break;
     default: 
       throw std::range_error("NQS_Wavefunction::init_parameter_file: unknown net_id");
@@ -127,22 +137,10 @@ void NQS_Wavefunction::save_parameters(void) const
   }
 }
 
-void NQS_Wavefunction::load_parameters(const std::string& load_path) 
+void NQS_Wavefunction::load_parameters(void) 
 {
-  switch (nid_) {
-    case net_id::FFNN:
-      nnet_->load_parameters(load_path+"/nqs"+"/ffnn");
-      break;
-    case net_id::FFNN_SIGN:
-      nnet_->load_parameters(load_path+"/nqs"+"/ffnn");
-      sign_nnet_->load_parameters(load_path+"/nqs"+"/ffnn_sign");
-      break;
-    case net_id::RBM:
-      nnet_->load_parameters(load_path+"/nqs"+"/rbm");
-      break;
-    default: 
-      throw std::range_error("NQS_Wavefunction::load_parameters: unknown net_id");
-  }
+  nnet_->load_parameters();
+  if (have_sign_nnet_) sign_nnet_->load_parameters();
 }
 
 const int& NQS_Wavefunction::num_params(void) const 
@@ -168,6 +166,20 @@ void NQS_Wavefunction::get_parm_values(RealVector& pvalues, const int& pos) cons
 	nnet_->get_parameter_values(pvalues, pos);
   if (have_sign_nnet_) 
     sign_nnet_->get_parameter_values(pvalues, pos+nnet_->num_params());
+}
+
+void NQS_Wavefunction::get_parm_lbound(RealVector& lbound, const int& pos) const
+{
+  for (int n=0; n<num_params_; ++n) {
+    lbound[pos+n] = -1.0E-06;
+  }
+}
+
+void NQS_Wavefunction::get_parm_ubound(RealVector& ubound, const int& pos) const
+{
+  for (int n=0; n<num_params_; ++n) {
+    ubound[pos+n] = +1.0E-06;
+  }
 }
 
 void NQS_Wavefunction::update_parameters(const RealVector& pvalues, const int& pos)
@@ -296,6 +308,8 @@ amplitude_t NQS_Wavefunction::get_new_output(const IntVector& fock_state,
 void NQS_Wavefunction::get_gradient(Vector& grad, const int& pos) const
 {
   switch (nid_) {
+    case net_id::INET:
+      break;
     case net_id::RBM:
       nnet_->get_gradient(gradient_mat_);
       break;
@@ -311,6 +325,8 @@ void NQS_Wavefunction::get_gradient(Vector& grad, const int& pos) const
 void NQS_Wavefunction::get_log_gradient(Vector& grad, const int& pos) const
 {
   switch (nid_) {
+    case net_id::INET:
+      break;
     case net_id::RBM:
       nnet_->get_log_gradient(gradient_mat_);
       break;

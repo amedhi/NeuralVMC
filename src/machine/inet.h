@@ -4,26 +4,23 @@
 * @Last Modified by:   amedhi
 * @Last Modified time: 2023-12-25 23:26:32
 *----------------------------------------------------------------------------*/
-#ifndef RBM_H
-#define RBM_H
+#ifndef INET_H
+#define INET_H
 
 #include <vector>
 #include <string>
-#include <memory>
-#include <tuple>
 #include "abstract_net.h"
 #include "neural_layer.h"
 #include "../lattice/lattice.h"
 
 namespace ann {
 
-class RBM: public AbstractNet
+// Identity Network (Trival with output always 1)
+class INet: public AbstractNet
 {
 public:
-  RBM();
-  RBM(const lattice::Lattice& lattice, const input::Parameters& inputs);
-  ~RBM() { for (auto& p : layers_) delete p; layers_.clear(); }
-  int construct(const lattice::Lattice& lattice, const input::Parameters& inputs);
+  INet();
+  ~INet() {}
   virtual int add_layer(const int& units, const std::string& activation="None", 
     const int& input_dim=0) override;
   virtual int add_sign_layer(const int& input_dim) override;
@@ -52,48 +49,9 @@ public:
   void get_log_gradient(RealMatrix& grad_mat) const override;
 protected:
   int num_layers_{0};
-  int num_output_units_{1}; // always 1, not same as 'num_hidden_units'
-
-  // implementation of translational symmetry
-  int num_sites_{0};
-  int num_basis_sites_{1};
-  bool symmetry_{true};
-  int num_tsymms_{1};
-  IntMatrix tsymm_map_;
-
-  // structure
-  int num_visible_units_{1};
-  int num_hidden_units_{1};
-  int num_hblocks_{1};
-  int num_kernel_params_{0};
-  int num_hbias_params_{0};
+  int num_output_units_{1};
   int num_params_{0};
-  RealVector vbias_;
-  RealVector hbias_;
-  RealMatrix kernel_;
-  RealVector input_;
-  RealVector lin_output_;
   RealVector output_;
-  RealVector tmp_output_;
-  mutable RealVector tanh_output_;
-
-  // parameters
-  RealVector pvector_; // all parameters
-  using idx_list = std::vector<std::pair<int,int>>;
-  std::vector<idx_list> kernel_params_map_; // locations where a paramater appear
-  std::vector<std::vector<int>> bias_params_map_; // locations where a paramater appear
-
-  //std::vector<NeuralLayer> layers_;
-  std::vector<NeuralLayer*> layers_;
-  //Vector output_;
-  mutable RealVector input_changes_;
-  // parameter file
-  std::string prefix_{""};
-  std::string fname_{""};
-
-  int update_kernel_params(const RealVector& params);
-  int update_hbias_params(const RealVector& params);
-  RealMatrix row_translate(const RealMatrix& mat, const int& T) const;
 };
 
 

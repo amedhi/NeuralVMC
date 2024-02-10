@@ -2,7 +2,7 @@
 * @Author: Amal Medhi
 * @Date:   2018-12-29 20:39:14
 * @Last Modified by:   Amal Medhi
-* @Last Modified time: 2024-02-10 11:46:38
+* @Last Modified time: 2024-02-10 16:23:23
 *----------------------------------------------------------------------------*/
 #include <boost/filesystem.hpp>
 #include <filesystem>
@@ -103,19 +103,19 @@ void FFNet::init_parameters(random_engine& rng, const double& sigma)
   for (auto& layer : layers_) layer->init_parameters(rng, sigma);
 }
 
-
-void FFNet::init_parameter_file(const std::string& prefix)
+void FFNet::init_parameter_file(const std::string& save_path, const std::string& load_path)
 {
-  prefix_ = prefix;
-  boost::filesystem::path prefix_dir(prefix_);
-  boost::filesystem::create_directories(prefix_dir);
+  save_path_ = save_path;
+  load_path_ = load_path;
 }
 
 void FFNet::save_parameters(void) const
 {
-  std::cout << "FFNet:: saving parameters to file\n";
+  std::cout << "FFNet:: Saving parameters to file\n";
+  boost::filesystem::path prefix_dir(save_path_);
+  boost::filesystem::create_directories(prefix_dir);
   for (int n=1; n<num_layers_; ++n) {
-    std::string fname = prefix_+"/layer_"+std::to_string(n)+".txt";
+    std::string fname = save_path_+"layer_"+std::to_string(n)+".txt";
     std::ofstream fs(fname);
     if (fs.is_open()) {
       layers_[n]->save_parameters(fs);
@@ -127,11 +127,11 @@ void FFNet::save_parameters(void) const
   }
 }
 
-void FFNet::load_parameters(const std::string& load_path)
+void FFNet::load_parameters(void)
 {
   std::cout << "FFNet:: loading parameters from file\n";
   for (int n=1; n<num_layers_; ++n) {
-    std::string fname = load_path+"/layer_"+std::to_string(n)+".txt";
+    std::string fname = load_path_+"/layer_"+std::to_string(n)+".txt";
     std::ifstream fs(fname);
     if (fs.is_open()) {
       layers_[n]->load_parameters(fs);

@@ -54,10 +54,24 @@ void ObservableSet::init(const input::Parameters& inputs,
   // switch on required observables
   energy_.check_on(inputs, replace_mode_);
   energy_grad_.check_on(inputs, replace_mode_);
-  if (energy_grad_) energy_.switch_on();
+  if (energy_grad_) {
+    if (config.num_varparms()==0) {
+      std::cout << ">> Observables::init: No variational parameters, EnergyGradient OFF\n";
+      energy_grad_.switch_off();
+    }
+    else {
+      energy_.switch_on();
+    }
+  }
   spin_corr_.check_on(inputs,replace_mode_);
   sc_corr_.check_on(inputs,replace_mode_);
   sr_matrix_.check_on(inputs,replace_mode_);
+  if (sr_matrix_) {
+    if (config.num_varparms()==0) {
+      std::cout << ">> Observables::init: No variational parameters, SR_Matrix OFF\n";
+      sr_matrix_.switch_off();
+    }
+  }
   particle_density_.check_on(inputs,replace_mode_);
   doublon_density_.check_on(inputs,replace_mode_);
   momentum_dist_.check_on(inputs,replace_mode_);

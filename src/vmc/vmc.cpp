@@ -5,6 +5,7 @@
 * Last Modified time: 2017-05-17 07:24:49
 * Copyright (C) Amal Medhi, amedhi@iisertvm.ac.in
 *----------------------------------------------------------------------------*/
+#include <boost/algorithm/string.hpp>
 #include <boost/filesystem.hpp>
 #include <Eigen/SVD>
 #include "vmc.h"
@@ -37,8 +38,9 @@ VMC::VMC(const input::Parameters& inputs)
   //if (model.have_disorder_term()) 
 
   // output directory
-  std::string outdir = inputs.set_value("prefix", "");
-  prefix_ = "./"+outdir+"/";
+  prefix_ = inputs.set_value("prefix", "");
+  boost::algorithm::trim(prefix_);
+  if (prefix_.back()!='/') prefix_ += "/";
   boost::filesystem::path prefix_dir(prefix_);
   boost::filesystem::create_directory(prefix_dir);
   config.init_files(prefix_,inputs);

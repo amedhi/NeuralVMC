@@ -1,8 +1,8 @@
 /*
 * @Author: Amal Medhi, amedhi@mbpro
 * @Date:   2020-05-27 15:52:49
-* @Last Modified by:   Amal Medhi, amedhi@mbpro
-* @Last Modified time: 2020-06-02 16:21:00
+* @Last Modified by:   Amal Medhi
+* @Last Modified time: 2024-02-10 11:46:28
 */
 #include <locale>
 #include "sign_layer.h"
@@ -21,7 +21,7 @@ void SignLayer::set_output_layer(NeuralLayer* layer)
   throw std::out_of_range("SignLayer::set_output_layer: can't take output layer");
 }
 
-int SignLayer::update_forward(const Vector& input) 
+int SignLayer::update_forward(const RealVector& input) 
 {
 	re_phase_ = 0.0;
 	im_phase_ = 0.0;
@@ -46,14 +46,14 @@ int SignLayer::update_forward(const Vector& input)
   return 0;
 }
 
-int SignLayer::update_forward(const Vector& new_input, 
-  const std::vector<int>& new_elems, const Vector& input_changes) 
+int SignLayer::update_forward(const RealVector& new_input, 
+  const std::vector<int>& new_elems, const RealVector& input_changes) 
 {
 	update_forward(new_input);
   return 0;
 }
 
-int SignLayer::feed_forward(const Vector& input) const
+int SignLayer::feed_forward(const RealVector& input) const
 {
   /* Feed forward without changing the state of the layer */
 	double Re = 0.0;
@@ -77,15 +77,15 @@ int SignLayer::feed_forward(const Vector& input) const
   return 0;
 }
 
-int SignLayer::feed_forward(const Vector& new_input, 
-  const std::vector<int>& new_elems, const Vector& input_changes) const
+int SignLayer::feed_forward(const RealVector& new_input, 
+  const std::vector<int>& new_elems, const RealVector& input_changes) const
 {
   /* Feed forward without changing the state of the layer */
   feed_forward(new_input);
   return 0;
 }
 
-Vector SignLayer::get_new_output(const Vector& input) const
+RealVector SignLayer::get_new_output(const RealVector& input) const
 {
   /* Give output without changing the state of the layer */
 	double Re = 0.0;
@@ -108,7 +108,7 @@ Vector SignLayer::get_new_output(const Vector& input) const
   return lin_output_tmp_;
 }
 
-int SignLayer::derivative(Matrix& derivative, const int& num_total_params) const
+int SignLayer::derivative(RealMatrix& derivative, const int& num_total_params) const
 {
   // derivative of the SINGLE output unit
   int pid_begin = num_total_params-num_params_;

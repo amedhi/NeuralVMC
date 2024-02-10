@@ -10,7 +10,7 @@
 
 #include "../scheduler/task.h"
 #include <string>
-#include "../wavefunction/matrix.h"
+#include "../matrix/matrix.h"
 #include "../lattice/lattice.h"
 #include "abstract_net.h"
 #include "ffnet.h"
@@ -36,18 +36,17 @@ public:
   void save_parameters(void) const;
   void load_parameters(const std::string& load_path);
   void get_parm_names(std::vector<std::string>& pnames, const int& pos=0) const;
-  void get_parm_values(ann::Vector& pvalues, const int& pos=0) const;
-  void get_parm_vector(std::vector<double>& pvalues, const int& pos) const;
+  void get_parm_values(RealVector& pvalues, const int& pos=0) const;
 //  void update(const var::parm_vector& pvector, const unsigned& start_pos=0); 
-  void update_parameters(const ann::Vector& pvalues, const int& pos);
+  void update_parameters(const RealVector& pvalues, const int& pos);
   void update_parameter(const int& id, const double& value);
-  void update_state(const ann::ivector& fock_state);
-  void update_state(const ann::ivector& fock_state, const std::vector<int> new_elems);
+  void update_state(const IntVector& fock_state);
+  void update_state(const IntVector& fock_state, const std::vector<int> new_elems);
   const amplitude_t& output(void) const; 
-  amplitude_t get_new_output(const ann::ivector& fock_state) const;
-  amplitude_t get_new_output(const ann::ivector& fock_state, const std::vector<int> new_elems) const;
-  void get_parm_lbound(eig::real_vec& lbound, const int& pos) const;
-  void get_parm_ubound(eig::real_vec& ubound, const int& pos) const;
+  amplitude_t get_new_output(const IntVector& fock_state) const;
+  amplitude_t get_new_output(const IntVector& fock_state, const std::vector<int> new_elems) const;
+  void get_parm_lbound(RealVector& lbound, const int& pos) const;
+  void get_parm_ubound(RealVector& ubound, const int& pos) const;
   void get_gradient(Vector& grad, const int& pos) const;
   void get_log_gradient(Vector& grad, const int& pos) const;
 private:
@@ -62,7 +61,7 @@ private:
   int num_output_units_{0};
   bool have_sign_nnet_{false};
   mutable amplitude_t output_{0.0};
-  RealMatrix gradient_mat_;
+  mutable RealMatrix gradient_mat_;
 };
 
 

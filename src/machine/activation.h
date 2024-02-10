@@ -9,10 +9,10 @@
 
 #include <iostream>
 #include <stdexcept>
+#include "./dtype.h"
 #include "../matrix/matrix.h"
 
 namespace ann {
-constexpr double pi(void) { return 3.1415926535897932384626433832795028841971693993751058209; }
 
 class Activation
 {

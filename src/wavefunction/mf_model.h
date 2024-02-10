@@ -18,7 +18,7 @@
 #include "../model/model.h"
 #include "./varparm.h"
 #include "./blochbasis.h"
-#include "./matrix.h"
+#include "../matrix/matrix.h"
 
 enum class mf_order {none, af, fm, ssc, dsc, pplusip, af_dsc, disordered_sc};
 

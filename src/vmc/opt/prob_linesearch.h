@@ -11,7 +11,7 @@
 #include <iostream>
 #include <fstream>
 #include <stdexcept>
-#include "../../wavefunction/matrix.h"
+#include "../../matrix/matrix.h"
 #include <Eigen/LU>
 
 namespace opt {

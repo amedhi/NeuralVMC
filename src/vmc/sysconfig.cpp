@@ -909,7 +909,7 @@ amplitude_t SysConfig::apply_sitepair_hop(const int& fr_site, const int& to_site
 void SysConfig::get_grad_logpsi(Vector& grad_logpsi) const
 {
   // grad_logpsi wrt nnet parameters
-  Vector grad(num_net_parms_);
+  //Vector grad(num_net_parms_);
   //std::cout << "getting grad" << "\n"; getchar();
   nqs_.get_log_gradient(grad_logpsi, 0);
 

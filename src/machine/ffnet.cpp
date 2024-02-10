@@ -2,7 +2,7 @@
 * @Author: Amal Medhi
 * @Date:   2018-12-29 20:39:14
 * @Last Modified by:   Amal Medhi
-* @Last Modified time: 2024-02-08 23:36:29
+* @Last Modified time: 2024-02-10 11:46:38
 *----------------------------------------------------------------------------*/
 #include <boost/filesystem.hpp>
 #include <filesystem>
@@ -153,7 +153,7 @@ const double& FFNet::get_parameter(const int& id) const
   throw std::out_of_range("FFNet::get_parameter: out-of-range 'id'");
 }
 
-void FFNet::get_parameters(Vector& pvec) const
+void FFNet::get_parameters(RealVector& pvec) const
 {
   for (int i=1; i<num_layers_; ++i) {
     int pos = num_params_fwd_[i-1];
@@ -169,7 +169,7 @@ void FFNet::get_parameter_names(std::vector<std::string>& pnames, const int& pos
   }
 }
 
-void FFNet::get_parameter_values(eig::real_vec& pvalues, const int& pos) const
+void FFNet::get_parameter_values(RealVector& pvalues, const int& pos) const
 {
   for (int i=1; i<num_layers_; ++i) {
     int start_pos = pos+num_params_fwd_[i-1];
@@ -177,12 +177,7 @@ void FFNet::get_parameter_values(eig::real_vec& pvalues, const int& pos) const
   }
 }
 
-void FFNet::get_parameter_vector(std::vector<double>& pvalues, const int& pos) const
-{
-
-}
-
-void FFNet::update_parameters(const eig::real_vec& pvec, const int& start_pos)
+void FFNet::update_parameters(const RealVector& pvec, const int& start_pos)
 {
   for (int i=1; i<num_layers_; ++i) {
     int pos = start_pos + num_params_fwd_[i-1];
@@ -201,13 +196,13 @@ void FFNet::update_parameter(const int& id, const double& value)
   throw std::out_of_range("FFNet::update_parameter: out-of-range 'id'");
 }
 
-void FFNet::do_update_run(const Vector& input)
+void FFNet::do_update_run(const RealVector& input)
 {
   layers_.front()->update_forward(input);
   //std::cout<<"output = "<<layers_.back()->output()<< "\n"; getchar();
 }
 
-void FFNet::do_update_run(const Vector& new_input, const std::vector<int> new_elems) 
+void FFNet::do_update_run(const RealVector& new_input, const std::vector<int> new_elems) 
 {
   for (const auto& i : new_elems) {
     input_changes_(i) = new_input(i)-layers_.front()->output()(i);
@@ -215,7 +210,7 @@ void FFNet::do_update_run(const Vector& new_input, const std::vector<int> new_el
   layers_.front()->update_forward(new_input,new_elems,input_changes_);
 }
 
-Vector FFNet::get_new_output(const Vector& input) const
+RealVector FFNet::get_new_output(const RealVector& input) const
 {
   /* does not change the state */
   //return layers_.back().get_new_output(input);
@@ -223,7 +218,7 @@ Vector FFNet::get_new_output(const Vector& input) const
   return layers_.back()->new_output();
 }
 
-Vector FFNet::get_new_output(const Vector& new_input, const std::vector<int> new_elems) const
+RealVector FFNet::get_new_output(const RealVector& new_input, const std::vector<int> new_elems) const
 {
   for (const auto& i : new_elems) {
     input_changes_(i) = new_input(i)-layers_.front()->output()(i);
@@ -232,7 +227,7 @@ Vector FFNet::get_new_output(const Vector& new_input, const std::vector<int> new
   return layers_.back()->new_output();
 }
 
-void FFNet::get_gradient(Matrix& gradient) const
+void FFNet::get_gradient(RealMatrix& gradient) const
 {
   // derivative by 'back propagation' method
   layers_.back()->derivative(gradient, num_params_);
@@ -260,53 +255,11 @@ void FFNet::get_gradient(Matrix& gradient) const
 }
 
 
-void FFNet::get_log_gradient(Matrix& grad_mat) const
+void FFNet::get_log_gradient(RealMatrix& gradient) const
 {
   throw std::range_error("FFNet::get_log_gradient: not implemented");
 }
 
-void FFNet::get_gradient(Vector& grad, const int& pos) const 
-{
-  throw std::range_error("FFNet::get_gradient: not implemented");
-}
-
-void FFNet::get_log_gradient(Vector& grad, const int& pos) const 
-{
-  throw std::range_error("FFNet::get_log_gradient: not implemented");
-}
-
-
-// -------------------Symmetrized FFNet-----------------------------
-int SymmFFNet::add_layer(const int& units, const std::string& activation, 
-  const int& input_dim)
-{
-  if (layers_.size()==0) {
-    if (input_dim<1) {
-      throw std::invalid_argument("FFNet::add_layer: invalid value for 'input_dim'");
-    }
-    else {
-      // input layer
-      layers_.push_back(new NeuralLayer(input_dim,"None",input_dim));
-      // first layer
-      layers_.push_back(new SymmNeuralLayer(units,activation,input_dim));
-      layers_[1]->set_input_layer(layers_[0]);
-      layers_[0]->set_output_layer(layers_[1]);
-      return layers_.size()-1;
-    }
-  }
-  // other layers
-  if (input_dim==0 || layers_.back()->num_units()==input_dim) {
-    layers_.push_back(new NeuralLayer(units,activation,layers_.back()->num_units()));
-    for (int n=1; n<layers_.size(); ++n) {
-      layers_[n]->set_input_layer(layers_[n-1]);
-      layers_[n-1]->set_output_layer(layers_[n]);
-    }
-    return layers_.size()-1;
-  }
-  else {
-    throw std::invalid_argument("FFNet::add_layer: invalid value for 'input_dim'");
-  }
-}
 
 
 

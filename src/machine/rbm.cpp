@@ -2,7 +2,7 @@
 * @Author: Amal Medhi
 * @Date:   2018-12-29 20:39:14
 * @Last Modified by:   Amal Medhi
-* @Last Modified time: 2024-02-08 23:32:40
+* @Last Modified time: 2024-02-10 11:29:39
 *----------------------------------------------------------------------------*/
 #include <boost/filesystem.hpp>
 #include <boost/tokenizer.hpp>
@@ -63,9 +63,9 @@ int RBM::construct(const lattice::Lattice& lattice, const input::Parameters& inp
   num_visible_units_ = 2*num_sites_;
   num_hblocks_ = 1;
   num_hidden_units_ = num_visible_units_*num_hblocks_;
-  vbias_ = Vector::Random(num_visible_units_);
-  hbias_ = Vector::Random(num_hidden_units_);
-  kernel_ = Matrix::Random(num_hidden_units_,num_visible_units_);
+  vbias_ = RealVector::Random(num_visible_units_);
+  hbias_ = RealVector::Random(num_hidden_units_);
+  kernel_ = RealMatrix::Random(num_hidden_units_,num_visible_units_);
   input_.resize(num_visible_units_);
   lin_output_.resize(num_hidden_units_);
   tanh_output_.resize(num_hidden_units_);
@@ -76,8 +76,8 @@ int RBM::construct(const lattice::Lattice& lattice, const input::Parameters& inp
   num_hbias_params_ = 2*num_basis_sites_*num_hblocks_;
   num_params_ =  num_kernel_params_ + num_hbias_params_;
   pvector_.resize(num_params_);
-  gradient_.resize(num_params_,1);
-  log_gradient_.resize(num_params_,1);
+  //gradient_.resize(num_params_,1);
+  //log_gradient_.resize(num_params_,1);
 
   /*
    * Symmetry Map:
@@ -165,7 +165,7 @@ int RBM::update_kernel_params(const RealVector& params)
   int N = num_basis_sites_;
   int L = num_sites_;
   int M = N*L;
-  Matrix mat(N,L);
+  RealMatrix mat(N,L);
   int block_row = 0;
   int ppos = 0;
   for (int block=0; block<num_hblocks_; ++block) {
@@ -217,7 +217,7 @@ int RBM::update_hbias_params(const RealVector& params)
   assert(params.size()==num_hbias_params_);
 
   int N = num_basis_sites_;
-  Vector vec(N);
+  RealVector vec(N);
   int block_row = 0;
   int ppos = 0;
   for (int block=0; block<num_hblocks_; ++block) {
@@ -259,10 +259,10 @@ int RBM::update_hbias_params(const RealVector& params)
   return 0;
 }
 
-Matrix RBM::row_translate(const RealMatrix& mat, const int& T) const
+RealMatrix RBM::row_translate(const RealMatrix& mat, const int& T) const
 {
   assert(mat.cols() <= num_sites_);
-  Matrix tmat(mat.rows(), mat.cols());
+  RealMatrix tmat(mat.rows(), mat.cols());
   for (int i=0; i<mat.rows(); ++i) {
     for (int j=0; j<mat.cols(); ++j) {
       int tj = tsymm_map_(T,j);
@@ -388,7 +388,7 @@ const double& RBM::get_parameter(const int& id) const
   throw std::out_of_range("RBM::get_parameter: out-of-range 'id'");
 }
 
-void RBM::get_parameters(Vector& pvec) const
+void RBM::get_parameters(RealVector& pvec) const
 {
   pvec = pvector_;
 }
@@ -412,13 +412,6 @@ void RBM::get_parameter_names(std::vector<std::string>& pnames, const int& pos) 
 }
 
 void RBM::get_parameter_values(RealVector& pvalues, const int& pos) const
-{
-  for (int i=0; i<num_params_; ++i) {
-    pvalues[pos+i] = pvector_[i];
-  }
-}
-
-void RBM::get_parameter_vector(std::vector<double>& pvalues, const int& pos) const
 {
   for (int i=0; i<num_params_; ++i) {
     pvalues[pos+i] = pvector_[i];
@@ -457,7 +450,7 @@ void RBM::update_parameter(const int& id, const double& value)
   }
 }
 
-void RBM::do_update_run(const Vector& input)
+void RBM::do_update_run(const RealVector& input)
 {
   input_ = input;
   lin_output_ = kernel_*input_ + hbias_;
@@ -468,7 +461,7 @@ void RBM::do_update_run(const Vector& input)
   output_[0] = y;
 }
 
-void RBM::do_update_run(const Vector& new_input, const std::vector<int> new_elems) 
+void RBM::do_update_run(const RealVector& new_input, const std::vector<int> new_elems) 
 {
   // changes to lin outputs
   if (new_elems.size()==0) return;
@@ -490,7 +483,7 @@ void RBM::do_update_run(const Vector& new_input, const std::vector<int> new_elem
   }
 }
 
-Vector RBM::get_new_output(const Vector& input) const
+RealVector RBM::get_new_output(const RealVector& input) const
 {
   /* Does NOT change the state of the network */
   RealVector xout = kernel_*input + hbias_;
@@ -501,7 +494,7 @@ Vector RBM::get_new_output(const Vector& input) const
   return RealVector::Constant(1,y);
 }
 
-Vector RBM::get_new_output(const Vector& new_input, const std::vector<int> new_elems) const
+RealVector RBM::get_new_output(const RealVector& new_input, const std::vector<int> new_elems) const
 {
   RealVector xout = lin_output_;
   for (int i=0; i<num_hidden_units_; i++) {
@@ -516,16 +509,16 @@ Vector RBM::get_new_output(const Vector& new_input, const std::vector<int> new_e
   return RealVector::Constant(1,y);
 }
 
-void RBM::get_gradient(Vector& grad, const int& pos) const 
+void RBM::get_gradient(RealMatrix& grad) const
 {
-  get_log_gradient(grad, pos);
+  get_log_gradient(grad);
   double y = output_[0];
-  for (int n=pos; n<pos+num_params_; ++n) {
-    grad[n] *= y;
+  for (int n=0; n<num_params_; ++n) {
+    grad(n,0) *= y;
   }
 }
 
-void RBM::get_log_gradient(Vector& grad, const int& pos) const 
+void RBM::get_log_gradient(RealMatrix& grad) const 
 {
   // tanh outputs
   for (int i=0; i<num_hidden_units_; ++i) {
@@ -548,30 +541,20 @@ void RBM::get_log_gradient(Vector& grad, const int& pos) const
         sum += tanh_output_[i] * d_output_[i];
       }
     }
-    grad[pos+n] = sum;
+    grad(n,0) = sum;
   }
 
   // Gradient wrt to bias parameters
-  int npos = pos+num_kernel_params_;
   for (int n=0; n<num_hbias_params_; ++n) {
     double sum = 0.0;
     for (const int& i: bias_params_map_[n]) {
       sum += tanh_output_[i];
     }
-    grad[npos+n] = sum;
+    grad(num_kernel_params_+n,0) = sum;
   }
   //std::cout << "grad = " << gradient_.col(0).transpose() << "\n"; getchar();
 }
 
-void RBM::get_gradient(Matrix& grad_mat) const
-{
-  throw std::range_error("RBM::get_gradient_matrix: not implemented");
-}
-
-void RBM::get_log_gradient(Matrix& grad_mat) const
-{
-  throw std::range_error("RBM::get_log_gradient_matrix: not implemented");
-}
 
 
 } // end namespace ann

@@ -3,7 +3,7 @@
 * @Author: Amal Medhi, amedhi@mbpro
 * @Date:   2019-08-13 12:00:53
 * @Last Modified by:   Amal Medhi
-* @Last Modified time: 2024-02-08 23:37:00
+* @Last Modified time: 2024-02-10 11:36:43
 *----------------------------------------------------------------------------*/
 #include <locale>
 #include "nqs_wf.h"
@@ -163,21 +163,14 @@ void NQS_Wavefunction::get_parm_names(std::vector<std::string>& pnames, const in
     sign_nnet_->get_parameter_names(pnames,pos+nnet_->num_params());
 }
 
-void NQS_Wavefunction::get_parm_values(ann::Vector& pvalues, const int& pos) const
+void NQS_Wavefunction::get_parm_values(RealVector& pvalues, const int& pos) const
 {
 	nnet_->get_parameter_values(pvalues, pos);
   if (have_sign_nnet_) 
     sign_nnet_->get_parameter_values(pvalues, pos+nnet_->num_params());
 }
 
-void NQS_Wavefunction::get_parm_vector(std::vector<double>& pvalues, const int& pos) const
-{
-  nnet_->get_parameter_vector(pvalues, pos);
-  if (have_sign_nnet_) 
-    sign_nnet_->get_parameter_vector(pvalues, pos+nnet_->num_params());
-}
-
-void NQS_Wavefunction::update_parameters(const ann::Vector& pvalues, const int& pos)
+void NQS_Wavefunction::update_parameters(const RealVector& pvalues, const int& pos)
 {
   nnet_->update_parameters(pvalues,pos);
   if (have_sign_nnet_) 
@@ -189,14 +182,14 @@ void NQS_Wavefunction::update_parameter(const int& id, const double& value)
   nnet_->update_parameter(id,value);
 }
 
-void NQS_Wavefunction::update_state(const ann::ivector& fock_state)
+void NQS_Wavefunction::update_state(const IntVector& fock_state)
 {
   nnet_->do_update_run(fock_state.cast<double>());
   if (have_sign_nnet_) 
     sign_nnet_->do_update_run(fock_state.cast<double>());
 }
 
-void NQS_Wavefunction::update_state(const ann::ivector& fock_state, 
+void NQS_Wavefunction::update_state(const IntVector& fock_state, 
   const std::vector<int> new_elems)
 {
   nnet_->do_update_run(fock_state.cast<double>(), new_elems);
@@ -233,7 +226,7 @@ const amplitude_t& NQS_Wavefunction::output(void) const
   return output_;
 }
 
-amplitude_t NQS_Wavefunction::get_new_output(const ann::ivector& fock_state) const
+amplitude_t NQS_Wavefunction::get_new_output(const IntVector& fock_state) const
 {
   if (complex_type_) {
     Vector v = nnet_->get_new_output(fock_state.cast<double>());
@@ -266,7 +259,7 @@ amplitude_t NQS_Wavefunction::get_new_output(const ann::ivector& fock_state) con
   }
 }
 
-amplitude_t NQS_Wavefunction::get_new_output(const ann::ivector& fock_state, 
+amplitude_t NQS_Wavefunction::get_new_output(const IntVector& fock_state, 
   const std::vector<int> new_elems) const
 {
   if (complex_type_) {
@@ -304,10 +297,14 @@ void NQS_Wavefunction::get_gradient(Vector& grad, const int& pos) const
 {
   switch (nid_) {
     case net_id::RBM:
-      nnet_->get_gradient(grad, pos);
+      nnet_->get_gradient(gradient_mat_);
       break;
     default: 
       throw std::range_error("NQS_Wavefunction::get_gradient: not implemented for this NET");
+  }
+  // copy
+  for (int n=0; n<num_params_; ++n) {
+    grad[pos+n] = gradient_mat_(n,0);
   }
 }
 
@@ -315,10 +312,14 @@ void NQS_Wavefunction::get_log_gradient(Vector& grad, const int& pos) const
 {
   switch (nid_) {
     case net_id::RBM:
-      nnet_->get_log_gradient(grad, pos);
+      nnet_->get_log_gradient(gradient_mat_);
       break;
     default: 
       throw std::range_error("NQS_Wavefunction::get_gradient: not implemented for this NET");
+  }
+  // copy
+  for (int n=0; n<num_params_; ++n) {
+    grad[pos+n] = gradient_mat_(n,0);
   }
 }
 

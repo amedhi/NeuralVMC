@@ -9,25 +9,11 @@
 #define DTYPE_H
 
 #include <random>
-//#define EIGEN_USE_MKL_ALL
 #include <Eigen/Core>
 
-//#define COMPLEX_PARAMETERS
-namespace eig {
-  using real_vec = Eigen::VectorXd;
-  using cmpl_vec = Eigen::VectorXcd;
-}
-
 namespace ann {
-using random_engine =	std::mt19937_64;
-using dtype = double;
-using ivector = Eigen::VectorXi;
-//using Vector = Eigen::VectorXd;
-using RowVector = Eigen::RowVectorXd;
-using Matrix = Eigen::MatrixXd;
-using Array1D = Eigen::ArrayXd;
-using Array2D = Eigen::Array<double,Eigen::Dynamic,Eigen::Dynamic>;
-
-} // end namespace nqs
+using random_engine = std::mt19937_64;
+constexpr double pi(void) { return 3.1415926535897932384626433832795028841971693993751058209; }
+}
 
 #endif

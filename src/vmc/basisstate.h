@@ -11,8 +11,8 @@
 #include <iostream>
 #include <vector>
 #include <Eigen/Core>
+#include "../matrix/matrix.h"
 #include "./random.h"
-#include "../wavefunction/matrix.h"
 
 namespace vmc {
 

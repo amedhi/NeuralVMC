@@ -2,7 +2,7 @@
 * @Author: Amal Medhi
 * @Date:   2018-12-29 12:01:09
 * @Last Modified by:   Amal Medhi
-* @Last Modified time: 2022-07-11 16:59:13
+* @Last Modified time: 2024-02-10 10:57:21
 *----------------------------------------------------------------------------*/
 #include <locale>
 #include <boost/tokenizer.hpp>
@@ -48,21 +48,21 @@ NeuralLayer::NeuralLayer(const int& units, const std::string& activation,
   outlayer_ = nullptr;
   // initial kernel & bias
   //kernel_ = Matrix::Ones(num_units_,input_dim_);
-  //bias_ = Vector::Zero(num_units_);
-  kernel_ = Matrix::Random(num_units_,input_dim_);
-  bias_ = Vector::Random(num_units_);
+  //bias_ = RealVector::Zero(num_units_);
+  kernel_ = RealMatrix::Random(num_units_,input_dim_);
+  bias_ = RealVector::Random(num_units_);
   //std::cout << num_units_ << " " << input_dim_ <<"\n"; getchar();
   //std::cout << "kernel_=\n" << kernel_ << "\n"; getchar();
   // other storages
-  input_ = Vector::Zero(input_dim_);
-  output_ = Vector::Zero(num_units_);
-  lin_output_ = Vector::Zero(num_units_);
-  output_tmp_ = Vector::Zero(num_units_);
-  lin_output_tmp_ = Vector::Zero(num_units_);
-  output_changes_ = Vector::Zero(num_units_);
-  der_activation_ = Vector::Zero(num_units_);
-  der_backflow_ = Vector::Zero(input_dim_);
-  derivative_ = Vector::Zero(num_units_);
+  input_ = RealVector::Zero(input_dim_);
+  output_ = RealVector::Zero(num_units_);
+  lin_output_ = RealVector::Zero(num_units_);
+  output_tmp_ = RealVector::Zero(num_units_);
+  lin_output_tmp_ = RealVector::Zero(num_units_);
+  output_changes_ = RealVector::Zero(num_units_);
+  der_activation_ = RealVector::Zero(num_units_);
+  der_backflow_ = RealVector::Zero(input_dim_);
+  derivative_ = RealVector::Zero(num_units_);
   num_params_ = kernel_.size()+bias_.size();
 }
 
@@ -158,7 +158,7 @@ void NeuralLayer::get_parameter_names(std::vector<std::string>& pnames, const in
   }
 }
 
-void NeuralLayer::get_parameter_values(eig::real_vec& pvalues, const int& pos) const
+void NeuralLayer::get_parameter_values(RealVector& pvalues, const int& pos) const
 {
   for (int i=0; i<kernel_.size(); ++i)
     pvalues(pos+i) = *(kernel_.data()+i);
@@ -167,7 +167,7 @@ void NeuralLayer::get_parameter_values(eig::real_vec& pvalues, const int& pos) c
     pvalues(n+i) = *(bias_.data()+i);
 }
 
-void NeuralLayer::get_parameters(Vector& pvec, const int& start_pos) const
+void NeuralLayer::get_parameters(RealVector& pvec, const int& start_pos) const
 {
   for (int i=0; i<kernel_.size(); ++i)
     pvec(start_pos+i) = *(kernel_.data()+i);
@@ -176,7 +176,7 @@ void NeuralLayer::get_parameters(Vector& pvec, const int& start_pos) const
     pvec(n+i) = *(bias_.data()+i);
 }
 
-void NeuralLayer::update_parameters(const Vector& pvec, const int& start_pos)
+void NeuralLayer::update_parameters(const RealVector& pvec, const int& start_pos)
 {
   for (int i=0; i<kernel_.size(); ++i)
     *(kernel_.data()+i) = pvec(start_pos+i);
@@ -203,7 +203,7 @@ void NeuralLayer::update_parameter(const int& id, const double& value)
 }
 
 /*
-Vector NeuralLayer::output(void) 
+RealVector NeuralLayer::output(void) 
 {
   if (inlayer_ == nullptr) {
     return input_;
@@ -219,7 +219,7 @@ Vector NeuralLayer::output(void)
 }
 */
 
-int NeuralLayer::update_forward(const Vector& input) 
+int NeuralLayer::update_forward(const RealVector& input) 
 {
   /* Update the state of each layer and propage forward */
   if (inlayer_ == nullptr) {
@@ -236,8 +236,8 @@ int NeuralLayer::update_forward(const Vector& input)
   return 0;
 }
 
-int NeuralLayer::update_forward(const Vector& new_input, 
-  const std::vector<int>& new_elems, const Vector& input_changes) 
+int NeuralLayer::update_forward(const RealVector& new_input, 
+  const std::vector<int>& new_elems, const RealVector& input_changes) 
 {
   /* Update the state of each layer and propagate forward */
   if (inlayer_ == nullptr) {
@@ -265,7 +265,7 @@ int NeuralLayer::update_forward(const Vector& new_input,
   return 0;
 }
 
-int NeuralLayer::feed_forward(const Vector& input) const
+int NeuralLayer::feed_forward(const RealVector& input) const
 {
   /* Feed forward without changing the state of the layer */
   if (inlayer_ == nullptr) {
@@ -282,8 +282,8 @@ int NeuralLayer::feed_forward(const Vector& input) const
   return 0;
 }
 
-int NeuralLayer::feed_forward(const Vector& new_input, 
-  const std::vector<int>& new_elems, const Vector& input_changes) const
+int NeuralLayer::feed_forward(const RealVector& new_input, 
+  const std::vector<int>& new_elems, const RealVector& input_changes) const
 {
   /* Feed forward without changing the state of the layer */
   if (inlayer_ == nullptr) {
@@ -313,7 +313,7 @@ int NeuralLayer::feed_forward(const Vector& new_input,
 }
 
 
-Vector NeuralLayer::get_new_output(const Vector& input) const
+RealVector NeuralLayer::get_new_output(const RealVector& input) const
 {
   /* Give output without changing the state of the layer */
   if (inlayer_ == nullptr) {
@@ -326,7 +326,7 @@ Vector NeuralLayer::get_new_output(const Vector& input) const
   }
 }
 
-int NeuralLayer::derivative(Matrix& derivative, const int& num_total_params) const
+int NeuralLayer::derivative(RealMatrix& derivative, const int& num_total_params) const
 {
   if (inlayer_ == nullptr) return 0;
   // check sizes
@@ -364,8 +364,8 @@ int NeuralLayer::derivative(Matrix& derivative, const int& num_total_params) con
   return 0;
 }
 
-int NeuralLayer::back_propagate(const int& pid_end, const RowVector& backflow,
-  Matrix& derivative, const int& use_col) const
+int NeuralLayer::back_propagate(const int& pid_end, const RealRowVector& backflow,
+  RealMatrix& derivative, const int& use_col) const
 {
   if (inlayer_ == nullptr) return 0;
   // derivative of activation function wrt current 'linear output'
@@ -396,7 +396,7 @@ int NeuralLayer::back_propagate(const int& pid_end, const RowVector& backflow,
 }
 
 
-Vector NeuralLayer::derivative_fwd(const int& lid, const int& pid) const
+RealVector NeuralLayer::derivative_fwd(const int& lid, const int& pid) const
 {
   assert(lid > 0); // input layer has no parameter
 
@@ -446,171 +446,6 @@ Vector NeuralLayer::derivative_fwd(const int& lid, const int& pid) const
     throw std::out_of_range("NeuralLayer::derivative: invalid parameter");
   }
 }
-
-
-// -------------------Symmetrized Neural layer-----------------------------
-SymmNeuralLayer::SymmNeuralLayer(const int& units, const std::string& activation, 
-    const int& input_dim)
-  : NeuralLayer(units, activation, input_dim)
-{
-  num_params_ = kernel_.rows()+bias_.size();
-}
-
-void SymmNeuralLayer::init_parameters(random_engine& rng, const double& sigma) 
-{
-  std::normal_distribution<double> random_normal(1.0,sigma);
-  for (int i=0; i<kernel_.rows(); ++i) {
-    double w = random_normal(rng);
-    for (int j=0; j<kernel_.cols(); ++j) {
-      kernel_(i,j) = w;
-    }
-  }
-  for (int i=0; i<bias_.size(); ++i) {
-    bias_(i) = random_normal(rng);
-  }
-}
-
-const double& SymmNeuralLayer::get_parameter(const int& id) const
-{
-  if (id < kernel_.rows()) {
-    return kernel_(id,0); 
-  }
-  else if (id < num_params_) {
-    int n = id-kernel_.rows();
-    return *(bias_.data()+n);
-  }
-  else {
-    throw std::out_of_range("NeuralLayer::get_parameter: out-of-range 'id'");
-  }
-}
-void SymmNeuralLayer::get_parameter_names(std::vector<std::string>& pnames, const int& pos) const
-{
-  std::string w = "w"+std::to_string(id_)+"_";
-  int n = pos;
-  for (int i=0; i<kernel_.rows(); ++i) {
-      pnames[n] = w + std::to_string(i);
-      n++;
-  }
-  std::string b = "b"+std::to_string(id_)+"_";
-  for (int i=0; i<bias_.size(); ++i) {
-    pnames[n++] = b + std::to_string(i);
-  }
-}
-void SymmNeuralLayer::get_parameter_values(eig::real_vec& pvalues, const int& pos) const
-{
-  for (int i=0; i<kernel_.rows(); ++i)
-    pvalues(pos+i) = kernel_(i,0);
-  int n = pos+kernel_.rows();
-  for (int i=0; i<bias_.size(); ++i)
-    pvalues(n+i) = *(bias_.data()+i);
-}
-
-void SymmNeuralLayer::get_parameters(Vector& pvec, const int& start_pos) const
-{
-  for (int i=0; i<kernel_.rows(); ++i)
-    pvec(start_pos+i) = kernel_(i,0);
-  int n = start_pos+kernel_.rows();
-  for (int i=0; i<bias_.size(); ++i)
-    pvec(n+i) = *(bias_.data()+i);
-}
-
-void SymmNeuralLayer::update_parameters(const Vector& pvec, const int& start_pos)
-{
-  for (int i=0; i<kernel_.rows(); ++i){
-    double w= pvec(start_pos+i);
-      for(int j=0;j<kernel_.cols();++j){
-        kernel_(i,j)=w;
-      }
-  
-  }
-  //std::cout << "kernel =\n" << kernel_ << "\n\n\n"; getchar();
-  int n = start_pos+kernel_.rows();
-  for (int i=0; i<bias_.size(); ++i)
-    *(bias_.data()+i) = pvec(n+i);
-}
-
-void SymmNeuralLayer::update_parameter(const int& id, const double& value)
-{
-  if (id < kernel_.rows()) {
-    kernel_(id,0)= value;
-  }
-  else if (id < num_params_) {
-    int n = id-kernel_.rows();
-    *(bias_.data()+n) = value;
-  }
-  else {
-    throw std::out_of_range("NeuralLayer::get_parameter: out-of-range 'id'");
-  }
-}
-
-int SymmNeuralLayer::derivative(Matrix& derivative, const int& num_total_params) const
-{
-  if (inlayer_ == nullptr) return 0;
-  //std::cout<<"call this function-> derivative"<<std::endl;
-  // check sizes
-  if (derivative.rows()!=num_total_params || derivative.cols()!=num_units_) {
-    throw std::out_of_range("NeuralLayer::derivative: dimension mismatch");
-  }
-  // derivative of each output units
-  int pid_begin = num_total_params-num_params_;
-  der_activation_ = activation_.get()->derivative(lin_output_);
-  for (int q=0; q<num_units_; ++q) {
-    int p = pid_begin;
-    // derivaive wrt weight parameters in this layer
-    /* since parameters are COUNTED COLUMN wise */
-    for (int m=0; m<kernel_.rows(); ++m) {
-      if (m == q) {
-        derivative(p++,q) = der_activation_(m)*inlayer_->output().sum();
-      }
-      else {
-        derivative(p++,q) = 0.0;
-      }
-    }
-
-    // derivaive wrt bias parameters in this layer
-    for (int m=0; m<bias_.size(); ++m) {
-      if (m == q) derivative(p++, q) = der_activation_(m);
-      else derivative(p++, q) = 0.0;
-    }
-    // derivative wrt parameters in the previous layer
-    for (int n=0; n<kernel_.cols(); ++n) {
-      der_backflow_(n) = der_activation_(q) * kernel_(q,n);
-    }
-    return inlayer_->back_propagate(pid_begin, der_backflow_, derivative, q);
-  }
-  return 0;
-}
-
-int SymmNeuralLayer::back_propagate(const int& pid_end, const RowVector& backflow,
-  Matrix& derivative, const int& use_col) const
-{
-  if (inlayer_ == nullptr) return 0;
-  //std::cout<<"call this function-> back_propagate"<<std::endl;
-  // derivative of activation function wrt current 'linear output'
-  der_activation_ = activation_.get()->derivative(lin_output_);
-  // If not the output layer, multiply it by backflow values 
-  // for each 'neuron' units
-  if (outlayer_ != nullptr) {
-    for (int i=0; i<num_units_; ++i) {
-      der_activation_(i) *= backflow(i);
-    }
-  }
-  int pid_begin = pid_end-num_params_;
-  int p = pid_begin;
-  // derivaive wrt weight parameters
-  /* since parameters are COUNTED COLUMN wise */
-  for (int m=0; m<kernel_.rows(); ++m) {
-    derivative(p++,use_col) = der_activation_(m)*inlayer_->output().sum();
-  }
-  // derivaive wrt bias parameters
-  for (int m=0; m<bias_.size(); ++m) {
-    derivative(p++,use_col) = der_activation_(m);
-  }
-  // new backflow for the inner layer
-  der_backflow_ = der_activation_.transpose() * kernel_;
-  return inlayer_->back_propagate(pid_begin, der_backflow_, derivative, use_col);
-}
-
 
 
 } // end namespace ann

@@ -10,7 +10,7 @@
 
 #include "./groundstate.h"
 #include "./mf_model.h"
-#include "./matrix.h"
+#include "../matrix/matrix.h"
 
 namespace var {
 

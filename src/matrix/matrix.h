@@ -20,6 +20,8 @@ using Diagonal3d = Eigen::DiagonalMatrix<double,3>;
 using IntMatrix = Eigen::MatrixXi;
 using RealVector = Eigen::VectorXd;
 using RealMatrix = Eigen::MatrixXd;
+using RealRowVector = Eigen::RowVectorXd;
+using RealColVector = Eigen::VectorXd;
 using ComplexVector = Eigen::VectorXcd;
 using ComplexMatrix = Eigen::MatrixXcd;
 

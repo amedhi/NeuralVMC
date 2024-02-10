@@ -12,7 +12,7 @@
 #include <set>
 #include <stdexcept>
 #include "../lattice/lattice.h"
-#include "matrix.h"
+#include "../matrix/matrix.h"
 
 namespace basis {
 

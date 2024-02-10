@@ -36,23 +36,20 @@ public:
   const int& num_output_units(void) const override { return num_output_units_; }
   //void set_input(const Vector& input) { front().set_input(input); }
   const double& get_parameter(const int& id) const;
-  void get_parameters(Vector& pvec) const;
+  void get_parameters(RealVector& pvec) const;
   void get_parameter_names(std::vector<std::string>& pnames, 
     const int& pos=0) const override;
   void get_parameter_values(RealVector& pvalues, const int& pos=0) const override;
-  void get_parameter_vector(std::vector<double>& pvalues, const int& pos) const override;
   void update_parameters(const RealVector& pvec, const int& pos=0) override;
   void update_parameter(const int& id, const double& value) override;
-  void do_update_run(const Vector& input) override; 
-  void do_update_run(const Vector& new_input, const std::vector<int> new_elems) override; 
+  void do_update_run(const RealVector& input) override; 
+  void do_update_run(const RealVector& new_input, const std::vector<int> new_elems) override; 
   //void run(const eig::real_vec& input); 
-  const Vector& output(void) const override { return output_; }
-  Vector get_new_output(const Vector& input) const override;
-  Vector get_new_output(const Vector& new_input, const std::vector<int> new_elems) const override; 
-  void get_gradient(Vector& grad, const int& pos) const override;
-  void get_log_gradient(Vector& grad, const int& pos) const override;
-  void get_gradient(Matrix& grad_mat) const override;
-  void get_log_gradient(Matrix& grad_mat) const override;
+  const RealVector& output(void) const override { return output_; }
+  RealVector get_new_output(const RealVector& input) const override;
+  RealVector get_new_output(const RealVector& new_input, const std::vector<int> new_elems) const override; 
+  void get_gradient(RealMatrix& grad_mat) const override;
+  void get_log_gradient(RealMatrix& grad_mat) const override;
 protected:
   int num_layers_{0};
   int num_output_units_{1}; // always 1, not same as 'num_hidden_units'
@@ -90,15 +87,13 @@ protected:
   std::vector<NeuralLayer*> layers_;
   std::vector<int> num_params_fwd_;
   //Vector output_;
-  mutable Vector input_changes_;
-  mutable Matrix gradient_;
-  mutable Matrix log_gradient_;
+  mutable RealVector input_changes_;
   // parameter file
   std::string prefix_{""};
 
   int update_kernel_params(const RealVector& params);
   int update_hbias_params(const RealVector& params);
-  Matrix row_translate(const RealMatrix& mat, const int& T) const;
+  RealMatrix row_translate(const RealMatrix& mat, const int& T) const;
 };
 
 

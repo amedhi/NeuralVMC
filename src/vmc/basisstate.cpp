@@ -305,6 +305,19 @@ const int& FockBasis::which_dnspin(void) const
   }
 }
 
+const int& FockBasis::which_frsite(void) const
+{
+  if (proposed_move_==move_t::upspin_hop) {
+    return up_fr_state_;
+  }
+  else if (proposed_move_==move_t::dnspin_hop) {
+    return dn_fr_site_;
+  }
+  else {
+    throw std::logic_error("BasisState::which_frsite: no existing move");
+  }
+}
+
 const int& FockBasis::which_site(void) const
 {
   if (proposed_move_==move_t::upspin_hop) {

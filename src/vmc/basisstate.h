@@ -43,6 +43,7 @@ public:
   bool gen_exchange_move(void);
   const int& which_upspin(void) const;
   const int& which_dnspin(void) const;
+  const int& which_frsite(void) const; 
   const int& which_site(void) const; 
   const int& which_upspin_site(void) const; 
   const int& which_dnspin_site(void) const; 

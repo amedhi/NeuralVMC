@@ -281,6 +281,7 @@ double GW_Projector::gw_ratio(const vmc::FockBasis& state,
       gw_ratio *= gw_ratio_(to_site,1);
     }
   }
+  std::cout << "gw_ratio = " << gw_ratio << "\n"; getchar();
   return gw_ratio;
 }
 

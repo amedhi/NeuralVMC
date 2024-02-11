@@ -63,7 +63,8 @@ public:
   int op_exchange_ud(const int& fr_site, const int& to_site) const;
   //const int state_sign(void) const { return ssign_; }
   const int op_sign(void) const { return op_sign_; }
-  const int delta_nd(void) const { return dblocc_increament_; }
+  const int nd_frsite(void) const { return nd_incr_frsite_; }
+  const int nd_tosite(void) const { return nd_incr_tosite_; }
   friend std::ostream& operator<<(std::ostream& os, const FockBasis& bs);
 private:
   mutable RandomGenerator rng_;
@@ -86,7 +87,9 @@ private:
 
   // update moves
   mutable move_t proposed_move_;
-  mutable int dblocc_increament_{0};
+  //mutable int dblocc_increament_{0};
+  mutable int nd_incr_frsite_{0}; // increament of nd in fr_site
+  mutable int nd_incr_tosite_{0}; // increament of nd in to_site
   //move_type accepted_move;
   mutable int mv_upspin_;
   mutable int mv_uphole_;

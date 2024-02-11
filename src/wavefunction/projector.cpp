@@ -234,6 +234,25 @@ int GW_Projector::update_parameters(const VariationalParms& vparms)
   return 0;
 }
 
+double GW_Projector::gw_ratio(const int& frsite, const int& tosite, 
+  const int& nd_frsite, const int& nd_tosite) const
+{
+  double gw_ratio = 1.0;
+  if (default_case_) {
+    // due to change in frsite 
+    gw_ratio *= gw_ratio_(0,nd_frsite+2);
+    // due to change in tosite 
+    gw_ratio *= gw_ratio_(0,nd_tosite+2);
+    //std::cout << "gw_ratio = " << gw_ratio << "\n";
+    return gw_ratio;
+  }
+  if (!is_present_) return gw_ratio;
+  if (frsite == tosite) return gw_ratio;
+
+  throw std::range_error("GW_Projector::gw_ratio: only default case is implemented");
+}
+
+
 double GW_Projector::gw_ratio(const vmc::FockBasis& state, 
   const int& fr_site, const int& to_site) const
 {
@@ -247,6 +266,7 @@ double GW_Projector::gw_ratio(const vmc::FockBasis& state,
       // one doublon to be created (change = +1)
       gw_ratio *= gw_ratio_(0,3);
     }
+    //std::cout << "gw_ratio = " << gw_ratio << "\n";
     return gw_ratio;
   }
   if (!is_present_) return gw_ratio;
@@ -281,7 +301,6 @@ double GW_Projector::gw_ratio(const vmc::FockBasis& state,
       gw_ratio *= gw_ratio_(to_site,1);
     }
   }
-  std::cout << "gw_ratio = " << gw_ratio << "\n"; getchar();
   return gw_ratio;
 }
 

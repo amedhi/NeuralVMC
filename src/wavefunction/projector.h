@@ -52,6 +52,7 @@ public:
   bool is_present(void) const { return is_present_; }
   bool is_strong(void) const; 
   int update_parameters(const VariationalParms& vparms);
+  double gw_ratio(const int& frsite, const int& tosite, const int& nd_frsite, const int& nd_tosite) const;
   double gw_ratio(const vmc::FockBasis& state, 
     const int& fr_site, const int& to_site) const;
   double gw_ratio_pairhop(const int& fr_site, const int& to_site) const;
@@ -86,6 +87,8 @@ public:
   void update(const var::parm_vector& pvector, const unsigned& start_pos=0);
   bool gw_projection(void) const { return gw_projector_.is_present(); }
   bool gw_projection_strong(void) const { return gw_projector_.is_strong(); }
+  double gw_ratio(const int& frsite, const int& tosite, const int& nd_frsite, const int& nd_tosite) const
+    { return gw_projector_.gw_ratio(frsite, tosite, nd_frsite, nd_tosite); }
   double gw_ratio(const vmc::FockBasis& state, const int& fr_site, const int& to_site) const
     { return gw_projector_.gw_ratio(state, fr_site, to_site); }
   double gw_ratio_pairhop(const int& fr_site, const int& to_site) const

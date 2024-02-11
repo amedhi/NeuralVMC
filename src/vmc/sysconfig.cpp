@@ -119,9 +119,11 @@ int SysConfig::build(const lattice::Lattice& lattice, const input::Parameters& i
   }
 
   //---------TEST-----------
+  /*
   int xn = inputs.set_value("xn", 0);
   double xp = inputs.set_value("xp", 0.0);
   nqs_.update_parameter(xn, xp);
+  */
 
   init_config();
   return 0;
@@ -324,7 +326,7 @@ int SysConfig::do_upspin_hop(void)
     if (std::abs(det_ratio) < 1.0E-12) det_ratio = 0.0;
     psi_ratio *= det_ratio;
 
-    double proj_ratio = pj_.gw_ratio(fock_basis_,fr_site,to_site);
+    double proj_ratio = pj_.gw_ratio(fr_site,to_site,fock_basis_.nd_frsite(),fock_basis_.nd_tosite());
     psi_ratio *= proj_ratio;
   }
 
@@ -368,7 +370,7 @@ int SysConfig::do_dnspin_hop(void)
     if (std::abs(det_ratio) < 1.0E-12) det_ratio = 0.0;
     psi_ratio *= det_ratio;
 
-    double proj_ratio = pj_.gw_ratio(fock_basis_,fr_site,to_site);
+    double proj_ratio = pj_.gw_ratio(fr_site,to_site,fock_basis_.nd_frsite(),fock_basis_.nd_tosite());
     psi_ratio *= proj_ratio;
   }
 
@@ -566,7 +568,7 @@ amplitude_t SysConfig::apply_cdagc_up(const int& fr_site, const int& to_site,
     wf_.get_amplitudes(psi_row_,to_site,fock_basis_.dnspin_sites());
     amplitude_t det_ratio = psi_row_.cwiseProduct(psi_inv_.col(upspin)).sum();
     psi_ratio *= det_ratio;
-    double proj_ratio = pj_.gw_ratio(fock_basis_,fr_site,to_site);
+    double proj_ratio = pj_.gw_ratio(fr_site,to_site,fock_basis_.nd_frsite(),fock_basis_.nd_tosite());
     psi_ratio *= proj_ratio;
   }
 
@@ -603,7 +605,7 @@ amplitude_t SysConfig::apply_cdagc2_up(const int& site_i, const int& site_j,
       wf_.get_amplitudes(psi_row_,to_site,fock_basis_.dnspin_sites());
       amplitude_t det_ratio = psi_row_.cwiseProduct(psi_inv_.col(upspin)).sum();
       psi_ratio *= det_ratio;
-      double proj_ratio = pj_.gw_ratio(fock_basis_,fr_site,to_site);
+      double proj_ratio = pj_.gw_ratio(fr_site,to_site,fock_basis_.nd_frsite(),fock_basis_.nd_tosite());
       psi_ratio *= proj_ratio;
     }
 
@@ -639,7 +641,7 @@ amplitude_t SysConfig::apply_cdagc_dn(const int& fr_site, const int& to_site,
     wf_.get_amplitudes(psi_col_,fock_basis_.upspin_sites(),to_site);
     amplitude_t det_ratio = psi_col_.cwiseProduct(psi_inv_.row(dnspin)).sum();
     psi_ratio *= det_ratio;
-    double proj_ratio = pj_.gw_ratio(fock_basis_,fr_site,to_site);
+    double proj_ratio = pj_.gw_ratio(fr_site,to_site,fock_basis_.nd_frsite(),fock_basis_.nd_tosite());
     psi_ratio *= proj_ratio;
   }
 
@@ -674,7 +676,7 @@ amplitude_t SysConfig::apply_cdagc2_dn(const int& site_i, const int& site_j,
       wf_.get_amplitudes(psi_col_,fock_basis_.upspin_sites(),to_site);
       amplitude_t det_ratio = psi_col_.cwiseProduct(psi_inv_.row(dnspin)).sum();
       psi_ratio *= det_ratio;
-      double proj_ratio = pj_.gw_ratio(fock_basis_,fr_site,to_site);
+      double proj_ratio = pj_.gw_ratio(fr_site,to_site,fock_basis_.nd_frsite(),fock_basis_.nd_tosite());
       psi_ratio *= proj_ratio;
     }
 

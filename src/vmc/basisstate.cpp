@@ -218,8 +218,10 @@ bool FockBasis::gen_upspin_hop(void)
     proposed_move_=move_t::upspin_hop;
     state_[up_fr_state_] = 0;
     state_[up_to_state_] = 1;
-    dblocc_increament_ = state_[num_sites_+up_to_state_]; // must be 0 or 1
-    dblocc_increament_ -= state_[num_sites_+up_fr_state_];
+    nd_incr_frsite_ = -state_[num_sites_+up_fr_state_];
+    nd_incr_tosite_ = +state_[num_sites_+up_to_state_]; 
+    //dblocc_increament_ = state_[num_sites_+up_to_state_]; // must be 0 or 1
+    //dblocc_increament_ -= state_[num_sites_+up_fr_state_];
     new_elems_.resize(2);
     new_elems_[0] = up_fr_state_;
     new_elems_[1] = up_to_state_;
@@ -261,8 +263,10 @@ bool FockBasis::gen_dnspin_hop(void)
     proposed_move_=move_t::dnspin_hop;
     state_[dn_fr_state_] = 0;
     state_[dn_to_state_] = 1;
-    dblocc_increament_ = state_[dn_to_site_]; // must be 0 or 1
-    dblocc_increament_ -= state_[dn_fr_site_];
+    nd_incr_frsite_ = -state_[dn_fr_site_];
+    nd_incr_tosite_ = +state_[dn_to_site_]; 
+    //dblocc_increament_ = state_[dn_to_site_]; // must be 0 or 1
+    //dblocc_increament_ -= state_[dn_fr_site_];
     new_elems_.resize(2);
     new_elems_[0] = dn_fr_state_;
     new_elems_[1] = dn_to_state_;
@@ -457,15 +461,21 @@ bool FockBasis::op_cdagc_up(const int& fr_site, const int& to_site) const
   else return false;
   mv_upspin_ = spin_id_[up_fr_state_];
   op_sign_ = 1;
-  dblocc_increament_ = 0;
-  if (up_fr_state_==up_to_state_ && state_[up_fr_state_]) return true;
+  if (up_fr_state_==up_to_state_ && state_[up_fr_state_]) {
+    nd_incr_frsite_ = 0;
+    nd_incr_tosite_ = 0;
+    //dblocc_increament_ = 0;
+    return true;
+  }
   // actual move now
   proposed_move_ = move_t::upspin_hop;
   state_[up_fr_state_] = 0;
   state_[up_to_state_] = 1;
   // change in no of doubly occupied sites
-  dblocc_increament_ = state_[num_sites_+up_to_state_]; // must be 0 or 1
-  dblocc_increament_ -= state_[num_sites_+up_fr_state_];
+  nd_incr_frsite_ = -state_[num_sites_+up_fr_state_];
+  nd_incr_tosite_ = +state_[num_sites_+up_to_state_]; 
+  //dblocc_increament_ = state_[num_sites_+up_to_state_]; // must be 0 or 1
+  //dblocc_increament_ -= state_[num_sites_+up_fr_state_];
   // sign (considered that the state is aready changed above)
   for (int i=up_to_state_+1; i<up_fr_state_; ++i) {
     if (state_[i]) op_sign_ = -op_sign_;
@@ -502,15 +512,22 @@ bool FockBasis::op_cdagc2_up(const int& site_i, const int& site_j) const
   else return false;
   mv_upspin_ = spin_id_[up_fr_state_];
   op_sign_ = 1;
-  dblocc_increament_ = 0;
-  if (up_fr_state_==up_to_state_ && state_[up_fr_state_]) return true;
+  if (up_fr_state_==up_to_state_ && state_[up_fr_state_]) {
+    nd_incr_frsite_ = 0;
+    nd_incr_tosite_ = 0;
+    //dblocc_increament_ = 0;
+    return true;
+  }
+
   // actual move now
   proposed_move_ = move_t::upspin_hop;
   state_[up_fr_state_] = 0;
   state_[up_to_state_] = 1;
   // change in no of doubly occupied sites
-  dblocc_increament_ = state_[num_sites_+up_to_state_]; // must be 0 or 1
-  dblocc_increament_ -= state_[num_sites_+up_fr_state_];
+  nd_incr_frsite_ = -state_[num_sites_+up_fr_state_];
+  nd_incr_tosite_ = +state_[num_sites_+up_to_state_]; 
+  //dblocc_increament_ = state_[num_sites_+up_to_state_]; // must be 0 or 1
+  //dblocc_increament_ -= state_[num_sites_+up_fr_state_];
   // sign (considered that the state is aready changed above)
   for (int i=up_to_state_+1; i<up_fr_state_; ++i) {
     if (state_[i]) op_sign_ = -op_sign_;
@@ -547,15 +564,21 @@ bool FockBasis::op_cdagc_dn(const int& fr_site, const int& to_site) const
   dn_fr_site_ = dn_fr_state_-num_sites_;
   dn_to_site_ = dn_to_state_-num_sites_;
   op_sign_ = 1;
-  dblocc_increament_ = 0;
-  if (dn_fr_state_==dn_to_state_ && state_[dn_fr_state_]) return true;
+  if (dn_fr_state_==dn_to_state_ && state_[dn_fr_state_]) {
+    nd_incr_frsite_ = 0;
+    nd_incr_tosite_ = 0;
+    //dblocc_increament_ = 0;
+    return true;
+  }
   // actual move now
   proposed_move_ = move_t::dnspin_hop;
   state_[dn_fr_state_] = 0;
   state_[dn_to_state_] = 1;
   // change in no of doubly occupied sites
-  dblocc_increament_ = state_[dn_to_site_]; // must be 0 or 1
-  dblocc_increament_ -= state_[dn_fr_site_];
+  nd_incr_frsite_ = -state_[dn_fr_site_];
+  nd_incr_tosite_ = +state_[dn_to_site_]; 
+  //dblocc_increament_ = state_[dn_to_site_]; // must be 0 or 1
+  //dblocc_increament_ -= state_[dn_fr_site_];
   // sign (considered that the state is aready changed above)
   for (int i=dn_to_state_+1; i<dn_fr_state_; ++i) {
     if (state_[i]) op_sign_ = -op_sign_;
@@ -598,15 +621,21 @@ bool FockBasis::op_cdagc2_dn(const int& site_i, const int& site_j) const
   dn_fr_site_ = dn_fr_state_-num_sites_;
   dn_to_site_ = dn_to_state_-num_sites_;
   op_sign_ = 1;
-  dblocc_increament_ = 0;
-  if (dn_fr_state_==dn_to_state_ && state_[dn_fr_state_]) return true;
+  if (dn_fr_state_==dn_to_state_ && state_[dn_fr_state_]) {
+    nd_incr_frsite_ = 0;
+    nd_incr_tosite_ = 0;
+    //dblocc_increament_ = 0;
+    return true;
+  }
   // actual move now
   proposed_move_ = move_t::dnspin_hop;
   state_[dn_fr_state_] = 0;
   state_[dn_to_state_] = 1;
   // change in no of doubly occupied sites
-  dblocc_increament_ = state_[dn_to_site_]; // must be 0 or 1
-  dblocc_increament_ -= state_[dn_fr_site_];
+  nd_incr_frsite_ = -state_[dn_fr_site_];
+  nd_incr_tosite_ = +state_[dn_to_site_]; 
+  //dblocc_increament_ = state_[dn_to_site_]; // must be 0 or 1
+  //dblocc_increament_ -= state_[dn_fr_site_];
   // sign (considered that the state is aready changed above)
   for (int i=dn_to_state_+1; i<dn_fr_state_; ++i) {
     if (state_[i]) op_sign_ = -op_sign_;
@@ -685,7 +714,7 @@ void FockBasis::commit_last_move(void)
   // double occupancy count
   switch (proposed_move_) {
     case move_t::upspin_hop:
-      num_dblocc_sites_ += dblocc_increament_;
+      //num_dblocc_sites_ += dblocc_increament_;
       //operator[](up_fr_state_) = 0;
       //operator[](up_to_state_) = 1;
       spin_id_[up_fr_state_] = null_id_;
@@ -695,7 +724,7 @@ void FockBasis::commit_last_move(void)
       proposed_move_ = move_t::null;
       break;
     case move_t::dnspin_hop:
-      num_dblocc_sites_ += dblocc_increament_;
+      //num_dblocc_sites_ += dblocc_increament_;
       //operator[](dn_fr_state_) = 0;
       //operator[](dn_to_state_) = 1;
       spin_id_[dn_fr_state_] = null_id_;
@@ -751,7 +780,9 @@ void FockBasis::undo_last_move(void) const
     case move_t::null:
       break;
   }
-  dblocc_increament_ = 0;
+  //dblocc_increament_ = 0;
+  nd_incr_frsite_ = 0;
+  nd_incr_tosite_ = 0;
   proposed_move_ = move_t::null;
 }
 

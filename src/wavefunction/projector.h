@@ -100,11 +100,10 @@ public:
   double dh_ratio(const vmc::FockBasis& state, const int& fr_site, const int& to_site) const;
   void get_grad_logp(const vmc::FockBasis& state, RealVector& grad) const;
   const VariationalParms& varparms(void) const { return varparms_; }
-  void get_vparm_names(std::vector<std::string>& names, unsigned start_pos=0) const; 
-  void get_vparm_values(var::parm_vector& values, unsigned start_pos=0) const; 
-  void get_vparm_vector(std::vector<double>& vparm_values, unsigned start_pos=0) const;
-  void get_vparm_lbound(var::parm_vector& lbounds, unsigned start_pos=0) const; 
-  void get_vparm_ubound(var::parm_vector& ubounds, unsigned start_pos=0) const; 
+  void get_varp_names(std::vector<std::string>& names, const int& start_pos=0) const; 
+  void get_varp_values(RealVector& values, const int& start_pos=0) const; 
+  void get_varp_lbound(RealVector& lbound, const int& start_pos=0) const; 
+  void get_varp_ubound(RealVector& ubound, const int& start_pos=0) const; 
 private:
   using vparm_t = std::pair<std::string,double>;
   GW_Projector gw_projector_;

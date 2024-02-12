@@ -2,7 +2,7 @@
 * @Author: Amal Medhi
 * @Date:   2022-10-15 14:57:27
 * @Last Modified by:   Amal Medhi
-* @Last Modified time: 2023-06-26 13:19:30
+* @Last Modified time: 2024-02-12 13:42:06
 * Copyright (C) 2015-2022 by Amal Medhi <amedhi@iisertvm.ac.in>.
 * All rights reserved.
 *----------------------------------------------------------------------------*/
@@ -238,7 +238,7 @@ int VMCRun::start_worker_run(void)
 {
   run_mode runmode=run_mode::normal;
   bool silent_mode = true;
-  var::parm_vector vparms(num_varp());
+  var::parm_vector vparms(num_varparms());
   bool not_done = true;
   while (not_done) {
   	mpi::mpi_status msg = mpi_comm_.probe();

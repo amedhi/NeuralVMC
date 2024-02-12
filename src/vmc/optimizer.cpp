@@ -21,10 +21,14 @@ namespace vmc {
 int Optimizer::init(const input::Parameters& inputs, const VMCRun& vmc) 
 {
   // Number of variational parameters & bounds
-  num_parms_ = vmc.num_varp();
+  num_parms_ = vmc.num_varparms();
   num_parms_print_ = std::min(num_parms_,10);
-  lbound_ = vmc.varp_lbound();
-  ubound_ = vmc.varp_ubound();
+  varp_names_.resize(num_parms_);
+  varp_lbound_.resize(num_parms_);
+  varp_ubound_.resize(num_parms_);
+  vmc.get_varp_names(varp_names_);
+  vmc.get_varp_lbound(varp_lbound_);
+  vmc.get_varp_ubound(varp_ubound_);
 
   //grad_.resize(num_parms_);
   //sr_matrix_.resize(num_parms_,num_parms_);
@@ -90,7 +94,7 @@ int Optimizer::init(const input::Parameters& inputs, const VMCRun& vmc)
   if (mode=="APPEND") replace_mode = false;
   optimal_parms_.init("opt_params");
   optimal_parms_.set_ofstream(vmc.prefix_dir());
-  optimal_parms_.resize(vmc.num_varp(), vmc.varp_names());
+  optimal_parms_.resize(num_parms_,varp_names_);
   optimal_parms_.set_replace_mode(replace_mode);
   optimal_parms_.switch_on();
   optimal_parms_.switch_on();
@@ -204,7 +208,7 @@ int Optimizer::init_sample(const VMCRun& vmc, const int& sample)
   file_vparms_ << "# ";
   file_vparms_ << std::left;
   file_vparms_ << std::setw(7)<<"iter";
-  for (const auto& p : vmc.varp_names()) file_vparms_<<std::setw(15)<<p.substr(0,14);
+  for (const auto& p : varp_names_) file_vparms_<<std::setw(15)<<p.substr(0,14);
   file_vparms_ << "\n";
   file_vparms_ << "#" << std::string(72, '-') << "\n";
   file_vparms_ << std::right;
@@ -231,8 +235,8 @@ int Optimizer::optimize(VMCRun& vmc)
   energy_error_bar_.reset();
 
   // start optimization
-  var::parm_vector vparms(num_parms_);
-  var::parm_vector vparms_start(num_parms_);
+  RealVector vparms(num_parms_);
+  RealVector vparms_start(num_parms_);
   RealVector grad(num_parms_);
   RealVector grad_err(num_parms_);
   RealVector search_dir(num_parms_);
@@ -242,10 +246,10 @@ int Optimizer::optimize(VMCRun& vmc)
   bool silent = true;
 
   if (num_opt_samples_>1) {
-    vparms_start = vmc.varp_values();
+    vmc.get_varp_values(vparms_start);
   }
   else {
-    vparms = vmc.varp_values();
+    vmc.get_varp_values(vparms);
     //std::cout << vparms.transpose() << "\n"; getchar();
   }
 
@@ -291,7 +295,7 @@ int Optimizer::optimize(VMCRun& vmc)
 
         // max_norm (of components not hitting boundary) 
         double gnorm = grad.squaredNorm();
-        double proj_norm = projected_gnorm(vparms,grad,lbound_,ubound_);
+        double proj_norm = projected_gnorm(vparms,grad,varp_lbound_,varp_ubound_);
         gnorm = std::min(gnorm, proj_norm);
 
         // MK test: add data to Mann-Kendall statistic
@@ -362,7 +366,7 @@ int Optimizer::optimize(VMCRun& vmc)
         else {
           // Fixed sized step beyond this iteration
           vparms.noalias() += search_tstep_ * search_dir;
-          vparms = lbound_.cwiseMax(vparms.cwiseMin(ubound_));
+          vparms = varp_lbound_.cwiseMax(vparms.cwiseMin(varp_ubound_));
           vmc.run(vparms,en,en_err,grad,grad_err,silent);
           fixedstep_iter_++;
           if (print_progress_) {
@@ -410,7 +414,7 @@ int Optimizer::optimize(VMCRun& vmc)
 
       // max_norm (of components not hitting boundary) 
       double gnorm = grad.squaredNorm();
-      double proj_norm = projected_gnorm(vparms,grad,lbound_,ubound_);
+      double proj_norm = projected_gnorm(vparms,grad,varp_lbound_,varp_ubound_);
       gnorm = std::min(gnorm, proj_norm);
 
       // MK test: add data to Mann-Kendall statistic
@@ -503,7 +507,7 @@ int Optimizer::optimize(VMCRun& vmc)
         // Fixed sized step beyond this iteration
         vparms.noalias() += search_tstep_ * search_dir;
 
-        //vparms = lbound_.cwiseMax(vparms.cwiseMin(ubound_));
+        //vparms = varp_lbound_.cwiseMax(vparms.cwiseMin(varp_ubound_));
         fixedstep_iter_++;
         if (print_progress_) {
           std::cout<<" line search =  constant step\n";
@@ -694,17 +698,36 @@ int Optimizer::stochastic_reconf(const RealVector& grad, RealMatrix& srmat,
   // search dir after cutting off redundant directions
   Eigen::JacobiSVD<Eigen::MatrixXd> svd(srmat, Eigen::ComputeThinU | Eigen::ComputeThinV); 
   double lmax = svd.singularValues()(0);
+
+  /*
+  std::cout << "SVD singularValues = " << svd.singularValues().transpose() << "\n";
+  double rcond = svd.singularValues()(svd.singularValues().size()-1)/svd.singularValues()(0);
+  std::cout << "RCOND = " << rcond << "\n";
+  getchar();
+  */
+
+  // m_cut
+  int m_cut = 0;
+  RealVector svals = svd.singularValues();
+  for (int m=0; m<num_parms_; ++m) {
+    if (svals[m]/lmax < w_svd_cut_) {
+      m_cut = m;
+      break;
+    }
+  }
+  //std::cout << m_cut << "\n"; getchar();
+
   for (int i=0; i<num_parms_; ++i) {
     for (int j=0; j<num_parms_; ++j) {
       double sum = 0.0;
-      for (int m=0; m<num_parms_; ++m) {
-        double sval = svd.singularValues()(m);
-        if (sval/lmax < w_svd_cut_) break;
-        sum += svd.matrixV()(i,m)*svd.matrixU()(j,m)/sval;
+      for (int m=0; m<m_cut; ++m) {
+        sum += svd.matrixV()(i,m)*svd.matrixU()(j,m)/svals[m];
       }
       srmat_inv(i,j) = sum;
+      //std::cout << "srmat_inv["<<i<<","<<j<<"] = " << sum << "\n";
     }
   }
+  //getchar();
   search_dir = -srmat_inv*grad;
 
   return 0;
@@ -736,7 +759,7 @@ double Optimizer::line_search(VMCRun& vmc, RealVector& vparms,
 
     // run with next parameters
     vparms += dt*search_dir;
-    vparms = lbound_.cwiseMax(vparms.cwiseMin(ubound_));
+    vparms = varp_lbound_.cwiseMax(vparms.cwiseMin(varp_ubound_));
     vmc.run(vparms,en,en_err,grad,grad_err,true);
 
     // find next step size by probabilistic line search method

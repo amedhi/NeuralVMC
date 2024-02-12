@@ -140,6 +140,10 @@ void Energy::measure(const lattice::Lattice& lattice,
 
   // energy per site
   double total = config_value_.sum();
+  if (std::isnan(total)) {
+    std::cout << "NAN Config value = " << config_value_.transpose() << "\n";
+    getchar();
+  }
 
   // add to databin
   if (only_total_) {

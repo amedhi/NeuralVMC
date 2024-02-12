@@ -3,7 +3,7 @@
 * @Author: Amal Medhi, amedhi@mbpro
 * @Date:   2019-08-13 12:00:53
 * @Last Modified by:   Amal Medhi
-* @Last Modified time: 2024-02-10 20:00:31
+* @Last Modified time: 2024-02-12 15:15:59
 *----------------------------------------------------------------------------*/
 #include <locale>
 #include "nqs_wf.h"
@@ -154,14 +154,14 @@ void NQS_Wavefunction::init_parameters(ann::random_engine& rng, const double& si
   if (have_sign_nnet_) sign_nnet_->init_parameters(rng,sigma); 
 }
 
-void NQS_Wavefunction::get_parm_names(std::vector<std::string>& pnames, const int& pos) const
+void NQS_Wavefunction::get_varp_names(std::vector<std::string>& pnames, const int& pos) const
 {
 	nnet_->get_parameter_names(pnames, pos);
   if (have_sign_nnet_) 
     sign_nnet_->get_parameter_names(pnames,pos+nnet_->num_params());
 }
 
-void NQS_Wavefunction::get_parm_values(RealVector& pvalues, const int& pos) const
+void NQS_Wavefunction::get_varp_values(RealVector& pvalues, const int& pos) const
 {
 	nnet_->get_parameter_values(pvalues, pos);
   if (have_sign_nnet_) 

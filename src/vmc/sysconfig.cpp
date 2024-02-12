@@ -24,24 +24,63 @@ SysConfig::SysConfig(const input::Parameters& inputs,
   if (wf_.name() == "IDENTITY") have_mf_part_ = false;
 
   // variational parameters
-  num_pj_parms_ = pj_.varparms().size();
-  num_wf_parms_ = wf_.varparms().size();
-  num_net_parms_ = nqs_.num_params();
-  num_varparms_ = (num_net_parms_+num_pj_parms_+num_wf_parms_);
-  vparm_names_.resize(num_varparms_);
-  vparm_lbound_.resize(num_varparms_);
-  vparm_ubound_.resize(num_varparms_);
-  // names
-  pj_.get_vparm_names(vparm_names_,0);
-  wf_.get_vparm_names(vparm_names_,num_pj_parms_);
-  nqs_.get_parm_names(vparm_names_,num_net_parms_+num_pj_parms_);
-  // values are not static and may change
-  // bounds
-  pj_.get_vparm_lbound(vparm_lbound_,0);
-  wf_.get_vparm_lbound(vparm_lbound_,num_pj_parms_);
-  pj_.get_vparm_ubound(vparm_ubound_,0);
-  wf_.get_vparm_ubound(vparm_ubound_,num_pj_parms_);
+  if (have_mf_part_) {
+    num_pj_parms_ = pj_.varparms().size();
+    num_wf_parms_ = wf_.varparms().size();
+  }
+  else {
+    num_pj_parms_ = 0;
+    num_wf_parms_ = 0;
+  }
+  num_nn_parms_ = nqs_.num_params();
+  num_mf_parms_ = num_pj_parms_+num_wf_parms_;
+  num_varparms_ = num_mf_parms_+num_nn_parms_;
+  std::cout << "num_pj_parms = " << num_pj_parms_ << "\n";
+  std::cout << "num_wf_parms = " << num_wf_parms_ << "\n";
+  std::cout << "num_nn_parms = " << num_nn_parms_ << "\n";
 }
+
+void SysConfig::get_varp_values(RealVector& varp_values) const
+{
+  assert(varp_values.size() == num_varparms_);
+  pj_.get_varp_values(varp_values,0);
+  wf_.get_varp_values(varp_values,num_pj_parms_);
+  nqs_.get_varp_values(varp_values,num_mf_parms_);
+}
+
+void SysConfig::get_varp_lbound(RealVector& lbound) const
+{
+  assert(lbound.size() == num_varparms_);
+  pj_.get_varp_lbound(lbound,0);
+  wf_.get_varp_lbound(lbound,num_pj_parms_);
+  //nqs_.get_varp_lbound(lbound,num_mf_parms_);
+}
+
+void SysConfig::get_varp_ubound(RealVector& ubound) const
+{
+  assert(ubound.size() == num_varparms_);
+  pj_.get_varp_ubound(ubound,0);
+  wf_.get_varp_ubound(ubound,num_pj_parms_);
+  //nqs_.get_varp_ubound(ubound,num_mf_parms_);
+}
+
+void SysConfig::get_varp_names(std::vector<std::string>& varp_names) const
+{
+  assert(varp_names.size() == num_varparms_);
+  pj_.get_varp_names(varp_names,0);
+  wf_.get_varp_names(varp_names,num_pj_parms_);
+  nqs_.get_varp_names(varp_names,num_mf_parms_);
+}
+
+std::vector<std::string> SysConfig::varp_names(void) const
+{
+  std::vector<std::string> varp_names(num_varparms_);
+  pj_.get_varp_names(varp_names,0);
+  wf_.get_varp_names(varp_names,num_pj_parms_);
+  nqs_.get_varp_names(varp_names,num_mf_parms_);
+  return varp_names;
+}
+
 
 int SysConfig::init_files(const std::string& prefix, const input::Parameters& inputs)
 {
@@ -78,16 +117,6 @@ int SysConfig::init_files(const std::string& prefix, const input::Parameters& in
   load_parms_from_file_ = inputs.set_value("load_parms_from_file",false);
 
   return 0;
-}
-
-const var::parm_vector& SysConfig::vparm_values(void) 
-{
-  // values as 'var::parm_vector'
-  vparm_values_.resize(num_varparms_);
-  pj_.get_vparm_values(vparm_values_,0);
-  wf_.get_vparm_values(vparm_values_,num_pj_parms_);
-  nqs_.get_parm_values(vparm_values_,num_net_parms_+num_pj_parms_);
-  return vparm_values_;
 }
 
 std::string SysConfig::info_str(void) const

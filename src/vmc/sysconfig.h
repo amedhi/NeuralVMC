@@ -39,10 +39,11 @@ public:
   RandomGenerator& rng(void) const { return fock_basis_.rng(); }
   std::string signature_str(void) const { return wf_.signature_str(); } 
   const int& num_varparms(void) const { return num_varparms_; } 
-  const var::parm_vector& vparm_values(void);
-  const std::vector<std::string>& varp_names(void) const { return vparm_names_; }
-  const var::parm_vector& vparm_lbound(void) const { return vparm_lbound_; } 
-  const var::parm_vector& vparm_ubound(void) const { return vparm_ubound_; } 
+  void get_varp_values(RealVector& varp_values) const; 
+  void get_varp_lbound(RealVector& varp_lbound) const;
+  void get_varp_ubound(RealVector& varp_ubound) const;
+  void get_varp_names(std::vector<std::string>& varp_names) const;
+  std::vector<std::string> varp_names(void) const;
   const double& hole_doping(void) const { return wf_.hole_doping(); }
   int save_parameters(const var::parm_vector& pvector); 
   int num_particles(void) const { return num_upspins_+num_dnspins_; }
@@ -87,16 +88,12 @@ private:
   int num_upspins_;
   int num_dnspins_;
 
-  // variational parameters
-  int num_net_parms_{0};
-  int num_wf_parms_{0};
+  // no of variational parameters
   int num_pj_parms_{0};
+  int num_wf_parms_{0};
+  int num_mf_parms_{0};
+  int num_nn_parms_{0};
   int num_varparms_{0};
-  mutable var::parm_vector vparm_values_;
-  mutable std::vector<double> vparm_vector_;
-  std::vector<std::string> vparm_names_;
-  var::parm_vector vparm_lbound_;
-  var::parm_vector vparm_ubound_;
 
   // variational parameters prefix folder
   bool load_parms_from_file_{false};

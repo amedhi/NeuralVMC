@@ -31,6 +31,7 @@ public:
   int start(const var::parm_vector& varp, const run_mode& mode=run_mode::normal,
     const bool& silent=false);
   void seed_rng(const int& seed=1);
+  RandomGenerator& rng(void) const { return config.rng(); }
   int set_run_mode(const run_mode& mode);
   int run_simulation(void);
   int run_simulation(const int& sample_size);
@@ -53,12 +54,11 @@ public:
   void save_parameters(const var::parm_vector& parms) { config.save_parameters(parms); }
   const int& num_boundary_twists(void) const { return lattice.num_boundary_twists(); } 
   const int& num_measure_steps(void) const { return num_measure_steps_; } 
-  const int& num_varp(void) const { return config.num_varparms(); } 
-  const var::parm_vector& varp_values(void) { return config.vparm_values(); }
-  const var::parm_vector& varp_lbound(void) const { return config.vparm_lbound(); }
-  const var::parm_vector& varp_ubound(void) const { return config.vparm_ubound(); }
-  const std::vector<std::string>& varp_names(void) const { return config.varp_names(); }
-  RandomGenerator& rng(void) const { return config.rng(); }
+  const int& num_varparms(void) const { return config.num_varparms(); } 
+  void get_varp_names(std::vector<std::string>& varp_names) const { config.get_varp_names(varp_names); };
+  void get_varp_values(RealVector& varp_values) const { config.get_varp_values(varp_values); }
+  void get_varp_lbound(RealVector& varp_lbound) const { config.get_varp_lbound(varp_lbound); };
+  void get_varp_ubound(RealVector& varp_ubound) const { config.get_varp_ubound(varp_ubound); };
   const double& hole_doping(void) const { return config.hole_doping(); }
   const std::vector<std::string>& xvar_names(void) const { return xvar_names_; }
   const std::vector<double>& xvar_values(void) const { return xvar_values_; }

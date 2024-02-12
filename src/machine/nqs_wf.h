@@ -36,8 +36,8 @@ public:
   void init_parameters(ann::random_engine& rng, const double& sigma);
   void save_parameters(void) const;
   void load_parameters(void);
-  void get_parm_names(std::vector<std::string>& pnames, const int& pos=0) const;
-  void get_parm_values(RealVector& pvalues, const int& pos=0) const;
+  void get_varp_names(std::vector<std::string>& pnames, const int& pos=0) const;
+  void get_varp_values(RealVector& pvalues, const int& pos=0) const;
 //  void update(const var::parm_vector& pvector, const unsigned& start_pos=0); 
   void update_parameters(const RealVector& pvalues, const int& pos);
   void update_parameter(const int& id, const double& value);

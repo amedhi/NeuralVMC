@@ -54,11 +54,10 @@ public:
   const basis::BlochBasis& blochbasis(void) const { return groundstate_->blochbasis(); }
   const MF_Model& mf_model(void) const { return groundstate_->mf_model(); }
   std::string signature_str(void) const; 
-  void get_vparm_names(std::vector<std::string>& names, unsigned start_pos) const; 
-  void get_vparm_values(var::parm_vector& values, unsigned start_pos);
-  void get_vparm_vector(std::vector<double>& vparm_values, unsigned start_pos);
-  void get_vparm_lbound(var::parm_vector& lbounds, unsigned start_pos) const; 
-  void get_vparm_ubound(var::parm_vector& ubounds, unsigned start_pos) const; 
+  void get_varp_names(std::vector<std::string>& names, const int& start_pos) const; 
+  void get_varp_values(RealVector& values, const int& start_pos) const;
+  void get_varp_lbound(RealVector& lbound, const int& start_pos) const; 
+  void get_varp_ubound(RealVector& ubound, const int& start_pos) const; 
   void get_amplitudes(Matrix& psi, const std::vector<int>& row,  
     const std::vector<int>& col) const;
   void get_amplitudes(ColVector& psi_vec, const int& irow,  

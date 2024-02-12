@@ -36,11 +36,13 @@ private:
   int num_parms_;
   int num_parms_print_;
   int num_vmc_samples_;
+  std::vector<std::string> varp_names_;
+  RealVector varp_lbound_;
+  RealVector varp_ubound_;
+
   mcdata::MC_Observable optimal_parms_;
   mcdata::MC_Observable optimal_energy_;
   mcdata::MC_Observable energy_error_bar_;
-  var::parm_vector lbound_;
-  var::parm_vector ubound_;
   std::vector<double> xvar_values_;
   bool all_converged_{true};
 

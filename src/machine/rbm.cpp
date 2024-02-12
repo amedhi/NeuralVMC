@@ -2,7 +2,7 @@
 * @Author: Amal Medhi
 * @Date:   2018-12-29 20:39:14
 * @Last Modified by:   Amal Medhi
-* @Last Modified time: 2024-02-10 18:41:23
+* @Last Modified time: 2024-02-12 15:44:02
 *----------------------------------------------------------------------------*/
 #include <boost/filesystem.hpp>
 #include <boost/tokenizer.hpp>
@@ -286,6 +286,7 @@ void RBM::init_parameters(random_engine& rng, const double& sigma)
   std::normal_distribution<double> random_normal(0.0,sigma);
   for (int i=0; i<num_params_; ++i) {
     pvector_[i] = random_normal(rng);
+    //std::cout << "p["<<i<<"] = "<< pvector_[i] << "\n";
   }
   // kernel parameters
   update_kernel_params(pvector_(Eigen::seqN(0,num_kernel_params_)));
@@ -422,6 +423,10 @@ void RBM::update_parameters(const RealVector& pvec, const int& start_pos)
 {
   for (int i=0; i<num_params_; ++i) {
     pvector_[i] = pvec[start_pos+i];
+    if (std::isnan(pvector_[i])) {
+      std::cout << pvector_.transpose() << "\n";
+      std::cout << "varp NAN\n"; getchar();
+    }
   }
   // kernel parameters
   update_kernel_params(pvector_(Eigen::seqN(0,num_kernel_params_)));
@@ -459,6 +464,14 @@ void RBM::do_update_run(const RealVector& input)
     y *= std::cosh(lin_output_[i]);
   }
   output_[0] = y;
+
+  if (std::isnan(output_[0])) {
+    std::cout << "----------NAN Output----------\n"; getchar();
+  }
+  if (std::abs(output_[0])<1.0E-12) {
+    std::cout << "output = " << output_[0] << "\n";
+    std::cout << "----------ZERO Output----------\n"; getchar();
+  }
 }
 
 void RBM::do_update_run(const RealVector& new_input, const std::vector<int> new_elems) 
@@ -481,6 +494,14 @@ void RBM::do_update_run(const RealVector& new_input, const std::vector<int> new_
   for (const auto& j : new_elems) {
     input_[j] = new_input[j];
   }
+
+  if (std::isnan(output_[0])) {
+    std::cout << "----------NAN Output----------\n"; getchar();
+  }
+  if (std::abs(output_[0])<1.0E-12) {
+    std::cout << "output = " << output_[0] << "\n";
+    std::cout << "----------ZERO Output----------\n"; getchar();
+  }
 }
 
 RealVector RBM::get_new_output(const RealVector& input) const
@@ -490,6 +511,13 @@ RealVector RBM::get_new_output(const RealVector& input) const
   double y = 1.0;
   for (int i=0; i<num_hidden_units_; i++) {
     y *= std::cosh(xout[i]);
+  }
+  if (std::isnan(y)) {
+    std::cout << "----------NAN Output----------\n"; getchar();
+  }
+  if (std::abs(y)<1.0E-12) {
+    std::cout << "output = " << y << "\n";
+    std::cout << "----------ZERO Output----------\n"; getchar();
   }
   return RealVector::Constant(1,y);
 }
@@ -505,6 +533,13 @@ RealVector RBM::get_new_output(const RealVector& new_input, const std::vector<in
   double y = 1.0;
   for (int i=0; i<num_hidden_units_; i++) {
     y *= std::cosh(xout[i]);
+  }
+  if (std::isnan(y)) {
+    std::cout << "----------NAN Output----------\n"; getchar();
+  }
+  if (std::abs(y)<1.0E-12) {
+    std::cout << "output = " << y << "\n";
+    std::cout << "----------ZERO Output----------\n"; getchar();
   }
   return RealVector::Constant(1,y);
 }

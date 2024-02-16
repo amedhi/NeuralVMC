@@ -235,6 +235,9 @@ int SysConfig::init_config(void)
 
   // run parameters
   set_run_parameters();
+
+  //std::cout << "SysConfig::int: Switching OFF mf_part\n";
+  //have_mf_part_ = false;
   return 0;
 }
 
@@ -339,9 +342,9 @@ int SysConfig::do_upspin_hop(void)
 
   num_proposed_moves_[move_t::uphop]++;
   last_proposed_moves_++;
-  //std::cout << "\n state=" << fock_basis_.transpose() << "\n";
-  amplitude_t psi = nqs_.get_new_output(fock_basis_.state(),fock_basis_.new_elems());
-  amplitude_t psi_ratio = psi/nqs_psi_;
+  //amplitude_t psi = nqs_.get_new_output(fock_basis_.state(),fock_basis_.new_elems());
+  //amplitude_t psi_ratio = psi/nqs_psi_;
+  amplitude_t psi_ratio = nqs_.get_new_output_ratio(fock_basis_.state(),fock_basis_.new_elems());
 
   int upspin, fr_site, to_site;
   amplitude_t det_ratio;
@@ -383,9 +386,9 @@ int SysConfig::do_dnspin_hop(void)
   if (!fock_basis_.gen_dnspin_hop()) return 0;
   num_proposed_moves_[move_t::dnhop]++;
   last_proposed_moves_++;
-  //std::cout << "\n state=" << fock_basis_.transpose() << "\n";
-  amplitude_t psi = nqs_.get_new_output(fock_basis_.state(),fock_basis_.new_elems());
-  amplitude_t psi_ratio = psi/nqs_psi_;
+  //amplitude_t psi = nqs_.get_new_output(fock_basis_.state(),fock_basis_.new_elems());
+  //amplitude_t psi_ratio = psi/nqs_psi_;
+  amplitude_t psi_ratio = nqs_.get_new_output_ratio(fock_basis_.state(),fock_basis_.new_elems());
 
   int dnspin, fr_site, to_site;
   amplitude_t det_ratio;
@@ -428,8 +431,9 @@ int SysConfig::do_spin_exchange(void)
   num_proposed_moves_[move_t::exch]++;
   last_proposed_moves_++;
   //std::cout << "\n state=" << fock_basis_.transpose() << "\n";
-  amplitude_t psi = nqs_.get_new_output(fock_basis_.state(),fock_basis_.new_elems());
-  amplitude_t psi_ratio = psi/nqs_psi_;
+  //amplitude_t psi = nqs_.get_new_output(fock_basis_.state(),fock_basis_.new_elems());
+  //amplitude_t psi_ratio = psi/nqs_psi_;
+  amplitude_t psi_ratio = nqs_.get_new_output_ratio(fock_basis_.state(),fock_basis_.new_elems());
 
   int upspin, dnspin, up_tosite, dn_tosite;
   amplitude_t det_ratio1, det_ratio2;
@@ -589,8 +593,9 @@ amplitude_t SysConfig::apply_cdagc_up(const int& fr_site, const int& to_site,
   if (!fock_basis_.op_cdagc_up(fr_site,to_site)) return amplitude_t(0.0);
 
   //int sign = fock_basis_.op_sign();
-  amplitude_t psi = nqs_.get_new_output(fock_basis_.state());
-  amplitude_t psi_ratio = psi/nqs_psi_;
+  //amplitude_t psi = nqs_.get_new_output(fock_basis_.state());
+  //amplitude_t psi_ratio = psi/nqs_psi_;
+  amplitude_t psi_ratio = nqs_.get_new_output_ratio(fock_basis_.state(),fock_basis_.new_elems());
 
   if (have_mf_part_) {
     int upspin = fock_basis_.which_upspin();
@@ -622,8 +627,10 @@ amplitude_t SysConfig::apply_cdagc2_up(const int& site_i, const int& site_j,
 
   if (fock_basis_.op_cdagc2_up(site_i,site_j)) {
     //int sign = fock_basis_.op_sign();
-    amplitude_t psi = nqs_.get_new_output(fock_basis_.state());
-    amplitude_t psi_ratio = psi/nqs_psi_;
+    //amplitude_t psi = nqs_.get_new_output(fock_basis_.state());
+    //amplitude_t psi_ratio = psi/nqs_psi_;
+    amplitude_t psi_ratio = nqs_.get_new_output_ratio(fock_basis_.state(),fock_basis_.new_elems());
+    //std::cout << "psi_ratio =" << psi_ratio << "\n";
     //std::cout << psi << "\n";
     //sign *= nqs_sign_;
 
@@ -633,6 +640,7 @@ amplitude_t SysConfig::apply_cdagc2_up(const int& site_i, const int& site_j,
       int to_site = fock_basis_.which_site();
       wf_.get_amplitudes(psi_row_,to_site,fock_basis_.dnspin_sites());
       amplitude_t det_ratio = psi_row_.cwiseProduct(psi_inv_.col(upspin)).sum();
+      //std::cout << "det_ratio =" << det_ratio << "\n\n";
       psi_ratio *= det_ratio;
       double proj_ratio = pj_.gw_ratio(fr_site,to_site,fock_basis_.nd_frsite(),fock_basis_.nd_tosite());
       psi_ratio *= proj_ratio;
@@ -662,8 +670,9 @@ amplitude_t SysConfig::apply_cdagc_dn(const int& fr_site, const int& to_site,
   if (!fock_basis_.op_cdagc_dn(fr_site,to_site)) return amplitude_t(0.0);
 
   //int sign = fock_basis_.op_sign();
-  amplitude_t psi = nqs_.get_new_output(fock_basis_.state());
-  amplitude_t psi_ratio = psi/nqs_psi_;
+  //amplitude_t psi = nqs_.get_new_output(fock_basis_.state());
+  //amplitude_t psi_ratio = psi/nqs_psi_;
+  amplitude_t psi_ratio = nqs_.get_new_output_ratio(fock_basis_.state(),fock_basis_.new_elems());
 
   if (have_mf_part_) {
     int dnspin = fock_basis_.which_dnspin();
@@ -694,8 +703,9 @@ amplitude_t SysConfig::apply_cdagc2_dn(const int& site_i, const int& site_j,
   if (site_i == site_j) return ampl_part(fock_basis_.op_ni_dn(site_i));
   if (fock_basis_.op_cdagc2_dn(site_i,site_j)) {
     //int sign = fock_basis_.op_sign();
-    amplitude_t psi = nqs_.get_new_output(fock_basis_.state());
-    amplitude_t psi_ratio = psi/nqs_psi_;
+    //amplitude_t psi = nqs_.get_new_output(fock_basis_.state());
+    //amplitude_t psi_ratio = psi/nqs_psi_;
+    amplitude_t psi_ratio = nqs_.get_new_output_ratio(fock_basis_.state(),fock_basis_.new_elems());
 
     //----To just compare: SWITCH OFF ifdef block----
     if (have_mf_part_) {

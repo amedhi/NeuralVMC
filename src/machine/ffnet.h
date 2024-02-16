@@ -45,6 +45,9 @@ public:
   const RealVector& output(void) const override { return layers_.back()->output(); }
   RealVector get_new_output(const RealVector& input) const override;
   RealVector get_new_output(const RealVector& new_input, const std::vector<int> new_elems) const override; 
+  double get_new_output_ratio(const RealVector& input) const override { return 1.0; }
+  double get_new_output_ratio(const RealVector& new_input, const std::vector<int> new_elems) const override 
+    { return 1.0; }
   void get_gradient(RealMatrix& grad) const override;
   void get_log_gradient(RealMatrix& grad) const override;
 protected:

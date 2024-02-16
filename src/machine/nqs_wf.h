@@ -46,6 +46,8 @@ public:
   const amplitude_t& output(void) const; 
   amplitude_t get_new_output(const IntVector& fock_state) const;
   amplitude_t get_new_output(const IntVector& fock_state, const std::vector<int> new_elems) const;
+  amplitude_t get_new_output_ratio(const IntVector& fock_state) const;
+  amplitude_t get_new_output_ratio(const IntVector& fock_state, const std::vector<int> new_elems) const;
   void get_parm_lbound(RealVector& lbound, const int& pos) const;
   void get_parm_ubound(RealVector& ubound, const int& pos) const;
   void get_gradient(Vector& grad, const int& pos) const;

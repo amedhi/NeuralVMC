@@ -32,10 +32,18 @@ public:
   int optimize(VMCRun& vmc);
 private:
   enum class exit_status {converged, notconvgd, maxiter, terminated};
-  enum class cg_type {FR, PR, DY, HS};
   int num_parms_;
   int num_parms_print_;
   int num_vmc_samples_;
+  int num_opt_samples_{20};
+  int maxiter_{200};
+  double start_tstep_{0.1};
+  double search_tstep_{0.1};
+  double grad_tol_{5.0E-3};
+  //double ftol_{5.0E-5};
+  bool print_progress_{false};
+  bool print_log_{true};
+
   std::vector<std::string> varp_names_;
   RealVector varp_lbound_;
   RealVector varp_ubound_;
@@ -58,27 +66,19 @@ private:
   std::deque<double> iter_energy_err_;
   std::deque<double> iter_gnorm_;
 
-  // Probabilistic line search
-  opt::ProbLineSearch probLS_;
-  int num_opt_samples_{20};
-  int maxiter_{200};
-  double start_tstep_{0.1};
-  double search_tstep_{0.1};
-  double grad_tol_{5.0E-3};
-  //double ftol_{5.0E-5};
-  bool print_progress_{false};
-  bool print_log_{true};
-
   // Stochastic CG parameters
-  cg_type cg_algorithm_{cg_type::PR};
-  int cg_maxiter_{0};
+  enum class CG_type {FR, PR, DY, HS};
+  CG_type CG_Algorithm_{CG_type::PR};
+  double CG_alpha_{0.1};
+  int CG_maxiter_{0};
 
   // SR parameters
   bool dir_cutoff_{false};
   double stabilizer_{0.1};
   double w_svd_cut_{0.001};
 
-  // probLS parameters
+  // Probabilistic line search
+  opt::ProbLineSearch probLS_;
   int num_probls_steps_{50}; 
   double pls_c1_{0.05};
   double pls_cW_{0.3};

@@ -3,7 +3,7 @@
 * @Author: Amal Medhi, amedhi@mbpro
 * @Date:   2019-08-13 12:00:53
 * @Last Modified by:   Amal Medhi
-* @Last Modified time: 2024-02-12 15:15:59
+* @Last Modified time: 2024-02-15 21:38:28
 *----------------------------------------------------------------------------*/
 #include <locale>
 #include "nqs_wf.h"
@@ -213,11 +213,11 @@ const amplitude_t& NQS_Wavefunction::output(void) const
 {
   if (complex_type_) {
     //output_ = std::exp(nnet_->output()(0) + ii()*nnet_->output()(1));
-    output_ = nnet_->output()(0) + ii()*nnet_->output()(1);
+    output_ = ampl_part(nnet_->output()(0) + ii()*nnet_->output()(1));
   }
   else if (exponential_type_) {
     if (have_sign_nnet_) {
-      output_ = std::exp(nnet_->output()(0) + ii()*sign_nnet_->output()(0));
+      output_ =  ampl_part(std::exp(nnet_->output()(0) + ii()*sign_nnet_->output()(0)));
       //std::cout << "sign net = "<<sign_nnet_->output()(0)/3.14159265358979323846 <<"\n";
     }
     else {
@@ -242,13 +242,13 @@ amplitude_t NQS_Wavefunction::get_new_output(const IntVector& fock_state) const
 {
   if (complex_type_) {
     Vector v = nnet_->get_new_output(fock_state.cast<double>());
-    return v(0)+ii()*v(1);
+    return ampl_part(v(0)+ii()*v(1));
     //return std::exp(v(0)+ii()*v(1));
   }
   else if (exponential_type_) {
     if (have_sign_nnet_) {
-      return std::exp(nnet_->get_new_output(fock_state.cast<double>())(0) 
-             + ii()*sign_nnet_->get_new_output(fock_state.cast<double>())(0));
+      return ampl_part(std::exp(nnet_->get_new_output(fock_state.cast<double>())(0) 
+             + ii()*sign_nnet_->get_new_output(fock_state.cast<double>())(0)) );
     }
     else {
       return std::exp(nnet_->get_new_output(fock_state.cast<double>())(0));
@@ -276,13 +276,13 @@ amplitude_t NQS_Wavefunction::get_new_output(const IntVector& fock_state,
 {
   if (complex_type_) {
     Vector v = nnet_->get_new_output(fock_state.cast<double>(),new_elems);
-    return v(0) + ii()*v(1);
+    return ampl_part(v(0) + ii()*v(1));
     //return std::exp(v(0) + ii()*v(1));
   }
   else if (exponential_type_) {
     if (have_sign_nnet_) {
-      return std::exp(nnet_->get_new_output(fock_state.cast<double>(), new_elems)(0)
-            + ii()*sign_nnet_->get_new_output(fock_state.cast<double>(), new_elems)(0));
+      return ampl_part(std::exp(nnet_->get_new_output(fock_state.cast<double>(), new_elems)(0)
+            + ii()*sign_nnet_->get_new_output(fock_state.cast<double>(), new_elems)(0)));
     }
     else {
       return std::exp(nnet_->get_new_output(fock_state.cast<double>(), new_elems)(0));
@@ -305,6 +305,37 @@ amplitude_t NQS_Wavefunction::get_new_output(const IntVector& fock_state,
   }
 }
 
+amplitude_t NQS_Wavefunction::get_new_output_ratio(const IntVector& fock_state) const
+{
+  switch (nid_) {
+    case net_id::INET: 
+      return amplitude_t(1.0);
+      break;
+    case net_id::RBM:
+      return nnet_->get_new_output_ratio(fock_state.cast<double>());
+      break;
+    default: 
+      throw std::range_error("NQS_Wavefunction::get_new_output_ratio: not implemented for this NET");
+  }
+}
+
+
+amplitude_t NQS_Wavefunction::get_new_output_ratio(const IntVector& fock_state, 
+  const std::vector<int> new_elems) const
+{
+  switch (nid_) {
+    case net_id::INET: 
+      return amplitude_t(1.0);
+      break;
+    case net_id::RBM:
+      return nnet_->get_new_output_ratio(fock_state.cast<double>(), new_elems);
+      break;
+    default: 
+      throw std::range_error("NQS_Wavefunction::get_new_output_ratio: not implemented for this NET");
+  }
+}
+
+
 void NQS_Wavefunction::get_gradient(Vector& grad, const int& pos) const
 {
   switch (nid_) {
@@ -318,8 +349,7 @@ void NQS_Wavefunction::get_gradient(Vector& grad, const int& pos) const
   }
   // copy
   for (int n=0; n<num_params_; ++n) {
-    grad[pos+n] = gradient_mat_(n,0);
-  }
+    grad[pos+n] = gradient_mat_(n,0); }
 }
 
 void NQS_Wavefunction::get_log_gradient(Vector& grad, const int& pos) const

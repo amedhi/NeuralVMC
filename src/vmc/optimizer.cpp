@@ -38,21 +38,22 @@ int Optimizer::init(const input::Parameters& inputs, const VMCRun& vmc)
   int nowarn;
   num_opt_samples_ = inputs.set_value("opt_num_samples", 10, nowarn);
   maxiter_ = inputs.set_value("opt_maxiter", 100, nowarn);
-  cg_maxiter_ = inputs.set_value("opt_cg_maxiter", 0, nowarn);
-  if (cg_maxiter_>0) {
+  CG_maxiter_ = inputs.set_value("opt_cg_maxiter", 0, nowarn);
+  if (CG_maxiter_>0) {
+    CG_alpha_ = inputs.set_value("opt_cg_alpha", 0.1, nowarn);
     std::string str = inputs.set_value("opt_cg_algorithm", "PR", nowarn);
     boost::to_upper(str);
     if (str=="FR") {
-      cg_algorithm_ = cg_type::FR;
+      CG_Algorithm_ = CG_type::FR;
     }
     else if (str=="PR") {
-      cg_algorithm_ = cg_type::PR;
+      CG_Algorithm_ = CG_type::PR;
     }
     else if (str=="DY") {
-      cg_algorithm_ = cg_type::DY;
+      CG_Algorithm_ = CG_type::DY;
     }
     else if (str=="HS") {
-      cg_algorithm_ = cg_type::HS;
+      CG_Algorithm_ = CG_type::HS;
     }
     else {
       throw std::range_error("Optimizer::init: invalid CG method");
@@ -272,8 +273,139 @@ int Optimizer::optimize(VMCRun& vmc)
     exit_status status = exit_status::notconvgd;
 
    /*--------------------------------------------------------------
-    * Stochastic CG iteraions 
+    * Stochastic CG iteraions (NEW)
     *--------------------------------------------------------------*/
+    if (CG_maxiter_>0) {
+
+      // 0-th iteration
+      double eta, en_trend;
+      double sq_gnorm, sq_gnorm_prev, gnorm, avg_gnorm;
+      RealVector previous_grad(num_parms_);
+
+      // compute initial quantities 
+      vmc.run(vparms,en,en_err,grad,grad_err,silent);
+      sq_gnorm = grad.squaredNorm();
+      gnorm = std::sqrt(sq_gnorm);
+      avg_gnorm = gnorm;
+      search_dir = -grad;
+      eta = start_tstep_;
+      en_trend = 1;
+
+      // message
+      if (print_progress_) {
+        print_progress(std::cout, 0, "Stochastic CG");
+        print_progress(std::cout,vparms,en,en_err,grad,search_dir,
+          gnorm,avg_gnorm,en_trend);
+        std::cout<<" line search =  adaptive step\n";
+        std::cout<<" step size   =  "<<eta<<"\n";
+      }
+      if (print_log_) {
+        print_progress(logfile_, 0, "Stochastic CG");
+        print_progress(logfile_,vparms,en,en_err,grad,search_dir,
+          gnorm,avg_gnorm,en_trend);
+        logfile_<<" line search =  constant step\n";
+        logfile_<<" step size   =  "<<search_tstep_<<"\n";
+      }
+
+      // file outs
+      file_energy_<<std::setw(6)<<iter_count<<std::scientific<<std::setw(16)<<en; 
+      file_energy_<<std::fixed<<std::setw(10)<<en_err<<std::endl<<std::flush;
+      file_vparms_<<std::setw(6)<<iter_count; 
+      for (int i=0; i<num_parms_print_; ++i) file_vparms_<<std::setw(15)<<vparms[i];
+        file_vparms_<<std::endl<<std::flush;
+
+      // update parameters 
+      vparms.noalias() += eta * search_dir;
+
+      // other iterations
+      for (int cg_iter=1; cg_iter<=CG_maxiter_; ++cg_iter) {
+        iter_count++;
+
+        // copy previous grad
+        previous_grad = grad;
+        sq_gnorm_prev = sq_gnorm;
+
+        // update gradient
+        vmc.run(vparms,en,en_err,grad,grad_err,silent);
+        sq_gnorm = grad.squaredNorm();
+        gnorm = std::sqrt(sq_gnorm);
+
+        // update the learning rate
+        double hk = grad.dot(previous_grad);
+        eta = std::abs(eta + CG_alpha_*hk);
+
+        // update beta
+        double beta;
+        if (CG_Algorithm_==CG_type::FR) {
+          beta = sq_gnorm/sq_gnorm_prev;
+        }
+        else if (CG_Algorithm_==CG_type::PR) {
+          beta = (sq_gnorm - grad.dot(previous_grad))/sq_gnorm_prev;
+        }
+        else if (CG_Algorithm_==CG_type::HS) {
+          RealVector grad_diff = grad-previous_grad;
+          beta = grad.dot(grad_diff)/search_dir.dot(grad_diff);
+        }
+        else if (CG_Algorithm_==CG_type::DY) {
+          RealVector grad_diff = grad-previous_grad;
+          beta = sq_gnorm/search_dir.dot(grad_diff);
+        }
+        else {
+          throw std::range_error("Optimizer::stochastic_CG: unknown CG method");
+        }
+
+        // update conjugate search direction
+        search_dir = -grad + beta*search_dir;
+
+        // message
+        if (print_progress_) {
+          print_progress(std::cout, iter_count, "Stochastic CG");
+          print_progress(std::cout,vparms,en,en_err,grad,search_dir,
+            gnorm,avg_gnorm,en_trend);
+          std::cout<<" line search =  adaptive step\n";
+          std::cout<<" step size   =  "<<eta<<"\n";
+        }
+        if (print_log_) {
+          print_progress(logfile_, iter_count, "Stochastic CG");
+          print_progress(logfile_,vparms,en,en_err,grad,search_dir,
+            gnorm,avg_gnorm,en_trend);
+          logfile_<<" line search =  constant step\n";
+          logfile_<<" step size   =  "<<search_tstep_<<"\n";
+        }
+
+        // update conjugate search direction
+        std::cout << "pv_gnorm = " << sq_gnorm_prev << "\n"; 
+        std::cout << "sq_gnorm = " << sq_gnorm << "\n"; 
+        std::cout << "beta = " << beta << "\n";// getchar();
+
+        // MK test: add data to Mann-Kendall statistic
+        mk_statistic_en_ << en;
+        iter_energy_.push_back(en);
+        iter_energy_err_.push_back(en_err);
+        iter_gnorm_.push_back(gnorm);
+        if (mk_statistic_en_.is_full()) {
+          iter_energy_.pop_front();
+          iter_energy_err_.pop_front();
+          iter_gnorm_.pop_front();
+        }
+        en_trend = mk_statistic_en_.max_trend();
+        // series average of gnorm
+        avg_gnorm = series_avg(iter_gnorm_);
+
+        // file outs
+        file_energy_<<std::setw(6)<<iter_count<<std::scientific<<std::setw(16)<<en; 
+        file_energy_<<std::fixed<<std::setw(10)<<en_err<<std::endl<<std::flush;
+        file_vparms_<<std::setw(6)<<iter_count; 
+        for (int i=0; i<num_parms_print_; ++i) file_vparms_<<std::setw(15)<<vparms[i];
+        file_vparms_<<std::endl<<std::flush;
+
+        // update paramaters
+        vparms.noalias() += eta * search_dir;
+      }
+    }
+
+
+#ifdef OLD_CG
     if (cg_maxiter_>0) {
       RealVector previous_grad(num_parms_);
       RealVector stochastic_grad(num_parms_);
@@ -386,6 +518,7 @@ int Optimizer::optimize(VMCRun& vmc)
         stochastic_CG(grad, previous_grad, stochastic_grad, search_dir);
       } // CG iterations
     }
+#endif 
 
     // reset MK statistics
     mk_statistic_.reset();
@@ -413,9 +546,9 @@ int Optimizer::optimize(VMCRun& vmc)
       stochastic_reconf(grad,sr_matrix,work_mat,search_dir);
 
       // max_norm (of components not hitting boundary) 
-      double gnorm = grad.squaredNorm();
-      double proj_norm = projected_gnorm(vparms,grad,varp_lbound_,varp_ubound_);
-      gnorm = std::min(gnorm, proj_norm);
+      double gnorm = std::sqrt(grad.squaredNorm());
+      //double proj_norm = projected_gnorm(vparms,grad,varp_lbound_,varp_ubound_);
+      //gnorm = std::min(gnorm, proj_norm);
 
       // MK test: add data to Mann-Kendall statistic
       //mk_statistic_ << vparms;
@@ -561,7 +694,8 @@ int Optimizer::optimize(VMCRun& vmc)
 
   // save NQS parameters
   vparms = optimal_parms_.grand_data().mean_data();
-  vmc.save_parameters(vparms);
+  std::cout << " >> Optimizer::optimize: Currently NOT saving parameters to file\n";
+  //vmc.save_parameters(vparms);
 
   return 0;
 }
@@ -693,18 +827,19 @@ int Optimizer::stochastic_reconf(const RealVector& grad, RealMatrix& srmat,
 {
 
   // conditioning
-  for (int i=0; i<num_parms_; ++i) srmat(i,i) *= (1.0+stabilizer_);
+  //for (int i=0; i<num_parms_; ++i) srmat(i,i) *= (1.0+stabilizer_);
+  for (int i=0; i<num_parms_; ++i) srmat(i,i) += stabilizer_;
 
-  // search dir after cutting off redundant directions
+  // Cut-Off redundant direction (using SVD decomposition)
+
+  /*
   Eigen::JacobiSVD<Eigen::MatrixXd> svd(srmat, Eigen::ComputeThinU | Eigen::ComputeThinV); 
   double lmax = svd.singularValues()(0);
 
-  /*
-  std::cout << "SVD singularValues = " << svd.singularValues().transpose() << "\n";
-  double rcond = svd.singularValues()(svd.singularValues().size()-1)/svd.singularValues()(0);
-  std::cout << "RCOND = " << rcond << "\n";
-  getchar();
-  */
+  //std::cout << "SVD singularValues = " << svd.singularValues().transpose() << "\n";
+  //double rcond = svd.singularValues()(svd.singularValues().size()-1)/svd.singularValues()(0);
+  //std::cout << "RCOND = " << rcond << "\n";
+  //getchar();
 
   // m_cut
   int m_cut = 0;
@@ -716,7 +851,6 @@ int Optimizer::stochastic_reconf(const RealVector& grad, RealMatrix& srmat,
     }
   }
   //std::cout << m_cut << "\n"; getchar();
-
   for (int i=0; i<num_parms_; ++i) {
     for (int j=0; j<num_parms_; ++j) {
       double sum = 0.0;
@@ -728,6 +862,36 @@ int Optimizer::stochastic_reconf(const RealVector& grad, RealMatrix& srmat,
     }
   }
   //getchar();
+  search_dir = -srmat_inv*grad;
+  */
+
+  Eigen::SelfAdjointEigenSolver<RealMatrix> solver(srmat);
+
+  // determine m_cut
+  int m_cut = num_parms_;
+  double lmax = solver.eigenvalues()(num_parms_-1);
+  //std::cout << "lmax = " << lmax << "\n"; 
+  //std::cout << "ratio = " << solver.eigenvalues()(0)/lmax << "\n"; 
+
+  for (int m=0; m<num_parms_; ++m) {
+    //std::cout << "l["<<m<<"] = " << solver.eigenvalues()[m] << "\n";
+    if (solver.eigenvalues()[m]/lmax >= w_svd_cut_) {
+      m_cut = m;
+      break;
+    }
+  }
+  //std::cout << "m_cut = " << m_cut << "\n"; getchar();
+
+  for (int i=0; i<num_parms_; ++i) {
+    for (int j=0; j<num_parms_; ++j) {
+      double sum = 0.0;
+      for (int m=m_cut; m<num_parms_; ++m) {
+        sum += solver.eigenvectors()(m,i)*solver.eigenvectors()(m,j)/solver.eigenvalues()(m);
+      }
+      srmat_inv(i,j) = sum;
+    }
+  }
+  // update search direction
   search_dir = -srmat_inv*grad;
 
   return 0;
@@ -821,16 +985,16 @@ int Optimizer::stochastic_CG(const RealVector& grad, const RealVector& grad_xpre
   // Conjugate search direction
   // compute beta
   double beta;
-  if (cg_algorithm_==cg_type::FR) {
+  if (CG_Algorithm_==CG_type::FR) {
     beta = stochastic_grad.squaredNorm()/gnorm_prev;
   }
-  else if (cg_algorithm_==cg_type::PR) {
+  else if (CG_Algorithm_==CG_type::PR) {
     beta = stochastic_grad.dot(grad_diff)/gnorm_prev;
   }
-  else if (cg_algorithm_==cg_type::HS) {
+  else if (CG_Algorithm_==CG_type::HS) {
     beta = stochastic_grad.dot(grad_diff)/search_dir.dot(grad_diff);
   }
-  else if (cg_algorithm_==cg_type::DY) {
+  else if (CG_Algorithm_==CG_type::DY) {
     beta = stochastic_grad.squaredNorm()/search_dir.dot(grad_diff);
   }
   else {

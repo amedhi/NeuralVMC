@@ -2,7 +2,7 @@
 * @Author: Amal Medhi, amedhi@mbpro
 * @Date:   2019-02-20 12:21:42
 * @Last Modified by:   Amal Medhi
-* @Last Modified time: 2023-08-23 23:27:15
+* @Last Modified time: 2024-02-15 21:10:21
 * Copyright (C) Amal Medhi, amedhi@iisertvm.ac.in
 *----------------------------------------------------------------------------*/
 #include <numeric>
@@ -64,8 +64,14 @@ int Fermisea::init(const input::Parameters& inputs, const lattice::Lattice& latt
   *--------------------------------------------------*/
   mu_variational_ = inputs.set_value("mu_variational", false, info);
 
+  if (lattice.id()==lattice::lattice_id::CHAIN) {
+    mf_model_.add_parameter(name="t", defval=1.0, inputs);
 
-  if (lattice.id()==lattice::lattice_id::SQUARE_NNN) {
+    // bond operator terms
+    mf_model_.add_bondterm(name="hopping", cc="-t", op::spin_hop());
+  }
+
+  else if (lattice.id()==lattice::lattice_id::SQUARE_NNN) {
     mf_model_.add_parameter(name="t", defval=1.0, inputs);
     mf_model_.add_parameter(name="tp", defval=1.0, inputs);
     cc = CouplingConstant({0,"-t"},{1,"-t"},{2,"-tp"},{3,"-tp"});

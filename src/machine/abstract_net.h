@@ -41,6 +41,8 @@ public:
   virtual const RealVector& output(void) const = 0;
   virtual RealVector get_new_output(const RealVector& input) const = 0;
   virtual RealVector get_new_output(const RealVector& new_input, const std::vector<int> new_elems) const = 0; 
+  virtual double get_new_output_ratio(const RealVector& input) const = 0;
+  virtual double get_new_output_ratio(const RealVector& new_input, const std::vector<int> new_elems) const = 0; 
   // gradient in case multi-output network
   virtual void get_gradient(RealMatrix& grad_mat) const = 0;
   virtual void get_log_gradient(RealMatrix& grad_mat) const = 0;

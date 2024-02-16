@@ -35,19 +35,20 @@ public:
   const int& num_params(void) const override { return num_params_; }
   const int& num_output_units(void) const override { return num_output_units_; }
   //void set_input(const Vector& input) { front().set_input(input); }
-  const double& get_parameter(const int& id) const;
-  void get_parameters(RealVector& pvec) const;
   void get_parameter_names(std::vector<std::string>& pnames, 
     const int& pos=0) const override;
-  void get_parameter_values(RealVector& pvalues, const int& pos=0) const override;
   void update_parameters(const RealVector& pvec, const int& pos=0) override;
   void update_parameter(const int& id, const double& value) override;
+  void get_parameter_values(RealVector& pvalues, const int& pos=0) const override;
+  const double& get_parameter_value(const int& id) const;
   void do_update_run(const RealVector& input) override; 
   void do_update_run(const RealVector& new_input, const std::vector<int> new_elems) override; 
   //void run(const eig::real_vec& input); 
   const RealVector& output(void) const override { return output_; }
   RealVector get_new_output(const RealVector& input) const override;
   RealVector get_new_output(const RealVector& new_input, const std::vector<int> new_elems) const override; 
+  double get_new_output_ratio(const RealVector& input) const override;
+  double get_new_output_ratio(const RealVector& new_input, const std::vector<int> new_elems) const override; 
   void get_gradient(RealMatrix& grad_mat) const override;
   void get_log_gradient(RealMatrix& grad_mat) const override;
 protected:
@@ -57,14 +58,15 @@ protected:
   // implementation of translational symmetry
   int num_sites_{0};
   int num_basis_sites_{1};
-  bool symmetry_{true};
   int num_tsymms_{1};
+  bool symmetrized_{true};
   IntMatrix tsymm_map_;
 
   // structure
   int num_visible_units_{1};
-  int num_hidden_units_{1};
+  int num_hblock_units_{1};
   int num_hblocks_{1};
+  int num_hidden_units_{1};
   int num_kernel_params_{0};
   int num_hbias_params_{0};
   int num_params_{0};
@@ -73,6 +75,7 @@ protected:
   RealMatrix kernel_;
   RealVector input_;
   RealVector lin_output_;
+  RealVector cosh_output_;
   RealVector output_;
   RealVector tmp_output_;
   mutable RealVector tanh_output_;
@@ -93,6 +96,8 @@ protected:
 
   int update_kernel_params(const RealVector& params);
   int update_hbias_params(const RealVector& params);
+  int set_symmetry_map(const lattice::Lattice& lattice);
+  int set_parameter_map(void);
   RealMatrix row_translate(const RealMatrix& mat, const int& T) const;
 };
 

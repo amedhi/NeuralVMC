@@ -69,17 +69,26 @@ private:
   // Stochastic CG parameters
   enum class CG_type {FR, PR, DY, HS};
   CG_type CG_Algorithm_{CG_type::PR};
-  double CG_alpha_{0.1};
+  double CG_alpha0_{0.1};
   int CG_maxiter_{0};
 
   // SR parameters
+  enum class SR_solver {BDCSVD, JacobiSVD, EigSolver};
+  SR_solver SR_solver_{SR_solver::BDCSVD};
   bool dir_cutoff_{false};
   double stabilizer_{0.1};
+  double sr_diag_shift_{0.001};
+  double sr_diag_scale_{0.01};
   double w_svd_cut_{0.001};
+  int max_ls_steps_{0};
+  Eigen::BDCSVD<Eigen::MatrixXd> BDCSVD_;
+  Eigen::JacobiSVD<Eigen::MatrixXd> JacobiSVD_;
+  Eigen::SelfAdjointEigenSolver<RealMatrix> EigSolver_;
+
 
   // Probabilistic line search
   opt::ProbLineSearch probLS_;
-  int num_probls_steps_{50}; 
+  int num_probls_steps_{0}; 
   double pls_c1_{0.05};
   double pls_cW_{0.3};
   double pls_alpha0_{0.02}; 
@@ -103,6 +112,9 @@ private:
   int init_sample(const VMCRun& vmc, const int& sample);
   int finalize_sample(const exit_status& status);
   double line_search(VMCRun& vmc, RealVector& vparms, double& en, 
+    double& en_err, RealVector& grad, RealVector& grad_err, 
+    const RealVector& search_dir);
+  bool backtracking_Armjio_step(VMCRun& vmc, RealVector& vparms, double& en, 
     double& en_err, RealVector& grad, RealVector& grad_err, 
     const RealVector& search_dir);
   int stochastic_reconf(const RealVector& grad, RealMatrix& srmat, RealMatrix& work_mat,

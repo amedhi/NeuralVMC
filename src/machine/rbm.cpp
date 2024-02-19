@@ -2,7 +2,7 @@
 * @Author: Amal Medhi
 * @Date:   2018-12-29 20:39:14
 * @Last Modified by:   Amal Medhi
-* @Last Modified time: 2024-02-16 11:28:29
+* @Last Modified time: 2024-02-19 23:44:57
 *----------------------------------------------------------------------------*/
 #include <boost/filesystem.hpp>
 #include <boost/tokenizer.hpp>
@@ -55,12 +55,14 @@ int RBM::construct(const lattice::Lattice& lattice, const input::Parameters& inp
   */
   symmetrized_ = true;
 
-  // network structure assuming 'Lattice translational' & 'Spin-flip' symmetry
+  // Network structure assuming 'Lattice translational' symmetry
   num_sites_ = lattice.num_sites();
   num_basis_sites_ = lattice.num_basis_sites();
   num_visible_units_ = 2*num_sites_;
   num_hblock_units_ = num_sites_;
-  num_hblocks_ = 2;
+  int nowarn;
+  int alpha = inputs.set_value("RBM_alpha", 1, nowarn);
+  num_hblocks_ = 2*alpha;
   num_hidden_units_ = num_hblock_units_*num_hblocks_;
 
   vbias_ = RealVector::Random(num_visible_units_);
@@ -82,7 +84,6 @@ int RBM::construct(const lattice::Lattice& lattice, const input::Parameters& inp
     num_hbias_params_ = hbias_.size();
   }
   num_params_ =  num_kernel_params_ + num_hbias_params_;
-  pvector_.resize(num_params_);
   //gradient_.resize(num_params_,1);
   //log_gradient_.resize(num_params_,1);
 
@@ -369,7 +370,8 @@ void RBM::init_parameter_file(const std::string& save_path, const std::string& l
 {
   save_path_ = save_path;
   load_path_ = load_path;
-  fname_ = "rbm_L"+std::to_string(num_sites_)+".txt";
+  fname_ = "rbm_V"+std::to_string(num_visible_units_)
+           +"H"+std::to_string(num_hidden_units_)+".txt";
 }
 
 void RBM::save_parameters(void) const
@@ -427,20 +429,6 @@ void RBM::load_parameters(void)
       row++;
     }
     fin.close();
-    // update parameter vector 
-    int i, j;
-    for (int n=0; n<num_kernel_params_; ++n) {
-      std::tie(i,j) = kernel_params_map_[n][0];
-      pvector_[n] = kernel_(i,j);
-      //std::cout << pvector_[n] << "\n";
-    }
-    //std::cout << "\n";
-    for (int n=0; n<num_hbias_params_; ++n) {
-      i = bias_params_map_[n][0];
-      pvector_[num_kernel_params_+n] = hbias_[i];
-      //std::cout << pvector_[num_kernel_params_+n] << "\n";
-    }
-    //std::cout << "\n";
   }
   else {
     throw std::range_error("RBM::load_parameters: file open failed");

@@ -38,9 +38,10 @@ int Optimizer::init(const input::Parameters& inputs, const VMCRun& vmc)
   int nowarn;
   num_opt_samples_ = inputs.set_value("opt_num_samples", 10, nowarn);
   maxiter_ = inputs.set_value("opt_maxiter", 100, nowarn);
+  max_ls_steps_ = inputs.set_value("opt_ls_steps", 0, nowarn);
   CG_maxiter_ = inputs.set_value("opt_cg_maxiter", 0, nowarn);
+  CG_alpha0_ = inputs.set_value("opt_cg_alpha0", 0.1, nowarn);
   if (CG_maxiter_>0) {
-    CG_alpha_ = inputs.set_value("opt_cg_alpha", 0.1, nowarn);
     std::string str = inputs.set_value("opt_cg_algorithm", "PR", nowarn);
     boost::to_upper(str);
     if (str=="FR") {
@@ -59,9 +60,26 @@ int Optimizer::init(const input::Parameters& inputs, const VMCRun& vmc)
       throw std::range_error("Optimizer::init: invalid CG method");
     }
   }
+  // Stochastic Reconf
+  std::string solver = inputs.set_value("opt_sr_solver", "BDCSVD", nowarn);
+  boost::to_upper(solver);
+  if (solver=="BDCSVD") {
+    SR_solver_ = SR_solver::BDCSVD;
+  }
+  else if (solver=="JacobiSVD") {
+    SR_solver_ = SR_solver::JacobiSVD;
+  }
+  else if (solver=="EigSolver") {
+    SR_solver_ = SR_solver::EigSolver;
+  }
+  else {
+    throw std::range_error("Optimizer::init: unknown SR_solver");
+  }
   start_tstep_ = inputs.set_value("opt_start_tstep", 0.1, nowarn);
   refinement_cycle_ = inputs.set_value("opt_refinement_cycle", 40, nowarn);
   stabilizer_ = inputs.set_value("opt_stabilizer", 0.2, nowarn);
+  sr_diag_shift_ = inputs.set_value("opt_diag_shift", 0.001, nowarn);
+  sr_diag_scale_ = inputs.set_value("opt_diag_scale", 0.01, nowarn);
   w_svd_cut_ = inputs.set_value("opt_svd_cut", 0.001, nowarn);
   //random_start_ = inputs.set_value("sr_random_start", false, nowarn);
   grad_tol_ = inputs.set_value("opt_gradtol", 5.0E-3, nowarn);
@@ -69,7 +87,7 @@ int Optimizer::init(const input::Parameters& inputs, const VMCRun& vmc)
   print_log_ = inputs.set_value("opt_progress_log", true, nowarn);
 
   // probLS parameters
-  num_probls_steps_ = inputs.set_value("opt_pls_steps", 50, nowarn);
+  num_probls_steps_ = inputs.set_value("opt_pls_steps", 0, nowarn);
   pls_c1_ = inputs.set_value("opt_pls_c1", 0.05, nowarn);
   pls_cW_ = inputs.set_value("opt_pls_cW", 0.3, nowarn);
   pls_alpha0_ = inputs.set_value("opt_pls_alpha0", 0.02, nowarn);
@@ -236,6 +254,8 @@ int Optimizer::optimize(VMCRun& vmc)
   energy_error_bar_.reset();
 
   // start optimization
+  double en_trend;
+  double sq_gnorm, sq_gnorm_prev, gnorm, gnorm1, avg_gnorm;
   RealVector vparms(num_parms_);
   RealVector vparms_start(num_parms_);
   RealVector grad(num_parms_);
@@ -245,6 +265,7 @@ int Optimizer::optimize(VMCRun& vmc)
   RealMatrix work_mat(num_parms_,num_parms_);
   double en, en_err;
   bool silent = true;
+
 
   if (num_opt_samples_>1) {
     vmc.get_varp_values(vparms_start);
@@ -278,111 +299,45 @@ int Optimizer::optimize(VMCRun& vmc)
     if (CG_maxiter_>0) {
 
       // 0-th iteration
-      double eta, en_trend;
-      double sq_gnorm, sq_gnorm_prev, gnorm, avg_gnorm;
+      double CG_beta = 0.0;
       RealVector previous_grad(num_parms_);
 
       // compute initial quantities 
       vmc.run(vparms,en,en_err,grad,grad_err,silent);
       sq_gnorm = grad.squaredNorm();
       gnorm = std::sqrt(sq_gnorm);
-      avg_gnorm = gnorm;
+      gnorm1 = gnorm/num_parms_;
+      avg_gnorm = gnorm1;
       search_dir = -grad;
-      eta = start_tstep_;
       en_trend = 1;
 
-      // message
-      if (print_progress_) {
-        print_progress(std::cout, 0, "Stochastic CG");
-        print_progress(std::cout,vparms,en,en_err,grad,search_dir,
-          gnorm,avg_gnorm,en_trend);
-        std::cout<<" line search =  adaptive step\n";
-        std::cout<<" step size   =  "<<eta<<"\n";
-      }
-      if (print_log_) {
-        print_progress(logfile_, 0, "Stochastic CG");
-        print_progress(logfile_,vparms,en,en_err,grad,search_dir,
-          gnorm,avg_gnorm,en_trend);
-        logfile_<<" line search =  constant step\n";
-        logfile_<<" step size   =  "<<search_tstep_<<"\n";
-      }
-
-      // file outs
-      file_energy_<<std::setw(6)<<iter_count<<std::scientific<<std::setw(16)<<en; 
-      file_energy_<<std::fixed<<std::setw(10)<<en_err<<std::endl<<std::flush;
-      file_vparms_<<std::setw(6)<<iter_count; 
-      for (int i=0; i<num_parms_print_; ++i) file_vparms_<<std::setw(15)<<vparms[i];
-        file_vparms_<<std::endl<<std::flush;
-
-      // update parameters 
-      vparms.noalias() += eta * search_dir;
-
-      // other iterations
+      // CG iterations
+      bool conv_condition_reached = false;
+      int final_iter_count = 0;
       for (int cg_iter=1; cg_iter<=CG_maxiter_; ++cg_iter) {
         iter_count++;
-
-        // copy previous grad
-        previous_grad = grad;
-        sq_gnorm_prev = sq_gnorm;
-
-        // update gradient
-        vmc.run(vparms,en,en_err,grad,grad_err,silent);
-        sq_gnorm = grad.squaredNorm();
-        gnorm = std::sqrt(sq_gnorm);
-
-        // update the learning rate
-        double hk = grad.dot(previous_grad);
-        eta = std::abs(eta + CG_alpha_*hk);
-
-        // update beta
-        double beta;
-        if (CG_Algorithm_==CG_type::FR) {
-          beta = sq_gnorm/sq_gnorm_prev;
-        }
-        else if (CG_Algorithm_==CG_type::PR) {
-          beta = (sq_gnorm - grad.dot(previous_grad))/sq_gnorm_prev;
-        }
-        else if (CG_Algorithm_==CG_type::HS) {
-          RealVector grad_diff = grad-previous_grad;
-          beta = grad.dot(grad_diff)/search_dir.dot(grad_diff);
-        }
-        else if (CG_Algorithm_==CG_type::DY) {
-          RealVector grad_diff = grad-previous_grad;
-          beta = sq_gnorm/search_dir.dot(grad_diff);
-        }
-        else {
-          throw std::range_error("Optimizer::stochastic_CG: unknown CG method");
-        }
-
-        // update conjugate search direction
-        search_dir = -grad + beta*search_dir;
 
         // message
         if (print_progress_) {
           print_progress(std::cout, iter_count, "Stochastic CG");
           print_progress(std::cout,vparms,en,en_err,grad,search_dir,
-            gnorm,avg_gnorm,en_trend);
-          std::cout<<" line search =  adaptive step\n";
-          std::cout<<" step size   =  "<<eta<<"\n";
+            gnorm1,avg_gnorm,en_trend);
+          std::cout<<" beta        =  " << CG_beta << "\n";
+          //std::cout<<" line search =  adaptive step\n";
         }
         if (print_log_) {
           print_progress(logfile_, iter_count, "Stochastic CG");
           print_progress(logfile_,vparms,en,en_err,grad,search_dir,
-            gnorm,avg_gnorm,en_trend);
-          logfile_<<" line search =  constant step\n";
-          logfile_<<" step size   =  "<<search_tstep_<<"\n";
+            gnorm1,avg_gnorm,en_trend);
+          logfile_ <<" beta        =  " << CG_beta << "\n";
+          //logfile_<<" line search =  constant step\n";
         }
-
-        // update conjugate search direction
-        std::cout << "pv_gnorm = " << sq_gnorm_prev << "\n"; 
-        std::cout << "sq_gnorm = " << sq_gnorm << "\n"; 
-        std::cout << "beta = " << beta << "\n";// getchar();
 
         // MK test: add data to Mann-Kendall statistic
         mk_statistic_en_ << en;
         iter_energy_.push_back(en);
         iter_energy_err_.push_back(en_err);
-        iter_gnorm_.push_back(gnorm);
+        iter_gnorm_.push_back(gnorm1);
         if (mk_statistic_en_.is_full()) {
           iter_energy_.pop_front();
           iter_energy_err_.pop_front();
@@ -399,126 +354,94 @@ int Optimizer::optimize(VMCRun& vmc)
         for (int i=0; i<num_parms_print_; ++i) file_vparms_<<std::setw(15)<<vparms[i];
         file_vparms_<<std::endl<<std::flush;
 
-        // update paramaters
-        vparms.noalias() += eta * search_dir;
-      }
-    }
-
-
-#ifdef OLD_CG
-    if (cg_maxiter_>0) {
-      RealVector previous_grad(num_parms_);
-      RealVector stochastic_grad(num_parms_);
-
-      //if (print_progress_) print_progress(std::cout, iter_count, "Stochastic CG");
-      //if (print_log_) print_progress(logfile_, iter_count, "Stochastic CG");
-
-      // compute initial quantities 
-      vmc.run(vparms,en,en_err,grad,grad_err,silent);
-      //previous_grad = grad;
-      stochastic_grad = grad;
-      search_dir = -grad;
-
-      for (int cg_iter=1; cg_iter<=cg_maxiter_; ++cg_iter) {
-        iter_count++;
-
-        if (print_progress_) print_progress(std::cout, iter_count, "Stochastic CG");
-        if (print_log_) print_progress(logfile_, iter_count, "Stochastic CG");
-
-        // max_norm (of components not hitting boundary) 
-        double gnorm = grad.squaredNorm();
-        double proj_norm = projected_gnorm(vparms,grad,varp_lbound_,varp_ubound_);
-        gnorm = std::min(gnorm, proj_norm);
-
-        // MK test: add data to Mann-Kendall statistic
-        //mk_statistic_ << vparms;
-        mk_statistic_en_ << en;
-        iter_energy_.push_back(en);
-        iter_energy_err_.push_back(en_err);
-        iter_gnorm_.push_back(gnorm);
-        if (mk_statistic_en_.is_full()) {
-          iter_energy_.pop_front();
-          iter_energy_err_.pop_front();
-          iter_gnorm_.pop_front();
-        }
-        // series average of gnorm
-        double avg_gnorm = series_avg(iter_gnorm_);
-        // MK trend
-        //int trend_elem;
-        //double mk_trend = mk_statistic_.elem_max_trend(trend_elem);
-        double en_trend = mk_statistic_en_.max_trend();
-
-        // print progress 
-        if (print_progress_) {
-          print_progress(std::cout,vparms,en,en_err,grad,search_dir,
-            gnorm,avg_gnorm,en_trend);
-        }
-        if (print_log_) {
-          print_progress(logfile_,vparms,en,en_err,grad,search_dir,
-            gnorm,avg_gnorm,en_trend);
-        }
-        // file outs
-        file_energy_<<std::setw(6)<<iter_count<<std::scientific<<std::setw(16)<<en; 
-        file_energy_<<std::fixed<<std::setw(10)<<en_err<<std::endl<<std::flush;
-        file_vparms_<<std::setw(6)<<iter_count; 
-        for (int i=0; i<vparms.size(); ++i) file_vparms_<<std::setw(15)<<vparms[i];
-        file_vparms_<<std::endl<<std::flush;
-
-       /*--------------------------------------------------------------
-        * Convergence criteria
+        /*--------------------------------------------------------------
+         * Convergence criteria
         *--------------------------------------------------------------*/
-        if (mk_statistic_en_.is_full() && en_trend<=mk_thresold_ && avg_gnorm<=grad_tol_) {
-          status = exit_status::converged;
-          break;
+        if (mk_statistic_en_.is_full()) {
+          if (en_trend<=mk_thresold_ && avg_gnorm<=grad_tol_) {
+            conv_condition_reached = true;
+          }
         }
-        else if (cg_iter>=cg_maxiter_ || iter_count>= maxiter_) {
+        if (conv_condition_reached) {
+          iter_parms_.push_back(vparms);
+          if (print_progress_) {
+            std::cout<<" final iter  =  "<<final_iter_count<<"/"<<mk_series_len_<<"\n";
+          } 
+          if (print_log_) {
+            logfile_<<" final iter  =  "<<final_iter_count<<"/"<<mk_series_len_<<"\n";
+          }
+          final_iter_count++;
+          if (final_iter_count >= mk_series_len_) {
+            //mk_statistic_.get_series_avg(vparms);
+            status = exit_status::converged;
+            break;
+          }
+        }
+        if (cg_iter > CG_maxiter_) {
+          iter_parms_.push_back(vparms);
           status = exit_status::maxiter;
           break;
         }
-        else if (!boost::filesystem::exists(life_fname_)) {
+        if (!boost::filesystem::exists(life_fname_)) {
+          iter_parms_.push_back(vparms);
           status = exit_status::terminated;
           break;
         }
-        else {
-          // continue
-          if (fixedstep_iter_ % refinement_cycle_ == 0) {
-            refinement_level_++;
-            search_tstep_ *= 0.5;
+
+
+        // copy previous grad
+        previous_grad = grad;
+        sq_gnorm_prev = sq_gnorm;
+
+        // update parameters by backtracting Armjio
+        bool success = backtracking_Armjio_step(vmc,vparms,en,en_err,grad,grad_err,search_dir); 
+        if (!success) {
+          search_dir = -grad;
+          vparms.noalias() += search_tstep_ * search_dir;
+          vmc.run(vparms,en,en_err,grad,grad_err,silent);
+          if (print_progress_) {
+            std::cout << " step size   =  "<< search_tstep_ <<"\n";
+          }
+          if (print_log_) {
+            logfile_ << " step size   =  "<< search_tstep_ <<"\n";
           }
         }
 
-       /*----------------------------------------------------------------
-        * Not converged yet. 
-        * Step ahead by either Line Search OR by a fixed sized step. 
-        *----------------------------------------------------------------*/
-        previous_grad = grad;
-        if (cg_iter <= num_probls_steps_) {
-          line_search(vmc,vparms,en,en_err,grad,grad_err,search_dir);
+        // update gradient
+        sq_gnorm = grad.squaredNorm();
+        gnorm = std::sqrt(sq_gnorm);
+        gnorm1 = gnorm/num_parms_;
+
+        // update beta
+        double g_dot_pg = grad.dot(previous_grad);
+        if (CG_Algorithm_==CG_type::FR) {
+          CG_beta = sq_gnorm/sq_gnorm_prev;
+        }
+        else if (CG_Algorithm_==CG_type::PR) {
+          CG_beta = (sq_gnorm - grad.dot(previous_grad))/sq_gnorm_prev;
+        }
+        else if (CG_Algorithm_==CG_type::HS) {
+          RealVector grad_diff = grad-previous_grad;
+          CG_beta = grad.dot(grad_diff)/search_dir.dot(grad_diff);
+        }
+        else if (CG_Algorithm_==CG_type::DY) {
+          RealVector grad_diff = grad-previous_grad;
+          CG_beta = sq_gnorm/search_dir.dot(grad_diff);
         }
         else {
-          // Fixed sized step beyond this iteration
-          vparms.noalias() += search_tstep_ * search_dir;
-          vparms = varp_lbound_.cwiseMax(vparms.cwiseMin(varp_ubound_));
-          vmc.run(vparms,en,en_err,grad,grad_err,silent);
-          fixedstep_iter_++;
-          if (print_progress_) {
-            std::cout<<" line search =  constant step\n";
-            std::cout<<" step size   =  "<<search_tstep_<<"\n";
-          } 
-          if (print_log_) {
-            logfile_<<" line search =  constant step\n";
-            logfile_<<" step size   =  "<<search_tstep_<<"\n";
-          }
-          // run vmc at updated parameters
-          vmc.run(vparms,en,en_err,grad,grad_err,silent);
+          throw std::range_error("Optimizer::stochastic_CG: unknown CG method");
         }
-       /*----------------------------------------------------------------
-        * New search direction from Stochastic CG
-        *----------------------------------------------------------------*/
-        stochastic_CG(grad, previous_grad, stochastic_grad, search_dir);
-      } // CG iterations
+        // discard negative values
+        CG_beta = std::max(CG_beta, 0.0);
+
+        // update conjugate search direction
+        search_dir = -grad + CG_beta*search_dir;
+
+        // Powel restart condition
+        if (g_dot_pg > 0.2*sq_gnorm) search_dir = -grad;
+      }
     }
-#endif 
+
 
     // reset MK statistics
     mk_statistic_.reset();
@@ -539,56 +462,61 @@ int Optimizer::optimize(VMCRun& vmc)
       if (print_progress_) print_progress(std::cout, iter_count, "SR");
       if (print_log_) print_progress(logfile_, iter_count, "SR");
 
-      // SR search direction
-      //std::cout << "Run VMC\n"; getchar();
-      //std::cout << "vparms="<< vparms.transpose() << "\n"; 
+     /*----------------------------------------------------------------
+      * Search direction by Stochastic Reconfiguration
+      *----------------------------------------------------------------*/
       vmc.run(vparms,en,en_err,grad,grad_err,sr_matrix,silent);
       stochastic_reconf(grad,sr_matrix,work_mat,search_dir);
 
       // max_norm (of components not hitting boundary) 
-      double gnorm = std::sqrt(grad.squaredNorm());
+      gnorm = std::sqrt(grad.squaredNorm());
+      gnorm1 = gnorm/num_parms_;
       //double proj_norm = projected_gnorm(vparms,grad,varp_lbound_,varp_ubound_);
       //gnorm = std::min(gnorm, proj_norm);
 
       // MK test: add data to Mann-Kendall statistic
-      //mk_statistic_ << vparms;
       mk_statistic_en_ << en;
       iter_energy_.push_back(en);
       iter_energy_err_.push_back(en_err);
-      iter_gnorm_.push_back(gnorm);
+      iter_gnorm_.push_back(gnorm1);
       if (mk_statistic_en_.is_full()) {
         iter_energy_.pop_front();
         iter_energy_err_.pop_front();
         iter_gnorm_.pop_front();
       }
       // series average of gnorm
-      double avg_gnorm = series_avg(iter_gnorm_);
+      avg_gnorm = series_avg(iter_gnorm_);
       // MK trend
-      //int trend_elem;
-      //double mk_trend = mk_statistic_.elem_max_trend(trend_elem);
-      double en_trend = mk_statistic_en_.max_trend();
-
-      // print progress 
-      if (print_progress_) {
-        print_progress(std::cout,vparms,en,en_err,grad,search_dir,
-          gnorm,avg_gnorm,en_trend);
-      }
-      if (print_log_) {
-        print_progress(logfile_,vparms,en,en_err,grad,search_dir,
-          gnorm,avg_gnorm,en_trend);
-      }
+      en_trend = mk_statistic_en_.max_trend();
 
       // file outs
       file_energy_<<std::setw(6)<<iter_count<<std::scientific<<std::setw(16)<<en; 
       file_energy_<<std::fixed<<std::setw(10)<<en_err<<std::endl<<std::flush;
       file_vparms_<<std::setw(6)<<iter_count; 
-      for (int i=0; i<vparms.size(); ++i) file_vparms_<<std::setw(15)<<vparms[i];
+      for (int i=0; i<num_parms_print_; ++i) file_vparms_<<std::setw(15)<<vparms[i];
       file_vparms_<<std::endl<<std::flush;
 
+      // print progress 
+      if (print_progress_) {
+        print_progress(std::cout,vparms,en,en_err,grad,search_dir,
+          gnorm1,avg_gnorm,en_trend);
+      }
+      if (print_log_) {
+        print_progress(logfile_,vparms,en,en_err,grad,search_dir,
+          gnorm1,avg_gnorm,en_trend);
+      }
 
      /*--------------------------------------------------------------
       * Convergence criteria
       *--------------------------------------------------------------*/
+      if (mk_statistic_en_.is_full()) {
+        if (en_trend<=mk_thresold_ && avg_gnorm<=grad_tol_) {
+          conv_condition_reached = true;
+        }
+        //mk_statistic_.get_series_avg(vparms);
+        //status = exit_status::converged;
+        //break;
+      }
       if (conv_condition_reached) {
         iter_parms_.push_back(vparms);
         if (print_progress_) {
@@ -604,42 +532,29 @@ int Optimizer::optimize(VMCRun& vmc)
           break;
         }
       }
-      if (mk_statistic_en_.is_full() && en_trend<=mk_thresold_ && avg_gnorm<=grad_tol_) {
-        conv_condition_reached = true;
-        //mk_statistic_.get_series_avg(vparms);
-        //status = exit_status::converged;
-        //break;
-      }
-      else if (sr_iter>=maxiter_ || iter_count>= maxiter_) {
+      if (sr_iter>=maxiter_ || iter_count>= maxiter_) {
         iter_parms_.push_back(vparms);
         status = exit_status::maxiter;
         break;
       }
-      else if (!boost::filesystem::exists(life_fname_)) {
+      if (!boost::filesystem::exists(life_fname_)) {
         iter_parms_.push_back(vparms);
         status = exit_status::terminated;
         break;
       }
-      else {
-        // continue
-        if (fixedstep_iter_ % refinement_cycle_ == 0) {
-          refinement_level_++;
-          search_tstep_ *= 0.5;
-        }
-      }
 
       /*----------------------------------------------------------------
-       * Not converged yet. 
        * Step ahead by either Line Search OR by a fixed sized step. 
        *----------------------------------------------------------------*/
-      if (sr_iter <= num_probls_steps_) {
+      bool success = false;
+      if (max_ls_steps_>0) {
         // Line search
-        line_search(vmc,vparms,en,en_err,grad,grad_err,search_dir);
+        //line_search(vmc,vparms,en,en_err,grad,grad_err,search_dir);
+        success = backtracking_Armjio_step(vmc,vparms,en,en_err,grad,grad_err,search_dir); 
       }
-      else {
-        // Fixed sized step beyond this iteration
+      if (!success) {
+        // update by fixed sized step 
         vparms.noalias() += search_tstep_ * search_dir;
-
         //vparms = varp_lbound_.cwiseMax(vparms.cwiseMin(varp_ubound_));
         fixedstep_iter_++;
         if (print_progress_) {
@@ -650,6 +565,12 @@ int Optimizer::optimize(VMCRun& vmc)
           logfile_<<" line search =  constant step\n";
           logfile_<<" step size   =  "<<search_tstep_<<"\n";
         }
+      }
+
+      // refine step size
+      if (fixedstep_iter_ % refinement_cycle_ == 0) {
+        refinement_level_++;
+        search_tstep_ *= 0.5;
       }
     } // iterations
 
@@ -690,12 +611,14 @@ int Optimizer::optimize(VMCRun& vmc)
       all_converged_ = false;
     }
     finalize_sample(status);
+    if (iter_count+1 % 50 == 0) {
+      // save NQS parameters
+      vparms = optimal_parms_.grand_data().mean_data();
+      std::cout << " >> Optimizer::optimize: Currently NOT saving parameters to file\n";
+      //vmc.save_parameters(vparms);
+    }
   }// end of samples
 
-  // save NQS parameters
-  vparms = optimal_parms_.grand_data().mean_data();
-  std::cout << " >> Optimizer::optimize: Currently NOT saving parameters to file\n";
-  //vmc.save_parameters(vparms);
 
   return 0;
 }
@@ -825,76 +748,134 @@ int Optimizer::genetic_algorthim(const RealVector& grad, RealMatrix& srmat,
 int Optimizer::stochastic_reconf(const RealVector& grad, RealMatrix& srmat, 
   RealMatrix& srmat_inv, RealVector& search_dir)
 {
+  Eigen::BDCSVD<Eigen::MatrixXd> bdcsvd(num_parms_,num_parms_);  
 
-  // conditioning
-  //for (int i=0; i<num_parms_; ++i) srmat(i,i) *= (1.0+stabilizer_);
-  for (int i=0; i<num_parms_; ++i) srmat(i,i) += stabilizer_;
-
-  // Cut-Off redundant direction (using SVD decomposition)
-
-  /*
-  Eigen::JacobiSVD<Eigen::MatrixXd> svd(srmat, Eigen::ComputeThinU | Eigen::ComputeThinV); 
-  double lmax = svd.singularValues()(0);
-
-  //std::cout << "SVD singularValues = " << svd.singularValues().transpose() << "\n";
-  //double rcond = svd.singularValues()(svd.singularValues().size()-1)/svd.singularValues()(0);
-  //std::cout << "RCOND = " << rcond << "\n";
-  //getchar();
-
-  // m_cut
-  int m_cut = 0;
-  RealVector svals = svd.singularValues();
-  for (int m=0; m<num_parms_; ++m) {
-    if (svals[m]/lmax < w_svd_cut_) {
-      m_cut = m;
-      break;
-    }
-  }
-  //std::cout << m_cut << "\n"; getchar();
+  /*---------------------------------------------------- 
+    Conditioning of the SR matrix
+  *-----------------------------------------------------*/
   for (int i=0; i<num_parms_; ++i) {
-    for (int j=0; j<num_parms_; ++j) {
-      double sum = 0.0;
-      for (int m=0; m<m_cut; ++m) {
-        sum += svd.matrixV()(i,m)*svd.matrixU()(j,m)/svals[m];
+    srmat(i,i) *= (1.0+sr_diag_scale_);
+    srmat(i,i) += sr_diag_shift_;
+  }
+
+  /*---------------------------------------------------- 
+    Solve the equation: [S][d] = -g, S is SR matrix, 
+    d is search dir. g is gradient.
+  *-----------------------------------------------------*/
+  if (SR_solver_==SR_solver::BDCSVD) {
+    search_dir = -BDCSVD_.compute(srmat, Eigen::ComputeThinU | Eigen::ComputeThinV).solve(grad);
+  }
+
+  else if (SR_solver_==SR_solver::JacobiSVD) {
+    JacobiSVD_.compute(srmat, Eigen::ComputeThinU | Eigen::ComputeThinV);
+    // Cut-Off redundant direction (using SVD decomposition)
+    double lmax = JacobiSVD_.singularValues()(0);
+
+    // m_cut
+    int m_cut = num_parms_;
+    RealVector svals = JacobiSVD_.singularValues();
+    for (int m=0; m<num_parms_; ++m) {
+      if (svals[m]/lmax < w_svd_cut_) {
+        m_cut = m;
+        break;
       }
-      srmat_inv(i,j) = sum;
-      //std::cout << "srmat_inv["<<i<<","<<j<<"] = " << sum << "\n";
     }
-  }
-  //getchar();
-  search_dir = -srmat_inv*grad;
-  */
-
-  Eigen::SelfAdjointEigenSolver<RealMatrix> solver(srmat);
-
-  // determine m_cut
-  int m_cut = num_parms_;
-  double lmax = solver.eigenvalues()(num_parms_-1);
-  //std::cout << "lmax = " << lmax << "\n"; 
-  //std::cout << "ratio = " << solver.eigenvalues()(0)/lmax << "\n"; 
-
-  for (int m=0; m<num_parms_; ++m) {
-    //std::cout << "l["<<m<<"] = " << solver.eigenvalues()[m] << "\n";
-    if (solver.eigenvalues()[m]/lmax >= w_svd_cut_) {
-      m_cut = m;
-      break;
-    }
-  }
-  //std::cout << "m_cut = " << m_cut << "\n"; getchar();
-
-  for (int i=0; i<num_parms_; ++i) {
-    for (int j=0; j<num_parms_; ++j) {
-      double sum = 0.0;
-      for (int m=m_cut; m<num_parms_; ++m) {
-        sum += solver.eigenvectors()(m,i)*solver.eigenvectors()(m,j)/solver.eigenvalues()(m);
+    for (int i=0; i<num_parms_; ++i) {
+      for (int j=0; j<num_parms_; ++j) {
+        double sum = 0.0;
+        for (int m=0; m<m_cut; ++m) {
+          sum += JacobiSVD_.matrixV()(i,m)*JacobiSVD_.matrixU()(j,m)/svals[m];
+        }
+        srmat_inv(i,j) = sum;
+        //std::cout << "srmat_inv["<<i<<","<<j<<"] = " << sum << "\n";
       }
-      srmat_inv(i,j) = sum;
     }
+    //getchar();
+    search_dir = -srmat_inv*grad;
   }
-  // update search direction
-  search_dir = -srmat_inv*grad;
+
+  else if (SR_solver_==SR_solver::EigSolver) {
+    EigSolver_.compute(srmat);
+    // determine m_cut
+    int m_cut = num_parms_;
+    double lmax = EigSolver_.eigenvalues()(num_parms_-1);
+
+    for (int m=0; m<num_parms_; ++m) {
+      if (EigSolver_.eigenvalues()[m]/lmax >= w_svd_cut_) {
+        m_cut = m; break;
+      }
+    }
+    for (int i=0; i<num_parms_; ++i) {
+      for (int j=0; j<num_parms_; ++j) {
+        double sum = 0.0;
+        for (int m=m_cut; m<num_parms_; ++m) {
+          sum += EigSolver_.eigenvectors()(m,i)*EigSolver_.eigenvectors()(m,j)/EigSolver_.eigenvalues()(m);
+        }
+        srmat_inv(i,j) = sum;
+      }
+    }
+    // update search direction
+    search_dir = -srmat_inv*grad;
+  }
+  else {
+    throw std::range_error("Optimizer::stochastic_reconf: unknown SR solver");
+  }
 
   return 0;
+}
+
+bool Optimizer::backtracking_Armjio_step(VMCRun& vmc, RealVector& vparms, double& en, 
+    double& en_err, RealVector& grad, RealVector& grad_err, 
+    const RealVector& search_dir)
+{
+  double tau = 0.8;
+  double alpha = CG_alpha0_;
+  double Armjio_rho = 1.0E-2;
+  double gtp_factor = Armjio_rho * grad.dot(search_dir);
+
+  double f0 = en;
+  double f0_err = en_err;
+  RealVector x0 = vparms;
+  RealVector g0 = grad;
+
+  if (print_progress_) std::cout << " line search =  Armjio backtracting: ";
+  if (print_log_) logfile_ << " line search =  Armjio backtracting: ";
+  for (int iter=0; iter<max_ls_steps_; ++iter) {
+    if (print_progress_) {
+      std::cout << iter+1 << ".." << std::flush;
+    }
+    if (print_log_) {
+      logfile_ << iter+1 << ".."; //<< std::flush; 
+    }
+    // update the parameters
+    vparms = x0 + alpha*search_dir;
+    vmc.run(vparms,en,en_err,grad,grad_err,true);
+    if (en+en_err <= f0 + alpha*gtp_factor) {
+      if (print_progress_) {
+        std::cout<<" done\n";
+        std::cout<<" step size   =  "<<alpha<<"\n";
+      } 
+      if (print_log_) {
+        logfile_<<" done\n";
+        logfile_<<" step size   =  "<<alpha<<"\n";
+      }
+      return true;
+    }
+    alpha *= tau;
+  }
+  // line search failed
+  if (print_progress_) {
+    std::cout<<" aborted\n";
+  } 
+  if (print_log_) {
+    logfile_<<" aborted\n";
+  }
+  en = f0;
+  en_err = f0_err;
+  vparms = x0;
+  grad = g0;
+
+  return false;
 }
 
 double Optimizer::line_search(VMCRun& vmc, RealVector& vparms, 

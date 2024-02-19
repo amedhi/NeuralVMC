@@ -81,7 +81,6 @@ protected:
   mutable RealVector tanh_output_;
 
   // parameters
-  RealVector pvector_; // all parameters
   using idx_list = std::vector<std::pair<int,int>>;
   std::vector<idx_list> kernel_params_map_; // locations where a paramater appear
   std::vector<std::vector<int>> bias_params_map_; // locations where a paramater appear

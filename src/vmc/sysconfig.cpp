@@ -35,9 +35,11 @@ SysConfig::SysConfig(const input::Parameters& inputs,
   num_nn_parms_ = nqs_.num_params();
   num_mf_parms_ = num_pj_parms_+num_wf_parms_;
   num_varparms_ = num_mf_parms_+num_nn_parms_;
+  /*
   std::cout << "num_pj_parms = " << num_pj_parms_ << "\n";
   std::cout << "num_wf_parms = " << num_wf_parms_ << "\n";
   std::cout << "num_nn_parms = " << num_nn_parms_ << "\n";
+  */
 }
 
 void SysConfig::get_varp_values(RealVector& varp_values) const
@@ -115,6 +117,9 @@ int SysConfig::init_files(const std::string& prefix, const input::Parameters& in
 
   // load from file option
   load_parms_from_file_ = inputs.set_value("load_parms_from_file",false);
+  if (load_parms_from_file_) {
+    nqs_.load_parameters();
+  }
 
   return 0;
 }
@@ -142,10 +147,12 @@ int SysConfig::build(const lattice::Lattice& lattice, const input::Parameters& i
     pj_.update(inputs);
     wf_.compute(lattice, inputs, with_gradient);
   }
-  nqs_.init_parameters(fock_basis_.rng(), 0.1);
-  if (load_parms_from_file_) {
-    nqs_.load_parameters();
+  if (!load_parms_from_file_) {
+    nqs_.init_parameters(fock_basis_.rng(), 0.1);
   }
+  //if (load_parms_from_file_) {
+  //  nqs_.load_parameters();
+  //}
 
   //---------TEST-----------
   /*

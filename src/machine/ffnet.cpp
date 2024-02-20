@@ -2,7 +2,7 @@
 * @Author: Amal Medhi
 * @Date:   2018-12-29 20:39:14
 * @Last Modified by:   Amal Medhi
-* @Last Modified time: 2024-02-10 16:23:23
+* @Last Modified time: 2024-02-20 15:35:33
 *----------------------------------------------------------------------------*/
 #include <boost/filesystem.hpp>
 #include <filesystem>
@@ -174,6 +174,22 @@ void FFNet::get_parameter_values(RealVector& pvalues, const int& pos) const
   for (int i=1; i<num_layers_; ++i) {
     int start_pos = pos+num_params_fwd_[i-1];
     layers_[i]->get_parameter_values(pvalues,start_pos);
+  }
+}
+
+void FFNet::get_parameter_lbound(RealVector& lbound, const int& start_pos) const
+{
+  assert(lbound.size() >= start_pos+num_params_);
+  for (int n=0; n<num_params_; ++n) {
+    lbound[start_pos+n] = -std::numeric_limits<double>::infinity();
+  }
+}
+
+void FFNet::get_parameter_ubound(RealVector& ubound, const int& start_pos) const
+{
+  assert(ubound.size() >= start_pos+num_params_);
+  for (int n=0; n<num_params_; ++n) {
+    ubound[start_pos+n] = std::numeric_limits<double>::infinity();
   }
 }
 

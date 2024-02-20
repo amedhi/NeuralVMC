@@ -41,6 +41,8 @@ public:
   void update_parameter(const int& id, const double& value) override;
   void get_parameter_values(RealVector& pvalues, const int& pos=0) const override;
   const double& get_parameter_value(const int& id) const;
+  void get_parameter_lbound(RealVector& lbound, const int& pos=0) const override;
+  void get_parameter_ubound(RealVector& ubound, const int& pos=0) const override;
   void do_update_run(const RealVector& input) override; 
   void do_update_run(const RealVector& new_input, const std::vector<int> new_elems) override; 
   //void run(const eig::real_vec& input); 

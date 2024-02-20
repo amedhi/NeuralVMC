@@ -10,6 +10,7 @@
 
 #include <iostream>
 #include <string>
+#include <limits>
 #include "../matrix/matrix.h"
 #include "./dtype.h"
 
@@ -34,6 +35,8 @@ public:
     const int& pos=0) const = 0;
   virtual void get_parameter_values(RealVector& pvalues, 
     const int& pos=0) const = 0;
+  virtual void get_parameter_lbound(RealVector& lbound, const int& pos=0) const = 0;
+  virtual void get_parameter_ubound(RealVector& ubound, const int& pos=0) const = 0;
   virtual void update_parameters(const RealVector& pvec, const int& pos=0) = 0;
   virtual void update_parameter(const int& id, const double& value) = 0;
   virtual void do_update_run(const RealVector& input) = 0; 

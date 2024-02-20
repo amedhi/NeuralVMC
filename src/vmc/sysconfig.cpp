@@ -55,7 +55,7 @@ void SysConfig::get_varp_lbound(RealVector& lbound) const
   assert(lbound.size() == num_varparms_);
   pj_.get_varp_lbound(lbound,0);
   wf_.get_varp_lbound(lbound,num_pj_parms_);
-  //nqs_.get_varp_lbound(lbound,num_mf_parms_);
+  nqs_.get_varp_lbound(lbound,num_mf_parms_);
 }
 
 void SysConfig::get_varp_ubound(RealVector& ubound) const
@@ -63,7 +63,7 @@ void SysConfig::get_varp_ubound(RealVector& ubound) const
   assert(ubound.size() == num_varparms_);
   pj_.get_varp_ubound(ubound,0);
   wf_.get_varp_ubound(ubound,num_pj_parms_);
-  //nqs_.get_varp_ubound(ubound,num_mf_parms_);
+  nqs_.get_varp_ubound(ubound,num_mf_parms_);
 }
 
 void SysConfig::get_varp_names(std::vector<std::string>& varp_names) const
@@ -292,6 +292,12 @@ int SysConfig::update_state(void)
   for (int n=0; n<num_dnhop_moves_; ++n) do_dnspin_hop();
   for (int n=0; n<num_exchange_moves_; ++n) do_spin_exchange();
 
+  /*
+    psi_mat_.resize(num_upspins_, num_dnspins_);
+    wf_.get_amplitudes(psi_mat_,fock_basis_.upspin_sites(),fock_basis_.dnspin_sites());
+    auto psi_mf = psi_mat_.determinant();
+    std::cout << "psi_mf/psi_nqs = " << psi_mf/nqs_psi_ << "\n"; getchar();
+  */
   
   /*
   if (true) {

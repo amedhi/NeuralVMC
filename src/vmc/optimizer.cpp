@@ -26,13 +26,20 @@ int Optimizer::init(const input::Parameters& inputs, const VMCRun& vmc)
   varp_names_.resize(num_parms_);
   varp_lbound_.resize(num_parms_);
   varp_ubound_.resize(num_parms_);
+  varp_bounded_.resize(num_parms_);
   vmc.get_varp_names(varp_names_);
   vmc.get_varp_lbound(varp_lbound_);
   vmc.get_varp_ubound(varp_ubound_);
-
-  //grad_.resize(num_parms_);
-  //sr_matrix_.resize(num_parms_,num_parms_);
-  //sr_matrix_inv_.resize(num_parms_,num_parms_);
+  varp_bound_exists_ = false;
+  for (int n=0; n<num_parms_; ++n) {
+    if (std::isinf(-varp_lbound_[n]) && std::isinf(varp_ubound_[n])) {
+      varp_bounded_[n] = 0;
+    }
+    else {
+      varp_bounded_[n] = 1;
+      varp_bound_exists_ = true;
+    }
+  }
 
   // optimization parameters
   int nowarn;
@@ -398,6 +405,7 @@ int Optimizer::optimize(VMCRun& vmc)
         if (!success) {
           search_dir = -grad;
           vparms.noalias() += search_tstep_ * search_dir;
+          apply_projection(vparms);
           vmc.run(vparms,en,en_err,grad,grad_err,silent);
           if (print_progress_) {
             std::cout << " step size   =  "<< search_tstep_ <<"\n";
@@ -407,8 +415,8 @@ int Optimizer::optimize(VMCRun& vmc)
           }
         }
 
-        // update gradient
-        sq_gnorm = grad.squaredNorm();
+        // update gradient norm
+        sq_gnorm = squaredNormProj(grad, vparms);
         gnorm = std::sqrt(sq_gnorm);
         gnorm1 = gnorm/num_parms_;
 
@@ -469,7 +477,8 @@ int Optimizer::optimize(VMCRun& vmc)
       stochastic_reconf(grad,sr_matrix,work_mat,search_dir);
 
       // max_norm (of components not hitting boundary) 
-      gnorm = std::sqrt(grad.squaredNorm());
+      //gnorm = std::sqrt(grad.squaredNorm());
+      gnorm = std::sqrt(squaredNormProj(grad,vparms));
       gnorm1 = gnorm/num_parms_;
       //double proj_norm = projected_gnorm(vparms,grad,varp_lbound_,varp_ubound_);
       //gnorm = std::min(gnorm, proj_norm);
@@ -555,7 +564,7 @@ int Optimizer::optimize(VMCRun& vmc)
       if (!success) {
         // update by fixed sized step 
         vparms.noalias() += search_tstep_ * search_dir;
-        //vparms = varp_lbound_.cwiseMax(vparms.cwiseMin(varp_ubound_));
+        apply_projection(vparms);
         fixedstep_iter_++;
         if (print_progress_) {
           std::cout<<" line search =  constant step\n"; 
@@ -851,7 +860,8 @@ bool Optimizer::backtracking_Armjio_step(VMCRun& vmc, RealVector& vparms, double
       logfile_ << iter+1 << ".."; //<< std::flush; 
     }
     // update the parameters
-    vparms = x0 + alpha*search_dir;
+    vparms.noalias() = x0 + alpha*search_dir;
+    apply_projection(vparms);
     vmc.run(vparms,en,en_err,grad,grad_err,true);
     if (en+en_err <= f0 + alpha*gtp_factor) {
       if (print_progress_) {
@@ -934,6 +944,34 @@ double Optimizer::line_search(VMCRun& vmc, RealVector& vparms,
   return net_dt;
 }
 
+void Optimizer::apply_projection(RealVector& vparms)
+{
+  if (!varp_bound_exists_) return;
+  for (int n=0; n<num_parms_; ++n) {
+    if (varp_bounded_[n]) {
+      if (vparms[n]<varp_lbound_[n]) vparms[n] = varp_lbound_[n];
+      if (vparms[n]>varp_ubound_[n]) vparms[n] = varp_ubound_[n];
+    }
+  }
+}
+
+double Optimizer::squaredNormProj(const RealVector& grad, const RealVector& vparms) const
+{
+  if (!varp_bound_exists_) return grad.squaredNorm();
+  double gnorm = 0.0;
+  for (int n=0; n<num_parms_; ++n) {
+    double gn = grad[n];
+    if (varp_bounded_[n]) {
+      if (vparms[n]>=varp_lbound_[n] && vparms[n]<=varp_ubound_[n]) {
+        gnorm += gn*gn;
+      }
+    }
+    else {
+      gnorm += gn*gn;
+    }
+  }
+  return gnorm;
+} 
 
 double Optimizer::projected_gnorm(const RealVector& x, const RealVector& grad, 
   const RealVector& lb, const RealVector& ub) const

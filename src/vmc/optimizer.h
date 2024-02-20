@@ -47,6 +47,8 @@ private:
   std::vector<std::string> varp_names_;
   RealVector varp_lbound_;
   RealVector varp_ubound_;
+  IntVector varp_bounded_;
+  bool varp_bound_exists_{false};
 
   mcdata::MC_Observable optimal_parms_;
   mcdata::MC_Observable optimal_energy_;
@@ -121,6 +123,8 @@ private:
     RealVector& search_dir);
   int stochastic_CG(const RealVector& grad, const RealVector& grad_xprev, 
   RealVector& stochastic_grad, RealVector& search_dir);
+  void apply_projection(RealVector& vparms);
+  double squaredNormProj(const RealVector& grad, const RealVector& vparms) const;
   double projected_gnorm(const RealVector& x, const RealVector& grad, 
     const RealVector& lb, const RealVector& ub) const;
   double series_avg(const std::deque<double>& data) const;

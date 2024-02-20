@@ -2,7 +2,7 @@
 * @Author: Amal Medhi
 * @Date:   2018-12-29 20:39:14
 * @Last Modified by:   Amal Medhi
-* @Last Modified time: 2024-02-10 20:00:23
+* @Last Modified time: 2024-02-20 15:39:46
 *----------------------------------------------------------------------------*/
 #include <boost/filesystem.hpp>
 #include <boost/tokenizer.hpp>
@@ -66,6 +66,16 @@ void INet::get_parameter_names(std::vector<std::string>& pnames, const int& pos)
 }
 
 void INet::get_parameter_values(RealVector& pvalues, const int& pos) const
+{
+  // nothing to be done
+}
+
+void INet::get_parameter_lbound(RealVector& lbound, const int& pos) const 
+{
+  // nothing to be done
+}
+
+void INet::get_parameter_ubound(RealVector& lbound, const int& pos) const 
 {
   // nothing to be done
 }

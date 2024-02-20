@@ -37,6 +37,8 @@ public:
   void get_parameter_names(std::vector<std::string>& pnames, 
     const int& pos=0) const override;
   void get_parameter_values(RealVector& pvalues, const int& pos=0) const override;
+  void get_parameter_lbound(RealVector& lbound, const int& pos=0) const override;
+  void get_parameter_ubound(RealVector& ubound, const int& pos=0) const override;
   void update_parameters(const RealVector& pvec, const int& pos=0) override;
   void update_parameter(const int& id, const double& value) override;
   void do_update_run(const RealVector& input) override; 

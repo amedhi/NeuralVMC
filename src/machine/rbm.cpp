@@ -2,7 +2,7 @@
 * @Author: Amal Medhi
 * @Date:   2018-12-29 20:39:14
 * @Last Modified by:   Amal Medhi
-* @Last Modified time: 2024-02-19 23:44:57
+* @Last Modified time: 2024-02-20 15:36:41
 *----------------------------------------------------------------------------*/
 #include <boost/filesystem.hpp>
 #include <boost/tokenizer.hpp>
@@ -353,6 +353,21 @@ const double& RBM::get_parameter_value(const int& id) const
   }
 }
 
+void RBM::get_parameter_lbound(RealVector& lbound, const int& start_pos) const
+{
+  assert(lbound.size() >= start_pos+num_params_);
+  for (int n=0; n<num_params_; ++n) {
+    lbound[start_pos+n] = -std::numeric_limits<double>::infinity();
+  }
+}
+
+void RBM::get_parameter_ubound(RealVector& ubound, const int& start_pos) const
+{
+  assert(ubound.size() >= start_pos+num_params_);
+  for (int n=0; n<num_params_; ++n) {
+    ubound[start_pos+n] = std::numeric_limits<double>::infinity();
+  }
+}
 
 int RBM::add_layer(const int& units, const std::string& activation, 
   const int& input_dim)

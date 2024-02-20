@@ -3,7 +3,7 @@
 * @Author: Amal Medhi, amedhi@mbpro
 * @Date:   2019-08-13 12:00:53
 * @Last Modified by:   Amal Medhi
-* @Last Modified time: 2024-02-15 21:38:28
+* @Last Modified time: 2024-02-20 15:40:31
 *----------------------------------------------------------------------------*/
 #include <locale>
 #include "nqs_wf.h"
@@ -168,18 +168,18 @@ void NQS_Wavefunction::get_varp_values(RealVector& pvalues, const int& pos) cons
     sign_nnet_->get_parameter_values(pvalues, pos+nnet_->num_params());
 }
 
-void NQS_Wavefunction::get_parm_lbound(RealVector& lbound, const int& pos) const
+void NQS_Wavefunction::get_varp_lbound(RealVector& lbound, const int& pos) const
 {
-  for (int n=0; n<num_params_; ++n) {
-    lbound[pos+n] = -1.0E-06;
-  }
+  nnet_->get_parameter_lbound(lbound, pos);
+  if (have_sign_nnet_) 
+    sign_nnet_->get_parameter_lbound(lbound, pos+nnet_->num_params());
 }
 
-void NQS_Wavefunction::get_parm_ubound(RealVector& ubound, const int& pos) const
+void NQS_Wavefunction::get_varp_ubound(RealVector& ubound, const int& pos) const
 {
-  for (int n=0; n<num_params_; ++n) {
-    ubound[pos+n] = +1.0E-06;
-  }
+  nnet_->get_parameter_lbound(ubound, pos);
+  if (have_sign_nnet_) 
+    sign_nnet_->get_parameter_lbound(ubound, pos+nnet_->num_params());
 }
 
 void NQS_Wavefunction::update_parameters(const RealVector& pvalues, const int& pos)

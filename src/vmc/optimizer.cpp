@@ -66,10 +66,10 @@ int Optimizer::init(const input::Parameters& inputs, const VMCRun& vmc)
   if (solver=="BDCSVD") {
     SR_solver_ = SR_solver::BDCSVD;
   }
-  else if (solver=="JacobiSVD") {
+  else if (solver=="JACOBISVD") {
     SR_solver_ = SR_solver::JacobiSVD;
   }
-  else if (solver=="EigSolver") {
+  else if (solver=="EIGSOLVER") {
     SR_solver_ = SR_solver::EigSolver;
   }
   else {
@@ -558,8 +558,8 @@ int Optimizer::optimize(VMCRun& vmc)
         //vparms = varp_lbound_.cwiseMax(vparms.cwiseMin(varp_ubound_));
         fixedstep_iter_++;
         if (print_progress_) {
-          std::cout<<" line search =  constant step\n";
-          std::cout<<" step size   =  "<<search_tstep_<<"\n";
+          std::cout<<" line search =  constant step\n"; 
+          std::cout<<" step size   =  "<<search_tstep_<<"\n"; 
         } 
         if (print_log_) {
           logfile_<<" line search =  constant step\n";
@@ -571,6 +571,12 @@ int Optimizer::optimize(VMCRun& vmc)
       if (fixedstep_iter_ % refinement_cycle_ == 0) {
         refinement_level_++;
         search_tstep_ *= 0.5;
+      }
+
+      // save snapshot of NQS parameter values
+      if ((iter_count) % 50 == 0) {
+        //std::cout << " >> Optimizer::optimize: Currently NOT saving parameters to file\n";
+        vmc.save_parameters(vparms);
       }
     } // iterations
 
@@ -611,14 +617,12 @@ int Optimizer::optimize(VMCRun& vmc)
       all_converged_ = false;
     }
     finalize_sample(status);
-    if (iter_count+1 % 50 == 0) {
-      // save NQS parameters
-      vparms = optimal_parms_.grand_data().mean_data();
-      std::cout << " >> Optimizer::optimize: Currently NOT saving parameters to file\n";
-      //vmc.save_parameters(vparms);
-    }
   }// end of samples
 
+  // save final (averaged) NQS parameters
+  vparms = optimal_parms_.grand_data().mean_data();
+  //std::cout << " >> Optimizer::optimize: Currently NOT saving parameters to file\n";
+  vmc.save_parameters(vparms);
 
   return 0;
 }
@@ -768,10 +772,9 @@ int Optimizer::stochastic_reconf(const RealVector& grad, RealMatrix& srmat,
 
   else if (SR_solver_==SR_solver::JacobiSVD) {
     JacobiSVD_.compute(srmat, Eigen::ComputeThinU | Eigen::ComputeThinV);
+
     // Cut-Off redundant direction (using SVD decomposition)
     double lmax = JacobiSVD_.singularValues()(0);
-
-    // m_cut
     int m_cut = num_parms_;
     RealVector svals = JacobiSVD_.singularValues();
     for (int m=0; m<num_parms_; ++m) {
@@ -796,10 +799,10 @@ int Optimizer::stochastic_reconf(const RealVector& grad, RealMatrix& srmat,
 
   else if (SR_solver_==SR_solver::EigSolver) {
     EigSolver_.compute(srmat);
-    // determine m_cut
-    int m_cut = num_parms_;
-    double lmax = EigSolver_.eigenvalues()(num_parms_-1);
 
+    // determine m_cut (since eigenvalues are in ascending order)
+    double lmax = EigSolver_.eigenvalues()(num_parms_-1);
+    int m_cut = 0;
     for (int m=0; m<num_parms_; ++m) {
       if (EigSolver_.eigenvalues()[m]/lmax >= w_svd_cut_) {
         m_cut = m; break;
